@@ -9,8 +9,8 @@ use std::env;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Load environment variables
-    dotenv::dotenv().ok();
+// Load environment variables
+dotenv::dotenv().ok();
 
     // Get Telegram bot token from environment
     let telegram_token = env::var("TELEGRAM_BOT_TOKEN")
@@ -32,12 +32,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _ = telegram_handle.await;
 
     Ok(())
+
 }
 
-// ALTERNATIVE: Run Telegram bot in the main thread if you don't need the WebSocket listener
-#[tokio::main]
+// ALTERNATIVE: Run Telegram bot in the main thread if you don't need the WebSocket listener #[tokio::main]
 async fn main_telegram_only() -> Result<(), Box<dyn std::error::Error>> {
-    dotenv::dotenv().ok();
+dotenv::dotenv().ok();
 
     let telegram_token = env::var("TELEGRAM_BOT_TOKEN")
         .expect("TELEGRAM_BOT_TOKEN not set in .env");
@@ -46,6 +46,7 @@ async fn main_telegram_only() -> Result<(), Box<dyn std::error::Error>> {
     TelegramBot::run_bot(telegram_token).await?;
 
     Ok(())
+
 }
 
 // ADVANCED: Run Telegram bot with custom initial state
@@ -53,7 +54,7 @@ use trading_bot::services::telegram::{TelegramBot, BotState};
 
 #[tokio::main]
 async fn main_with_custom_state() -> Result<(), Box<dyn std::error::Error>> {
-    dotenv::dotenv().ok();
+dotenv::dotenv().ok();
 
     let telegram_token = env::var("TELEGRAM_BOT_TOKEN")
         .expect("TELEGRAM_BOT_TOKEN not set in .env");
@@ -72,4 +73,5 @@ async fn main_with_custom_state() -> Result<(), Box<dyn std::error::Error>> {
     // you would need to modify the run_bot method or create a new implementation
 
     Ok(())
+
 }

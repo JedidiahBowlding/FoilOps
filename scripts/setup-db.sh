@@ -5,7 +5,7 @@ set -euo pipefail
 # setup-db.sh — Spin up a local Postgres container and wire DATABASE_URL
 # ---------------------------------------------------------------------------
 
-CONTAINER_NAME="handi-cat-db"
+CONTAINER_NAME="failops-db"
 DB_NAME="handi_cat"
 DB_USER="handi"
 DB_PASS="handi_secret"

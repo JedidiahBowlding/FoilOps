@@ -25,7 +25,7 @@ function buildSignal(signalId) {
     schemaVersion: '1.0',
     signalId,
     emittedAt: new Date().toISOString(),
-    sourceSystem: 'handi-cat-intelligence',
+    sourceSystem: 'failops-intelligence',
     signalType: 'TOKEN_INVESTIGATION',
     dryRun: true,
     riskScore: 75,
@@ -91,7 +91,7 @@ async function run() {
 
   const signedHeaders = {
     'Content-Type': 'application/json',
-    'X-Signal-Source': 'handi-cat-intelligence',
+    'X-Signal-Source': 'failops-intelligence',
     'X-Signal-Timestamp': timestamp,
     'X-Signal-Signature': validSignature,
     'X-Idempotency-Key': signalId,

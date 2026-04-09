@@ -5,8 +5,10 @@ use serde_json::Value;
 use sha2::Sha256;
 use std::collections::HashMap;
 use std::net::SocketAddr;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use tokio::sync::Mutex;
+use crate::services::signal_execution::SignalExecutionEngine;
 
 #[derive(Debug, Clone)]
 pub struct SignalReceiverConfig {
@@ -19,10 +21,20 @@ pub struct SignalReceiverConfig {
 
 type HmacSha256 = Hmac<Sha256>;
 
-#[derive(Debug, Clone)]
 struct SignalReceiverState {
     config: SignalReceiverConfig,
     seen_signals: Arc<Mutex<HashMap<String, Instant>>>,
+    execution_engine: Option<Arc<SignalExecutionEngine>>,
+}
+
+impl Clone for SignalReceiverState {
+    fn clone(&self) -> Self {
+        Self {
+            config: self.config.clone(),
+            seen_signals: Arc::clone(&self.seen_signals),
+            execution_engine: self.execution_engine.as_ref().map(Arc::clone),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -55,15 +67,15 @@ struct SignalReceiverResponse {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct ExecutionRequest {
-    request_id: String,
-    signal_type: String,
-    action: String,
-    target_wallet: String,
-    token_mint: Option<String>,
-    risk_score: f64,
-    risk_level: String,
-    reason: String,
+pub struct ExecutionRequest {
+    pub request_id: String,
+    pub signal_type: String,
+    pub action: String,
+    pub target_wallet: String,
+    pub token_mint: Option<String>,
+    pub risk_score: f64,
+    pub risk_level: String,
+    pub reason: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -83,6 +95,7 @@ pub async fn start_signal_receiver(
     auth_secret: Option<String>,
     dedup_window_seconds: u64,
     max_timestamp_skew_seconds: u64,
+    execution_engine: Option<Arc<SignalExecutionEngine>>,
 ) -> Result<(), String> {
     let socket_addr: SocketAddr = bind_addr
         .parse()
@@ -97,11 +110,24 @@ pub async fn start_signal_receiver(
             max_timestamp_skew_seconds,
         },
         seen_signals: Arc::new(Mutex::new(HashMap::new())),
+        execution_engine,
     });
 
     let app = Router::new()
         .route("/health", get(health_check))
         .route("/signals", post(receive_signal))
+        .route("/trading/status", get(get_trading_status))
+        .route("/trading/balance", get(get_balance))
+        .route("/trading/trades", get(get_recent_trades))
+        .route("/trading/stats", get(get_trading_stats))
+        .route("/trading/config", get(get_config))
+        .route("/trading/enable", post(enable_trading))
+        .route("/trading/disable", post(disable_trading))
+        .route("/trading/pause", post(pause_trading))
+        .route("/trading/resume", post(resume_trading))
+        .route("/trading/slippage", get(get_slippage).post(set_slippage))
+        .route("/trading/target", get(get_target).post(set_target))
+        .route("/trading/mev", get(get_mev_service).post(set_mev_service))
         .with_state(state);
 
     println!(
@@ -136,89 +162,62 @@ async fn health_check(
     )
 }
 
+#[axum::debug_handler]
 async fn receive_signal(
     State(state): State<Arc<SignalReceiverState>>,
     headers: HeaderMap,
     body: Bytes,
-) -> (StatusCode, Json<SignalReceiverResponse>) {
-    if let Err(reason) = verify_headers_and_signature(&state.config, &headers, &body) {
-        return reject_signal(reason, "unknown".to_string());
+) -> Result<Json<SignalReceiverResponse>, StatusCode> {
+    if let Err(reason) = verify_headers_and_signature(&state.config, &headers, body.as_ref()) {
+        return Ok(reject_signal(reason, "unknown".to_string()).1);
     }
 
     let signal: TradeSignalV1 = match serde_json::from_slice(&body) {
         Ok(parsed) => parsed,
-        Err(_) => {
-            return reject_signal("invalid_json_payload".to_string(), "unknown".to_string());
-        }
+        Err(_) => return Ok(reject_signal("invalid_json_payload".to_string(), "unknown".to_string()).1),
     };
 
     if signal.schema_version != "1.0" {
-        return reject_signal("unsupported_schema_version".to_string(), signal.signal_id);
+        return Ok(reject_signal("unsupported_schema_version".to_string(), signal.signal_id).1);
     }
 
-    if is_duplicate_signal(&state, &signal, &headers) {
-        return (
-            StatusCode::CONFLICT,
-            Json(SignalReceiverResponse {
-                status: "duplicate".to_string(),
-                mode: if state.config.dry_run { "dry-run".to_string() } else { "live".to_string() },
-                signal_id: signal.signal_id,
-                reason: Some("duplicate_idempotency_key".to_string()),
-            }),
-        );
-    }
-
-    let execution_request = map_signal_to_execution_request(&signal);
-
-    if state.config.dry_run {
-        println!(
-            "[DRY-RUN SIGNAL] id={} type={} risk={} level={} token={} tracked_wallet={} developer_wallet={} alerts={}",
-            signal.signal_id,
-            signal.signal_type,
-            signal.risk_score,
-            signal.risk_level,
-            signal.token_mint.clone().unwrap_or_else(|| "n/a".to_string()),
-            signal
-                .tracked_wallet
-                .clone()
-                .unwrap_or_else(|| "n/a".to_string()),
-            signal
-                .developer_wallet
-                .clone()
-                .unwrap_or_else(|| "n/a".to_string()),
-            signal.trace_alerts.len(),
-        );
-
-        if let Some(metadata) = signal.metadata {
-            println!("[DRY-RUN SIGNAL METADATA] id={} metadata={}", signal.signal_id, metadata);
-        }
-
-        println!(
-            "[DRY-RUN EXECUTION REQUEST] id={} action={} target_wallet={} token={} reason={}",
-            execution_request.request_id,
-            execution_request.action,
-            execution_request.target_wallet,
-            execution_request
-                .token_mint
-                .clone()
-                .unwrap_or_else(|| "n/a".to_string()),
-            execution_request.reason,
-        );
-    }
-
-    (
-        StatusCode::ACCEPTED,
-        Json(SignalReceiverResponse {
-            status: "accepted".to_string(),
-            mode: if state.config.dry_run {
-                "dry-run".to_string()
-            } else {
-                "live".to_string()
-            },
+    if is_duplicate_signal(&state, &signal, &headers).await {
+        return Ok(Json(SignalReceiverResponse {
+            status: "duplicate".to_string(),
+            mode: if state.config.dry_run { "dry-run".to_string() } else { "live".to_string() },
             signal_id: signal.signal_id,
-            reason: None,
-        }),
-    )
+            reason: Some("duplicate_idempotency_key".to_string()),
+        }));
+    }
+
+    // Phase 2 & 4: Execute trade if not in dry-run mode and execution engine is available
+    let execution_result = if !state.config.dry_run {
+        if let Some(engine) = &state.execution_engine {
+            match engine.execute_signal(&signal).await {
+                Ok(result) => {
+                    println!("[LIVE EXECUTION] id={} result={}", signal.signal_id, result);
+                    Some(result)
+                }
+                Err(e) => {
+                    println!("[EXECUTION ERROR] id={} error={}", signal.signal_id, e);
+                    Some(format!("EXECUTION_ERROR: {}", e))
+                }
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    let response = SignalReceiverResponse {
+        status: if execution_result.is_some() { "executed".to_string() } else { "accepted".to_string() },
+        mode: if state.config.dry_run { "dry-run".to_string() } else { "live".to_string() },
+        signal_id: signal.signal_id,
+        reason: execution_result,
+    };
+
+    Ok(Json(response))
 }
 
 fn verify_headers_and_signature(
@@ -273,7 +272,7 @@ fn verify_headers_and_signature(
     Ok(())
 }
 
-fn is_duplicate_signal(state: &SignalReceiverState, signal: &TradeSignalV1, headers: &HeaderMap) -> bool {
+async fn is_duplicate_signal(state: &SignalReceiverState, signal: &TradeSignalV1, headers: &HeaderMap) -> bool {
     let idempotency_key = headers
         .get("x-idempotency-key")
         .and_then(|value| value.to_str().ok())
@@ -283,10 +282,7 @@ fn is_duplicate_signal(state: &SignalReceiverState, signal: &TradeSignalV1, head
     let window = Duration::from_secs(state.config.dedup_window_seconds);
     let now = Instant::now();
 
-    let mut seen = match state.seen_signals.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    };
+    let mut seen = state.seen_signals.lock().await;
 
     seen.retain(|_, seen_at| now.duration_since(*seen_at) <= window);
 
@@ -296,25 +292,6 @@ fn is_duplicate_signal(state: &SignalReceiverState, signal: &TradeSignalV1, head
 
     seen.insert(idempotency_key, now);
     false
-}
-
-fn map_signal_to_execution_request(signal: &TradeSignalV1) -> ExecutionRequest {
-    let target_wallet = signal
-        .developer_wallet
-        .clone()
-        .or_else(|| signal.tracked_wallet.clone())
-        .unwrap_or_else(|| "unknown".to_string());
-
-    ExecutionRequest {
-        request_id: signal.signal_id.clone(),
-        signal_type: signal.signal_type.clone(),
-        action: "WATCH_ONLY".to_string(),
-        target_wallet,
-        token_mint: signal.token_mint.clone(),
-        risk_score: signal.risk_score,
-        risk_level: signal.risk_level.clone(),
-        reason: "phase2_mapping_dry_run_only".to_string(),
-    }
 }
 
 fn reject_signal(reason: String, signal_id: String) -> (StatusCode, Json<SignalReceiverResponse>) {
@@ -335,4 +312,248 @@ fn to_hex(bytes: &[u8]) -> String {
         output.push_str(&format!("{:02x}", byte));
     }
     output
+}
+
+// Trading Control Handlers
+
+async fn get_trading_status(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> Json<Value> {
+    if let Some(engine) = &state.execution_engine {
+        match engine.get_trading_status() {
+            Ok(status) => Json(status),
+            Err(e) => Json(serde_json::json!({
+                "error": format!("Failed to get trading status: {}", e)
+            }))
+        }
+    } else {
+        Json(serde_json::json!({
+            "enabled": false,
+            "paused": false,
+            "mode": "no_execution_engine",
+            "targetWallet": null,
+            "mevService": "none",
+            "slippage": 3.0
+        }))
+    }
+}
+
+
+async fn get_balance(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> Json<Value> {
+    if let Some(engine) = &state.execution_engine {
+        match engine.get_balance() {
+            Ok(balance) => Json(balance),
+            Err(e) => Json(serde_json::json!({ "error": format!("Failed to get balance: {}", e) }))
+        }
+    } else {
+        Json(serde_json::json!({
+            "solBalance": 0.0,
+            "positions": []
+        }))
+    }
+}
+
+
+async fn get_recent_trades(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> Json<Value> {
+    if let Some(engine) = &state.execution_engine {
+        match engine.get_recent_trades() {
+            Ok(trades) => Json(trades),
+            Err(e) => Json(serde_json::json!({ "error": format!("Failed to get recent trades: {}", e) }))
+        }
+    } else {
+        Json(serde_json::json!([]))
+    }
+}
+
+
+async fn get_trading_stats(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> Json<Value> {
+    if let Some(engine) = &state.execution_engine {
+        match engine.get_trading_stats() {
+            Ok(stats) => Json(stats),
+            Err(e) => Json(serde_json::json!({ "error": format!("Failed to get trading stats: {}", e) }))
+        }
+    } else {
+        Json(serde_json::json!({
+            "totalPnL": 0.0,
+            "winRate": 0.0,
+            "totalTrades": 0,
+            "winningTrades": 0,
+            "activePositions": 0
+        }))
+    }
+}
+
+
+async fn get_config(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> Json<Value> {
+    if let Some(engine) = &state.execution_engine {
+        match engine.get_config() {
+            Ok(config) => Json(config),
+            Err(e) => Json(serde_json::json!({ "error": format!("Failed to get config: {}", e) }))
+        }
+    } else {
+        Json(serde_json::json!({
+            "enabled": false,
+            "paused": false,
+            "mode": "no_execution_engine",
+            "targetWallet": null,
+            "mevService": "none",
+            "slippage": 3.0,
+            "buyAmountSol": 0.01,
+            "maxConcurrentTrades": 5,
+            "stopLossPercentage": 20.0,
+            "takeProfitPercentage": 50.0,
+            "maxPositionSizeSol": 0.1,
+            "minLiquidityUsd": 1000.0,
+            "allowedDexes": ["pump_fun", "raydium"],
+            "denylist": [],
+            "allowlist": []
+        }))
+    }
+}
+
+async fn enable_trading(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> (StatusCode, Json<Value>) {
+    if let Some(engine) = &state.execution_engine {
+        match engine.enable_trading() {
+            Ok(result) => (StatusCode::OK, Json(serde_json::json!({ "status": "enabled", "message": result }))),
+            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "status": "error", "message": e.to_string() })))
+        }
+    } else {
+        (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
+    }
+}
+
+async fn disable_trading(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> (StatusCode, Json<Value>) {
+    if let Some(engine) = &state.execution_engine {
+        match engine.disable_trading() {
+            Ok(result) => (StatusCode::OK, Json(serde_json::json!({ "status": "disabled", "message": result }))),
+            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "status": "error", "message": e.to_string() })))
+        }
+    } else {
+        (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
+    }
+}
+
+async fn pause_trading(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> (StatusCode, Json<Value>) {
+    if let Some(engine) = &state.execution_engine {
+        match engine.pause_trading() {
+            Ok(result) => (StatusCode::OK, Json(serde_json::json!({ "status": "paused", "message": result }))),
+            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "status": "error", "message": e.to_string() })))
+        }
+    } else {
+        (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
+    }
+}
+
+async fn resume_trading(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> (StatusCode, Json<Value>) {
+    if let Some(engine) = &state.execution_engine {
+        match engine.resume_trading() {
+            Ok(result) => (StatusCode::OK, Json(serde_json::json!({ "status": "resumed", "message": result }))),
+            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "status": "error", "message": e.to_string() })))
+        }
+    } else {
+        (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
+    }
+}
+
+async fn get_slippage(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> Json<Value> {
+    if let Some(engine) = &state.execution_engine {
+        Json(serde_json::json!({ "slippage": engine.get_slippage() }))
+    } else {
+        Json(serde_json::json!({ "slippage": 3.0 }))
+    }
+}
+
+async fn set_slippage(
+    State(state): State<Arc<SignalReceiverState>>,
+    Json(payload): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Some(engine) = &state.execution_engine {
+        if let Some(slippage) = payload["slippage"].as_f64() {
+            match engine.set_slippage(slippage) {
+                Ok(result) => (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "message": result }))),
+                Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "status": "error", "message": e.to_string() })))
+            }
+        } else {
+            (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "status": "error", "message": "Invalid slippage value" })))
+        }
+    } else {
+        (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
+    }
+}
+
+async fn get_target(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> Json<Value> {
+    if let Some(engine) = &state.execution_engine {
+        Json(serde_json::json!({ "target_wallet": engine.get_target_wallet() }))
+    } else {
+        Json(serde_json::json!({ "target_wallet": null }))
+    }
+}
+
+async fn set_target(
+    State(state): State<Arc<SignalReceiverState>>,
+    Json(payload): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Some(engine) = &state.execution_engine {
+        let target_wallet = payload["target_wallet"].as_str().map(|s| s.to_string());
+        match engine.set_target_wallet(target_wallet) {
+            Ok(result) => (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "message": result }))),
+            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "status": "error", "message": e.to_string() })))
+        }
+    } else {
+        (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
+    }
+}
+
+async fn get_mev_service(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> Json<Value> {
+    if let Some(engine) = &state.execution_engine {
+        Json(serde_json::json!({
+            "mev_service": engine.get_mev_service(),
+            "available_services": ["jito", "nozomi", "zero_slot", "none"]
+        }))
+    } else {
+        Json(serde_json::json!({
+            "mev_service": "none",
+            "available_services": ["jito", "nozomi", "zero_slot", "none"]
+        }))
+    }
+}
+
+async fn set_mev_service(
+    State(state): State<Arc<SignalReceiverState>>,
+    Json(payload): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Some(engine) = &state.execution_engine {
+        if let Some(service) = payload["service"].as_str() {
+            match engine.set_mev_service(service.to_string()) {
+                Ok(result) => (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "message": result }))),
+                Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "status": "error", "message": e.to_string() })))
+            }
+        } else {
+            (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "status": "error", "message": "Invalid service value" })))
+        }
+    } else {
+        (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
+    }
 }

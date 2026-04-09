@@ -4,6 +4,7 @@ use trading_bot::common::utils::{
 use trading_bot::dex::raydium::get_pool_state_by_mint;
 use trading_bot::engine::swap::raydium_swap;
 use trading_bot::services::rpc_client::BatchRpcClient;
+use trading_bot::services::signal_execution::SignalExecutionEngine;
 use trading_bot::services::signal_receiver::start_signal_receiver;
 use dotenv::dotenv;
 use futures_util::{SinkExt, StreamExt};
@@ -57,6 +58,16 @@ async fn main() {
 
     let signal_receiver_bind_for_task = signal_receiver_bind.clone();
     let signal_auth_secret_for_task = signal_auth_secret.clone();
+
+    // Create execution engine for live trading
+    let app_state = AppState {
+        rpc_client: create_rpc_client().expect("Failed to create RPC client"),
+        rpc_nonblocking_client: create_nonblocking_rpc_client().await.expect("Failed to create nonblocking RPC client"),
+        wallet: import_wallet().expect("Failed to import wallet"),
+    };
+
+    let execution_engine = Arc::new(SignalExecutionEngine::new(app_state));
+
     tokio::spawn(async move {
         if let Err(error) = start_signal_receiver(
             &signal_receiver_bind_for_task,
@@ -65,6 +76,7 @@ async fn main() {
             signal_auth_secret_for_task,
             signal_dedup_window_seconds,
             signal_max_timestamp_skew_seconds,
+            Some(execution_engine),
         ).await {
             eprintln!("Signal receiver failed: {}", error);
         }

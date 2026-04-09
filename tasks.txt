@@ -1,3 +1,25 @@
 - fix SOL price for some pump.fun sells, tried to fix it before but it stills buggy (I think I fixed it)
 - add Meteora transactions support
 - add Customizable settings, for example: only send pump.fun notifications or send only 1+ SOL transfer notifications
+
+MIGRATION PHASES STATUS:
+✅ Phase 1: Signal Contract + Dry-Run Bridge - COMPLETE
+   - Signal schema defined and validated
+   - TypeScript emitter implemented
+   - Rust receiver with auth + dry-run working
+   - Self-test passing end-to-end
+
+🔄 Phase 2: Decision Bridge to Existing Execution Engine
+   - TODO: Map signals to existing Rust swap functions
+   - TODO: Integrate with engine/strategy.rs and engine/swap.rs
+   - TODO: Support DEX routing based on signal metadata
+
+🔄 Phase 3: Safety Gates, Idempotency, and Observability
+   - TODO: Add risk gates (max position size, slippage cap, etc.)
+   - TODO: Idempotency store implementation
+   - TODO: Audit logging and metrics
+
+🔄 Phase 4: Controlled Live Rollout
+   - TODO: Enable live mode with guardrails
+   - TODO: Staged risk rollout
+   - TODO: Emergency kill switches

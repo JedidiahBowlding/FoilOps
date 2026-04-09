@@ -1,5 +1,5 @@
 {
-  "name": "handi-cat_wallet-tracker",
+  "name": "failops_wallet-tracker",
   "version": "1.0.0",
   "description": "",
   "main": "dist/src/index.js",
@@ -7,6 +7,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "tsc && node ./dist/src/main.js",
     "start:test": "tsc && node ./dist/src/test.js",
+    "start-both": "./start-both.sh",
+    "start-both:health": "bash scripts/start-both-health-check.sh",
     "postinstall": "prisma generate",
     "db:setup": "bash scripts/setup-db.sh",
     "db:push": "prisma db push",

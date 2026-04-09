@@ -7,7 +7,7 @@ import express, { Express } from 'express'
 import { DeleteCommand } from './bot/commands/delete-command'
 import { TrackWallets } from './lib/track-wallets'
 import { CronJobs } from './lib/cron-jobs'
-import { ASCII_TEXT } from './constants/handi-cat'
+import { ASCII_TEXT } from './constants/failops'
 import chalk from 'chalk'
 import gradient from 'gradient-string'
 import { GroupsCommand } from './bot/commands/groups-command'
@@ -16,6 +16,7 @@ import { ManageCommand } from './bot/commands/manage-command'
 import { UpgradePlanCommand } from './bot/commands/upgrade-plan-command'
 import { AdminCommand } from './bot/commands/admin-command'
 import { ScamWalletCommand } from './bot/commands/scam-wallet-command'
+import { TradingCommand } from './bot/commands/trading-command'
 import { ScamWalletMonitor } from './lib/scam-wallet-monitor'
 import { ScamDashboard } from './lib/scam-dashboard'
 import { TokenInvestigator } from './lib/token-investigator'
@@ -39,6 +40,7 @@ class Main {
   private upgradePlanCommand: UpgradePlanCommand
   private adminCommand: AdminCommand
   private scamWalletCommand: ScamWalletCommand
+  private tradingCommand: TradingCommand
   private scamWalletMonitor: ScamWalletMonitor
   private scamDashboard: ScamDashboard
   private tokenInvestigator: TokenInvestigator
@@ -61,6 +63,7 @@ class Main {
     this.adminCommand = new AdminCommand(bot)
     this.scamWalletMonitor = new ScamWalletMonitor()
     this.scamWalletCommand = new ScamWalletCommand(bot, this.scamWalletMonitor)
+    this.tradingCommand = new TradingCommand(bot)
     this.scamDashboard = new ScamDashboard()
     this.tokenInvestigator = new TokenInvestigator()
     this.scamWalletRepository = new PrismaScamWalletRepository()
@@ -163,6 +166,7 @@ class Main {
     // bot
     this.callbackQueryHandler.call()
     this.startCommand.start()
+    this.tradingCommand.start()
     this.addCommand.addCommandHandler()
     this.deleteCommand.deleteCommandHandler()
     this.groupsCommand.activateGroupCommandHandler()

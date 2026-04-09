@@ -27,6 +27,7 @@ async fn main() {
         auth_secret,
         dedup_window_seconds,
         max_timestamp_skew_seconds,
+        None,
     ).await {
         eprintln!("Signal receiver failed: {}", error);
         std::process::exit(1);

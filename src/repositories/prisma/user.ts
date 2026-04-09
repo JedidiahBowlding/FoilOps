@@ -190,7 +190,7 @@ export class PrismaUserRepository {
       return { status: 'ok', message: 'status updated', changedStatus: newStatus }
     } catch (error) {
       console.log('UPDATE_HANDICAT_STATUS_ERROR', error)
-      return { status: 'error', message: 'An error occurred while updating handi cat status', changedStatus: 'NONE' }
+      return { status: 'error', message: 'An error occurred while updating failops status', changedStatus: 'NONE' }
     }
   }
 

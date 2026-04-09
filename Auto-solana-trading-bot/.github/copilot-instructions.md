@@ -23,7 +23,9 @@ This is a Rust-based copy trading bot for Solana that monitors on-chain transact
 ## Project-Specific Patterns
 
 ### AppState Pattern
+
 All swap functions require `AppState` with three components:
+
 ```rust
 AppState {
     rpc_client: Arc<RpcClient>,              // blocking RPC
@@ -31,17 +33,22 @@ AppState {
     wallet: Arc<Keypair>,                     // signer
 }
 ```
+
 Create via: `create_rpc_client()`, `create_nonblocking_rpc_client()`, `import_wallet()`
 
 ### Swap Function Signatures
+
 Three identical `raydium_swap()` implementations exist in `sniper.rs`, `swap.rs`, `strategy.rs`:
+
 - Parameters: `(state, amount_in: f64, swap_direction: &str, in_type: &str, slippage: u64, use_jito: bool, amm_pool_id, pool_state)`
 - Direction: `"buy"` or `"sell"` (parsed to `SwapDirection` enum)
 - Input type: `"qty"` (absolute amount) or `"pct"` (percentage of balance)
 - Always returns `Result<Vec<String>>` (transaction signatures)
 
 ### MEV Protection Integration
+
 Three MEV services follow identical patterns in [services/](../src/services/):
+
 - `get_tip_account()` - Returns random tip recipient from hardcoded list
 - `get_tip_value()` - Reads from env var (`JITO_TIP_VALUE`, `NOZOMI_TIP_VALUE`, `ZERO_SLOT_TIP_VALUE`)
 - All use `LazyLock` for endpoint URLs loaded from environment
@@ -49,13 +56,16 @@ Three MEV services follow identical patterns in [services/](../src/services/):
 ## Development Workflows
 
 ### Build & Run
+
 ```bash
 cargo build --release
 ./target/release/trading-bot
 ```
 
 ### Environment Setup
+
 Required `.env` variables:
+
 - `SOL_PUBKEY` - Your wallet public key
 - `PRIVATE_KEY` - Base58 encoded private key
 - `RPC_ENDPOINT` - Helius HTTPS endpoint
@@ -65,29 +75,36 @@ Required `.env` variables:
 - `SLIPPAGE` - Default: 5 (in basis points)
 
 Optional MEV services:
+
 - `JITO_BLOCK_ENGINE_URL`, `JITO_TIP_STREAM_URL`, `JITO_TIP_PERCENTILE`, `JITO_TIP_VALUE`
 - `NOZOMI_URL`, `NOZOMI_TIP_VALUE`
 - `ZERO_SLOT_URL`, `ZERO_SLOT_TIP_VALUE`
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
 
 ### Logging
+
 Set `RUST_LOG=debug` for verbose output. Custom logger in [common/logger.rs](../src/common/logger.rs) uses `LOG_LEVEL` const (defaults to "LOG").
 
 ## Critical Gotchas
 
 ### Duplicate Code
+
 `SwapDirection` and `SwapInType` enums duplicated across `sniper.rs`, `swap.rs`, `strategy.rs`. When modifying, update all three files.
 
 ### Logger Implementation
+
 [cache.rs](../src/common/cache.rs) and [constants.rs](../src/common/constants.rs) incorrectly contain Logger implementation (copy-paste error). Actual logger is in [logger.rs](../src/common/logger.rs).
 
 ### Missing Module
+
 `ray_parse` module declared in [lib.rs](../src/lib.rs#L5) but directory doesn't exist. Code compiles because [main.rs](../src/main.rs#L6) imports it but likely dead code path.
 
 ### WebSocket Subscription
+
 Main loop subscribes to `accountInclude: ["675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8", target]` (Raydium program + target wallet). Filters out Jupiter aggregator via `accountExclude`.
 
 ### Transaction Parsing
+
 Inner instructions parsing in [main.rs](../src/main.rs#L66-L95) looks for `"transfer"` type where `authority == target`. Assumes specific instruction ordering: `[0]` is input, `[1]` is output.
 
 ## Dependencies

@@ -1,6 +1,6 @@
 import TelegramBot, { InlineKeyboardMarkup } from 'node-telegram-bot-api'
 import { AddCommand } from '../commands/add-command'
-import { START_MENU, SUB_MENU, SCAM_INTEL_MENU } from '../../config/bot-menus'
+import { START_MENU, SUB_MENU, SCAM_INTEL_MENU, TRADING_MENU } from '../../config/bot-menus'
 import { ManageCommand } from '../commands/manage-command'
 import { DeleteCommand } from '../commands/delete-command'
 import {
@@ -168,6 +168,55 @@ export class CallbackQueryHandler {
             '📡 <b>Scam Feed</b>\n\nSend the command:\n<code>/scam_feed [limit]</code>\n\nExample: <code>/scam_feed 10</code>',
             { chat_id: chatId, message_id: message.message_id, parse_mode: 'HTML', reply_markup: SCAM_INTEL_MENU },
           )
+          break
+        case 'trading':
+          this.bot.editMessageText(
+            [
+              '📈 <b>Trading Bot Control</b>',
+              '',
+              '📊 <b>Status</b> — Check bot status and configuration',
+              '💰 <b>Balance</b> — View trading wallet balance',
+              '📈 <b>Recent Trades</b> — View latest trading activity',
+              '▶️ <b>Enable/Disable</b> — Control bot trading state',
+              '⏸️ <b>Pause/Resume</b> — Temporary trading control',
+              '⚙️ <b>Config</b> — View and modify settings',
+              '',
+              'Use the buttons below or send commands directly.',
+            ].join('\n'),
+            {
+              chat_id: chatId,
+              message_id: message.message_id,
+              parse_mode: 'HTML',
+              reply_markup: TRADING_MENU,
+            },
+          )
+          break
+        case 'trading_status':
+          // This will be handled by the trading command
+          this.bot.sendMessage(chatId, 'Send: <code>/trading_status</code>', { parse_mode: 'HTML' })
+          break
+        case 'trading_balance':
+          this.bot.sendMessage(chatId, 'Send: <code>/trading_balance</code>', { parse_mode: 'HTML' })
+          break
+        case 'trading_trades':
+          this.bot.sendMessage(chatId, 'Send: <code>/trading_trades</code>', { parse_mode: 'HTML' })
+          break
+        case 'trading_enable':
+          this.bot.sendMessage(chatId, 'Send: <code>/trading_enable</code>', { parse_mode: 'HTML' })
+          break
+        case 'trading_disable':
+          this.bot.sendMessage(chatId, 'Send: <code>/trading_disable</code>', { parse_mode: 'HTML' })
+          break
+        case 'trading_pause':
+          this.bot.sendMessage(chatId, 'Send: <code>/trading_pause</code>', { parse_mode: 'HTML' })
+          break
+        case 'trading_resume':
+          this.bot.sendMessage(chatId, 'Send: <code>/trading_resume</code>', { parse_mode: 'HTML' })
+          break
+        case 'trading_config':
+          this.bot.sendMessage(chatId, 'Send: <code>/trading_slippage</code> or <code>/trading_target</code>', {
+            parse_mode: 'HTML',
+          })
           break
         case 'my_wallet':
           this.myWalletCommand.myWalletCommandHandler(message)

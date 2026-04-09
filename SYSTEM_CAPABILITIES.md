@@ -1,8 +1,8 @@
-# Handi Cat System Capabilities Guide
+# FailOps System Capabilities Guide
 
 ## 1. Purpose
 
-Handi Cat is a Solana wallet intelligence and monitoring platform delivered through a Telegram bot plus HTTP dashboard/API endpoints.
+FailOps is a Solana wallet intelligence and monitoring platform delivered through a Telegram bot plus HTTP dashboard/API endpoints.
 
 It supports:
 

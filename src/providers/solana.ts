@@ -14,7 +14,7 @@ const RPC_ENDPOINTS =
 
 console.log(chalk.bold.greenBright(`LOADED ${RPC_ENDPOINTS.length} RPC ENDPOINTS`))
 
-// If you are going to use Handi Cat locally you can just use SOLANA_NETWORK for all connections
+// If you are going to use FailOps locally you can just use SOLANA_NETWORK for all connections
 // and will work fine as long you dont track too many wallets
 export class RpcConnectionManager {
   static connections: Connection[] = RPC_ENDPOINTS.map((url) => new Connection(url, 'confirmed'))

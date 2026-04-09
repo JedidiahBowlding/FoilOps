@@ -4,9 +4,9 @@ export type TradeSignalV1 = {
   schemaVersion: '1.0'
   signalId: string
   emittedAt: string
-  sourceSystem: 'handi-cat-intelligence'
+  sourceSystem: 'failops-intelligence'
   signalType: TradeSignalType
-  dryRun: true
+  dryRun: boolean
   riskScore: number
   riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
   trackedWallet?: string
@@ -28,9 +28,9 @@ export const isTradeSignalV1 = (value: unknown): value is TradeSignalV1 => {
     candidate.schemaVersion === '1.0' &&
     typeof candidate.signalId === 'string' &&
     typeof candidate.emittedAt === 'string' &&
-    candidate.sourceSystem === 'handi-cat-intelligence' &&
+    candidate.sourceSystem === 'failops-intelligence' &&
     (candidate.signalType === 'TOKEN_INVESTIGATION' || candidate.signalType === 'SUSPICIOUS_TOKEN_LAUNCH') &&
-    candidate.dryRun === true &&
+    typeof candidate.dryRun === 'boolean' &&
     typeof candidate.riskScore === 'number' &&
     ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].includes(String(candidate.riskLevel)) &&
     Array.isArray(candidate.traceAlerts) &&

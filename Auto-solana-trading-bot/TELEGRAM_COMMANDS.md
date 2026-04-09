@@ -5,11 +5,13 @@ This document lists all available Telegram commands for the Solana Auto Trading 
 ## Quick Start Commands
 
 ### `/start`
+
 - **Description**: Initialize the bot and display welcome message
 - **Usage**: `/start`
 - **Response**: Shows quick start guide and links to available commands
 
 ### `/help`
+
 - **Description**: Display all available commands
 - **Usage**: `/help`
 - **Response**: Complete list of all commands with descriptions
@@ -17,36 +19,43 @@ This document lists all available Telegram commands for the Solana Auto Trading 
 ## Status & Monitoring Commands
 
 ### `/status`
+
 - **Description**: Show bot and wallet status
 - **Usage**: `/status`
 - **Response**: Current bot status (enabled/disabled), trading mode, slippage, target wallet, MEV service
 
 ### `/balance`
+
 - **Description**: Show current wallet balance
 - **Usage**: `/balance`
 - **Response**: SOL balance, USDC balance, other token count, total value in USD
 
 ### `/trades`
+
 - **Description**: Show recent trades
 - **Usage**: `/trades`
 - **Response**: Last 10 trades with direction, amount, token mint, and timestamp
 
 ### `/stats`
+
 - **Description**: Show trading statistics
 - **Usage**: `/stats`
 - **Response**: Total trades, win/loss ratio, profit/loss, ROI, average trade value, 24h volume
 
 ### `/history`
+
 - **Description**: Show wallet transaction history
 - **Usage**: `/history`
 - **Response**: Last 20 transactions with direction, amount, token, and status
 
 ### `/logs`
+
 - **Description**: Get bot activity logs
 - **Usage**: `/logs`
 - **Response**: Recent bot logs (startup, connections, trades, confirmations)
 
 ### `/config`
+
 - **Description**: Show complete bot configuration
 - **Usage**: `/config`
 - **Response**: Trading settings, target wallet, MEV service, supported pools
@@ -54,25 +63,29 @@ This document lists all available Telegram commands for the Solana Auto Trading 
 ## Configuration Commands
 
 ### `/slippage [value]`
+
 - **Description**: Get or set slippage tolerance
-- **Usage**: 
+- **Usage**:
   - `/slippage` - Show current slippage
   - `/slippage 5` - Set slippage to 5%
 - **Response**: Current slippage percentage or confirmation of new value
 
 ### `/target [pubkey]`
+
 - **Description**: Get or set target wallet to copy trade
-- **Usage**: 
+- **Usage**:
   - `/target` - Show current target wallet
   - `/target 9B5X4...` - Set new target wallet
 - **Response**: Current target wallet or confirmation of new target
 
 ### `/mev`
+
 - **Description**: Show MEV protection settings
 - **Usage**: `/mev`
 - **Response**: Current MEV service, available services (Jito, Nozomi, Zero Slot)
 
 ### `/setmev [service]`
+
 - **Description**: Change MEV protection service
 - **Usage**: `/setmev jito` or `/setmev nozomi` or `/setmev zeroslot`
 - **Response**: Confirmation of MEV service change
@@ -80,26 +93,31 @@ This document lists all available Telegram commands for the Solana Auto Trading 
 ## Bot Control Commands
 
 ### `/enable`
+
 - **Description**: Enable trading bot
 - **Usage**: `/enable`
 - **Response**: ✅ Trading bot enabled
 
 ### `/disable`
+
 - **Description**: Disable trading bot (pauses all trading)
 - **Usage**: `/disable`
 - **Response**: ⛔ Trading bot disabled
 
 ### `/pause`
+
 - **Description**: Pause trading temporarily (keeps monitoring active)
 - **Usage**: `/pause`
 - **Response**: ⏸️ Trading paused
 
 ### `/resume`
+
 - **Description**: Resume trading after pause
 - **Usage**: `/resume`
 - **Response**: ▶️ Trading resumed
 
 ### `/cancel`
+
 - **Description**: Cancel any pending trades
 - **Usage**: `/cancel`
 - **Response**: Status of pending trades or confirmation of cancellation
@@ -107,6 +125,7 @@ This document lists all available Telegram commands for the Solana Auto Trading 
 ## Testing Commands
 
 ### `/test [direction] [amount]`
+
 - **Description**: Execute a test trade without real funds
 - **Usage**: `/test buy 0.5` or `/test sell 10`
 - **Direction**: `buy` or `sell`
@@ -158,6 +177,7 @@ The bot maintains the following state that can be queried:
 ## Response Format
 
 All responses use formatted text with:
+
 - **Emoji indicators**: ✅ (success), ❌ (error), ⏸️ (paused), ▶️ (running), etc.
 - **HTML formatting**: Bold titles, code formatting for addresses
 - **Clear sections**: Organized information with bullet points
@@ -166,6 +186,7 @@ All responses use formatted text with:
 ## Error Handling
 
 Invalid commands receive a helpful error message:
+
 - Unknown commands show: "❌ Unknown command. Use /help to see available commands"
 - Invalid parameters show: "❌ Invalid format. Use: [correct usage]"
 - Invalid addresses show: "❌ Invalid Solana address format"
@@ -173,6 +194,7 @@ Invalid commands receive a helpful error message:
 ## Integration with Bot Logic
 
 The Telegram bot commands integrate with:
+
 - **Trading Engine**: Receive trade execution updates
 - **WebSocket Listener**: Real-time transaction monitoring
 - **RPC Client**: Fetch balance and transaction data

@@ -20,7 +20,8 @@ export const START_MENU: InlineKeyboardMarkup = {
       { text: '🔎 Help', callback_data: 'help' },
     ],
     [{ text: '� Scam Intel', callback_data: 'scam_intel' }],
-    [{ text: '👑 Upgrade', callback_data: 'upgrade' }],
+    [{ text: '� Trading', callback_data: 'trading' }],
+    [{ text: '�👑 Upgrade', callback_data: 'upgrade' }],
   ],
 }
 
@@ -30,6 +31,24 @@ export const SCAM_INTEL_MENU: InlineKeyboardMarkup = {
     [{ text: '🗺️ Flow Map', callback_data: 'scam_flowmap_prompt' }],
     [{ text: '🔬 Trace Token', callback_data: 'scam_trace_prompt' }],
     [{ text: '📡 Scam Feed', callback_data: 'scam_feed' }],
+    [{ text: '🔙 Back', callback_data: 'back_to_main_menu' }],
+  ],
+}
+
+export const TRADING_MENU: InlineKeyboardMarkup = {
+  inline_keyboard: [
+    [{ text: '📊 Status', callback_data: 'trading_status' }],
+    [{ text: '💰 Balance', callback_data: 'trading_balance' }],
+    [{ text: '📈 Recent Trades', callback_data: 'trading_trades' }],
+    [
+      { text: '▶️ Enable', callback_data: 'trading_enable' },
+      { text: '⏹️ Disable', callback_data: 'trading_disable' },
+    ],
+    [
+      { text: '⏸️ Pause', callback_data: 'trading_pause' },
+      { text: '▶️ Resume', callback_data: 'trading_resume' },
+    ],
+    [{ text: '⚙️ Config', callback_data: 'trading_config' }],
     [{ text: '🔙 Back', callback_data: 'back_to_main_menu' }],
   ],
 }
@@ -122,7 +141,7 @@ export const SUGGEST_UPGRADE_SUBMENU: InlineKeyboardMarkup = {
 
 export const INSUFFICIENT_BALANCE_SUB_MENU: InlineKeyboardMarkup = {
   inline_keyboard: [
-    [{ text: '😺 Your Handi Cat Wallet', callback_data: 'my_wallet' }],
+    [{ text: '😺 Your FailOps Wallet', callback_data: 'my_wallet' }],
     [{ text: '🔙 Back', callback_data: 'back_to_main_menu' }],
   ],
 }
@@ -132,7 +151,7 @@ export const USER_SETTINGS_MENU = (botStatus: HandiCatStatus): InlineKeyboardMar
     inline_keyboard: [
       [
         {
-          text: `${botStatus === 'ACTIVE' ? '⏸️ Pause Handi Cat' : '▶️ Resume Handi Cat'}`,
+          text: `${botStatus === 'ACTIVE' ? '⏸️ Pause FailOps' : '▶️ Resume FailOps'}`,
           callback_data: 'pause-resume-bot',
         },
       ],
