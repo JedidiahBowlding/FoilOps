@@ -2,7 +2,12 @@
 
 set -euo pipefail
 
-APP_PORT="${APP_PORT:-3001}"
+# Resolve app port from environment/.env so health checks follow PORT changes.
+RESOLVED_PORT="${PORT:-}"
+if [ -z "$RESOLVED_PORT" ] && [ -f .env ]; then
+  RESOLVED_PORT="$(grep -E '^PORT=' .env | tail -n 1 | cut -d '=' -f2 | tr -d '[:space:]')"
+fi
+APP_PORT="${APP_PORT:-${RESOLVED_PORT:-3001}}"
 RUST_PORT="${RUST_PORT:-8787}"
 APP_URL="${APP_URL:-http://127.0.0.1:${APP_PORT}/}"
 RUST_HEALTH_URL="${RUST_HEALTH_URL:-http://127.0.0.1:${RUST_PORT}/health}"

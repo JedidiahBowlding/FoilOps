@@ -5,6 +5,14 @@
 
 echo "🚀 Starting FailOps Wallet Tracker and Auto Solana Trading Bot..."
 
+# Resolve app port from environment/.env so startup follows PORT changes.
+APP_PORT="${PORT:-}"
+if [ -z "$APP_PORT" ] && [ -f .env ]; then
+    APP_PORT="$(grep -E '^PORT=' .env | tail -n 1 | cut -d '=' -f2 | tr -d '[:space:]')"
+fi
+APP_PORT="${APP_PORT:-3001}"
+echo "🔧 Using app port: $APP_PORT"
+
 # Ensure required ports are free before launching services.
 free_port() {
     local port="$1"
@@ -18,7 +26,7 @@ free_port() {
 }
 
 free_port 8787
-free_port 3001
+free_port "$APP_PORT"
 
 # Function to handle cleanup on script exit
 cleanup() {
