@@ -58,8 +58,12 @@ DATABASE_URL="postgresql://${DB_USER}:${DB_PASS}@localhost:${DB_PORT}/${DB_NAME}
 # ---- Update .env -----------------------------------------------------------
 if [[ -f "$ENV_FILE" ]]; then
   if grep -q "^DATABASE_URL=" "$ENV_FILE"; then
-    # Replace existing line (macOS-compatible sed)
-    sed -i '' "s|^DATABASE_URL=.*|DATABASE_URL=${DATABASE_URL}|" "$ENV_FILE"
+    # Replace existing line (portable: GNU sed on Linux, BSD sed on macOS)
+    if sed --version >/dev/null 2>&1; then
+      sed -i "s|^DATABASE_URL=.*|DATABASE_URL=${DATABASE_URL}|" "$ENV_FILE"
+    else
+      sed -i '' "s|^DATABASE_URL=.*|DATABASE_URL=${DATABASE_URL}|" "$ENV_FILE"
+    fi
     echo "Updated DATABASE_URL in .env"
   else
     echo "DATABASE_URL=${DATABASE_URL}" >> "$ENV_FILE"

@@ -216,7 +216,7 @@ export class PrismaWalletRepository {
       return walletsWithUsers
     } catch (error: any) {
       console.log('GET_ALL_WALLETS_WITH_USER_IDS_ERROR', error)
-      return
+      return []
     }
   }
 
@@ -252,7 +252,7 @@ export class PrismaWalletRepository {
       return walletsWithUsers
     } catch (error: any) {
       console.log('GET_ALL_WALLETS_WITH_USER_IDS_ERROR', error)
-      return
+      return []
     }
   }
 

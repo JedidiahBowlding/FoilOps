@@ -105,7 +105,7 @@ Follow these simple steps to setup FoilOps locally on your machine
 1. Clone the repo
 
    ```sh
-  git clone https://github.com/JedidiahBowlding/FoilOps.git
+   git clone https://github.com/JedidiahBowlding/FoilOps.git
    ```
 
 2. Install NPM packages

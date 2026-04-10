@@ -145,9 +145,10 @@ export class TrackWallets {
       // return await this.updateWallets(walletsArray!)
     } else if (event === 'initial') {
       const allWallets = await this.prismaWalletRepository.getAllWalletsWithUserIds()
+      const wallets = Array.isArray(allWallets) ? allWallets : []
 
       // check for paused wallets before initial watcher call
-      const pausedWallets = allWallets?.filter((wallet) =>
+      const pausedWallets = wallets.filter((wallet) =>
         wallet.userWallets.some((userWallet) => userWallet.status === 'SPAM_PAUSED'),
       )
 
@@ -162,7 +163,7 @@ export class TrackWallets {
         }
       }
 
-      WalletPool.wallets?.push(...allWallets!)
+      WalletPool.wallets?.push(...wallets)
       // console.log('WALLETS ARRAY:', walletsArray)
       return await this.walletWatcher.watchSocket(WalletPool.wallets!)
     }
