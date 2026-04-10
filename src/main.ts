@@ -50,7 +50,6 @@ class Main {
   private walletClusterService: WalletClusterService
   constructor(private app: Express = express()) {
     this.setupMiddleware()
-    this.setupRoutes()
 
     // services
     this.cronJobs = new CronJobs()
@@ -71,6 +70,9 @@ class Main {
     this.tokenInvestigator = new TokenInvestigator()
     this.scamWalletRepository = new PrismaScamWalletRepository()
     this.walletClusterService = new WalletClusterService()
+
+    // register routes after route dependencies are initialized
+    this.setupRoutes()
 
     this.startServer()
   }
