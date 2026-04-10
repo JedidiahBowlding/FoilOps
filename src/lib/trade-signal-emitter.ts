@@ -51,7 +51,7 @@ export class TradeSignalEmitter {
       schemaVersion: '1.0',
       signalId: randomUUID(),
       emittedAt: new Date().toISOString(),
-      sourceSystem: 'failops-intelligence',
+      sourceSystem: 'foilops-intelligence',
       signalType: input.signalType,
       dryRun: !isLiveMode,
       riskScore: normalizedRisk,
@@ -103,7 +103,7 @@ export class TradeSignalEmitter {
       const timestamp = String(Math.floor(Date.now() / 1000))
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        'X-Signal-Source': 'failops-intelligence',
+        'X-Signal-Source': 'foilops-intelligence',
         'X-Idempotency-Key': signal.signalId,
       }
 

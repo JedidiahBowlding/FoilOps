@@ -451,7 +451,7 @@ curl -X POST http://localhost:8787/signals \
     "signalType": "TOKEN_INVESTIGATION",
     "riskScore": 45,
     "emittedAt": "2026-04-09T10:00:00Z",
-    "sourceSystem": "failops-intelligence",
+    "sourceSystem": "foilops-intelligence",
     "tokenMint": "ABC123",
     "traceAlerts": [],
     "actionHint": "WATCH_ONLY"

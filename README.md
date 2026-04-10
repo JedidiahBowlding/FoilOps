@@ -5,11 +5,11 @@
 <!-- PROJECT LOGO -->
 <br />
 <div align="center">
-  <a href="https://github.com/DracoR22/failops_wallet-tracker">
+  <a href="https://github.com/JedidiahBowlding/FoilOps">
     <img src="showcase/logo.jpg" alt="Logo" width="80" height="80">
   </a>
 
-  <h3 align="center">FailOps | Wallet Tracker</h3>
+  <h3 align="center">FoilOps | Wallet Tracker</h3>
 
   <p align="center">
     Track any Solana transaction in Real-Time
@@ -22,7 +22,7 @@
 
 [![Product Name Screen Shot][product-screenshot]](https://t.me/handi_cat_bot)
 
-FailOps is a Telegram bot that can track any Solana wallet in real time, it provides relevant information
+FoilOps is a Telegram bot that can track any Solana wallet in real time, it provides relevant information
 of each transaction made in Raydium, Jupiter, Pump.fun and Pump AMM(PumpSwap) including transaction hash, tokens and amount swapped, price of the token in SOL, token market cap and much more.
 
 ## Features
@@ -44,7 +44,7 @@ of each transaction made in Raydium, Jupiter, Pump.fun and Pump AMM(PumpSwap) in
 
 ## Scam Intelligence
 
-FailOps now includes a scam-intelligence layer on top of normal wallet tracking.
+FoilOps now includes a scam-intelligence layer on top of normal wallet tracking.
 
 - Known scam wallets are seeded from a curated list in `src/constants/known-scam-wallets.ts`
 - Platform intelligence is loaded from repo-backed JSON files:
@@ -94,7 +94,7 @@ Dashboard and API endpoints:
 
 ## Getting Started
 
-Follow these simple steps to setup FailOps locally on your machine
+Follow these simple steps to setup FoilOps locally on your machine
 
 ### Prerequisites
 
@@ -105,7 +105,7 @@ Follow these simple steps to setup FailOps locally on your machine
 1. Clone the repo
 
    ```sh
-   git clone https://github.com/DracoR22/failops_wallet-tracker.git
+  git clone https://github.com/JedidiahBowlding/FoilOps.git
    ```
 
 2. Install NPM packages
@@ -252,7 +252,7 @@ pnpm signals:self-test
 
 ### Starting Both Services
 
-To start both the FailOps bot and the Auto Solana Trading Bot simultaneously:
+To start both the FoilOps bot and the Auto Solana Trading Bot simultaneously:
 
 ```sh
 # Option 1: Using the convenience script
@@ -264,14 +264,14 @@ pnpm start-both
 
 This will start:
 
-- 🤖 **FailOps Wallet Tracker** (TypeScript/Node.js bot)
+- 🤖 **FoilOps Wallet Tracker** (TypeScript/Node.js bot)
 - 📈 **Auto Solana Trading Bot** (Rust trading bot with copy trading)
 
 Both services will run in the background. Press `Ctrl+C` to stop both services.
 
 **Note**: Make sure you have configured both bots' environment variables before starting.
 
-10. That's it! now your local version of FailOps is ready to use.
+10. That's it! now your local version of FoilOps is ready to use.
 
 <p align="center"><img src="./showcase/cli-pic.png" width="95%" alt="Screenshot of bot succesfully running"/></>
 
@@ -285,7 +285,7 @@ Both services will run in the background. Press `Ctrl+C` to stop both services.
 
 My solana wallet for the struggles - `5EVQsbVErvJruJvi3v8i3sDSy58GUnGfewwRb8pJk8N1`
 
-Project Link: [https://github.com/DracoR22/failops_wallet-tracker](https://github.com/DracoR22/failopslet-tracker)
+Project Link: [https://github.com/JedidiahBowlding/FoilOps](https://github.com/JedidiahBowlding/FoilOps)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

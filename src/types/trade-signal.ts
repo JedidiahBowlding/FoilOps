@@ -4,7 +4,7 @@ export type TradeSignalV1 = {
   schemaVersion: '1.0'
   signalId: string
   emittedAt: string
-  sourceSystem: 'failops-intelligence'
+  sourceSystem: 'foilops-intelligence'
   signalType: TradeSignalType
   dryRun: boolean
   riskScore: number
@@ -28,7 +28,7 @@ export const isTradeSignalV1 = (value: unknown): value is TradeSignalV1 => {
     candidate.schemaVersion === '1.0' &&
     typeof candidate.signalId === 'string' &&
     typeof candidate.emittedAt === 'string' &&
-    candidate.sourceSystem === 'failops-intelligence' &&
+    candidate.sourceSystem === 'foilops-intelligence' &&
     (candidate.signalType === 'TOKEN_INVESTIGATION' || candidate.signalType === 'SUSPICIOUS_TOKEN_LAUNCH') &&
     typeof candidate.dryRun === 'boolean' &&
     typeof candidate.riskScore === 'number' &&

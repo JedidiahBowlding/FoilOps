@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Script to start both FailOps bot and Auto Solana Trading Bot
+# Script to start both FoilOps bot and Auto Solana Trading Bot
 # Usage: ./start-both.sh
 
-echo "🚀 Starting FailOps Wallet Tracker and Auto Solana Trading Bot..."
+echo "🚀 Starting FoilOps Wallet Tracker and Auto Solana Trading Bot..."
 
 # Resolve app port from environment/.env so startup follows PORT changes.
 APP_PORT="${PORT:-}"
@@ -49,14 +49,14 @@ cd ..
 # Wait a moment for the trading bot to initialize
 sleep 2
 
-# Start the FailOps bot
-echo "🤖 Starting FailOps Wallet Tracker..."
+# Start the FoilOps bot
+echo "🤖 Starting FoilOps Wallet Tracker..."
 pnpm start &
 FAILOPS_PID=$!
 
 echo "✅ Both services started!"
 echo "📈 Trading Bot PID: $TRADING_PID"
-echo "🤖 FailOps Bot PID: $FAILOPS_PID"
+echo "🤖 FoilOps Bot PID: $FAILOPS_PID"
 echo ""
 echo "Press Ctrl+C to stop both services"
 

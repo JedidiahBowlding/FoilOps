@@ -61,9 +61,9 @@ export class CronJobs {
           bot.sendMessage(
             user.id,
             `
-⚠️ Oops! We couldn’t renew your FailOps subscription.  
+⚠️ Oops! We couldn’t renew your FoilOps subscription.  
 
-💡 <b>Please check your FailOps wallet balance</b> and try upgrading your plan again to keep your tracked wallets.  
+💡 <b>Please check your FoilOps wallet balance</b> and try upgrading your plan again to keep your tracked wallets.  
             `,
             {
               parse_mode: 'HTML',

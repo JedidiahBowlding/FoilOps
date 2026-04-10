@@ -141,7 +141,7 @@ export const SUGGEST_UPGRADE_SUBMENU: InlineKeyboardMarkup = {
 
 export const INSUFFICIENT_BALANCE_SUB_MENU: InlineKeyboardMarkup = {
   inline_keyboard: [
-    [{ text: '😺 Your FailOps Wallet', callback_data: 'my_wallet' }],
+    [{ text: '😺 Your FoilOps Wallet', callback_data: 'my_wallet' }],
     [{ text: '🔙 Back', callback_data: 'back_to_main_menu' }],
   ],
 }
@@ -151,7 +151,7 @@ export const USER_SETTINGS_MENU = (botStatus: HandiCatStatus): InlineKeyboardMar
     inline_keyboard: [
       [
         {
-          text: `${botStatus === 'ACTIVE' ? '⏸️ Pause FailOps' : '▶️ Resume FailOps'}`,
+          text: `${botStatus === 'ACTIVE' ? '⏸️ Pause FoilOps' : '▶️ Resume FoilOps'}`,
           callback_data: 'pause-resume-bot',
         },
       ],

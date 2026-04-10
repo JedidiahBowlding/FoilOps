@@ -19,7 +19,7 @@ curl -X POST http://localhost:8787/signals \
     "schemaVersion":"1.0","signalId":"test-001",
     "signalType":"TOKEN_INVESTIGATION","riskScore":45,
     "emittedAt":"2026-04-09T10:00:00Z",
-    "sourceSystem":"failops-intelligence",
+    "sourceSystem":"foilops-intelligence",
     "tokenMint":"EPjFWaLb3hLW1zLwT8sgUxsqF7xo8YCvqKjhyxHRt1jR",
     "traceAlerts":[],"actionHint":"WATCH_ONLY"
   }'

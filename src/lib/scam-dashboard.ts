@@ -94,7 +94,7 @@ export class ScamDashboard {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FailOps Scam Intelligence</title>
+    <title>FoilOps Scam Intelligence</title>
     <style>
       :root {
         --bg: #0a111f;
@@ -185,7 +185,7 @@ export class ScamDashboard {
     </style>
   </head>
   <body>
-    <h1>FailOps Scam Intelligence Dashboard</h1>
+    <h1>FoilOps Scam Intelligence Dashboard</h1>
     <p class="lead">Flagged wallet histories, prior token links, and suspicious launch risk scoring.</p>
     <section class="grid">${cards || '<p>No scam-intelligence records available yet.</p>'}</section>
     <h1>Token Investigations</h1>

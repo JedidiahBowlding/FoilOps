@@ -1,8 +1,8 @@
-# FailOps System Capabilities Guide
+# FoilOps System Capabilities Guide
 
 ## 1. Purpose
 
-FailOps is a Solana wallet intelligence and monitoring platform delivered through a Telegram bot plus HTTP dashboard/API endpoints.
+FoilOps is a Solana wallet intelligence and monitoring platform delivered through a Telegram bot plus HTTP dashboard/API endpoints.
 
 It supports:
 
