@@ -407,6 +407,22 @@ impl SignalExecutionEngine {
     }
 
     // Public API methods for the HTTP endpoints
+    pub async fn get_trading_status_async(&self) -> serde_json::Value {
+        let state = self.state.lock().await;
+        serde_json::json!({
+            "enabled": state.config.enabled,
+            "paused": state.config.paused,
+            "mode": state.config.mode,
+            "targetWallet": state.config.target_wallet,
+            "mevService": state.config.mev_service,
+            "slippage": state.config.slippage,
+            "activePositions": state.active_positions.len(),
+            "totalPnL": state.total_pnl,
+            "winRate": state.win_rate,
+            "totalTrades": state.total_trades
+        })
+    }
+
     pub fn get_trading_status(&self) -> Result<serde_json::Value> {
         let state = self.state.blocking_lock();
         Ok(serde_json::json!({

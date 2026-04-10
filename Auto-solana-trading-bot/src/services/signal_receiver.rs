@@ -320,12 +320,7 @@ async fn get_trading_status(
     State(state): State<Arc<SignalReceiverState>>,
 ) -> Json<Value> {
     if let Some(engine) = &state.execution_engine {
-        match engine.get_trading_status() {
-            Ok(status) => Json(status),
-            Err(e) => Json(serde_json::json!({
-                "error": format!("Failed to get trading status: {}", e)
-            }))
-        }
+        Json(engine.get_trading_status_async().await)
     } else {
         Json(serde_json::json!({
             "enabled": false,

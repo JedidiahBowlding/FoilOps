@@ -7,7 +7,7 @@ export class TradingCommand {
 
   constructor(private bot: TelegramBot) {
     this.bot = bot
-    this.tradingBotUrl = process.env.TRADING_BOT_URL || 'http://localhost:8787'
+    this.tradingBotUrl = process.env.TRADING_BOT_URL || 'http://127.0.0.1:8787'
   }
 
   public start() {
@@ -41,7 +41,17 @@ export class TradingCommand {
 
         this.bot.sendMessage(chatId, message, { parse_mode: 'HTML' })
       } catch (error) {
-        console.error('Trading status error:', error)
+        if (axios.isAxiosError(error)) {
+          console.error('Trading status error:', {
+            message: error.message,
+            url: `${this.tradingBotUrl}/trading/status`,
+            code: error.code,
+            status: error.response?.status,
+            data: error.response?.data,
+          })
+        } else {
+          console.error('Trading status error:', error)
+        }
         this.bot.sendMessage(chatId, '❌ Failed to get trading status')
       }
     })
