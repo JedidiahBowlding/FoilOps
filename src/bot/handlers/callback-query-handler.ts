@@ -169,6 +169,25 @@ export class CallbackQueryHandler {
             { chat_id: chatId, message_id: message.message_id, parse_mode: 'HTML', reply_markup: SCAM_INTEL_MENU },
           )
           break
+        case 'track_dev':
+          this.bot.sendMessage(
+            chatId,
+            'Use: <code>/trace_token &lt;token_mint&gt;</code> to track developer intelligence',
+            {
+              parse_mode: 'HTML',
+            },
+          )
+          break
+        case 'view_flow':
+          this.bot.sendMessage(chatId, 'Use: <code>/flow_map &lt;wallet_address&gt;</code> to inspect fund flows', {
+            parse_mode: 'HTML',
+          })
+          break
+        case 'view_cluster':
+          this.bot.sendMessage(chatId, 'Use: <code>/cluster &lt;wallet_address&gt;</code> to inspect linked clusters', {
+            parse_mode: 'HTML',
+          })
+          break
         case 'trading':
           this.bot.editMessageText(
             [

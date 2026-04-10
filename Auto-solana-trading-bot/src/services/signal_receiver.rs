@@ -71,10 +71,12 @@ pub struct ExecutionRequest {
     pub request_id: String,
     pub signal_type: String,
     pub action: String,
+    pub action_hint: String,
     pub target_wallet: String,
     pub token_mint: Option<String>,
     pub risk_score: f64,
     pub risk_level: String,
+    pub metadata: Option<Value>,
     pub reason: String,
 }
 

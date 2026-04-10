@@ -47,6 +47,7 @@ model User {
   userWallets             UserWallet[]
   userPromotions          UserPromotion[]
   groups                  Group[]
+  alertRules              UserAlertRule[]
 
   createdAt               DateTime          @default(now())
   updatedAt               DateTime          @updatedAt
@@ -68,12 +69,25 @@ enum ScamSource {
 
 enum ScamEventType {
   SUSPICIOUS_TOKEN_LAUNCH
+  SUSPICIOUS_PRELAUNCH_SIGNAL
   MANUAL_FLAG
   MANUAL_UNFLAG
   FLOW_TRACE
   PLATFORM_INTERACTION
   FLOW_TO_NEW_LAUNCH
   TOKEN_INVESTIGATION
+  ANOMALY_DETECTED
+  CLUSTER_ALERT
+}
+
+enum AlertEventType {
+  SUSPICIOUS_TOKEN_LAUNCH
+  SUSPICIOUS_PRELAUNCH_SIGNAL
+  ANOMALY_DETECTED
+  PLATFORM_INTERACTION
+  FLOW_TO_NEW_LAUNCH
+  TOKEN_INVESTIGATION
+  CLUSTER_ALERT
 }
 
 model ScamWallet {
@@ -179,6 +193,33 @@ model Group {
 
   userId String
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model WalletCluster {
+  id           String   @id @default(cuid())
+  clusterScore Float
+  wallets      String[]
+  riskScore    Int
+  metadata     Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([riskScore])
+  @@index([createdAt])
+}
+
+model UserAlertRule {
+  id                 String           @id @default(cuid())
+  userId             String
+  minRiskScore       Int              @default(70)
+  minTransactionSize Float            @default(0)
+  eventTypes         AlertEventType[] @default([SUSPICIOUS_TOKEN_LAUNCH, ANOMALY_DETECTED, SUSPICIOUS_PRELAUNCH_SIGNAL])
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }

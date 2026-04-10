@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>SECURITY_AND_OPERATIONS_AUDIT</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">SECURITY_AND_OPERATIONS_AUDIT</h1>
+</header>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#security-and-operations-audit"
+id="toc-security-and-operations-audit">Security and Operations Audit</a>
+<ul>
+<li><a href="#1-deployment-topology-risks"
+id="toc-1-deployment-topology-risks">1. Deployment Topology
+Risks</a></li>
+<li><a href="#11-dual-bot-polling-risk"
+id="toc-11-dual-bot-polling-risk">1.1 Dual Bot Polling Risk</a></li>
+<li><a href="#12-multi-service-drift-risk"
+id="toc-12-multi-service-drift-risk">1.2 Multi-Service Drift
+Risk</a></li>
+<li><a href="#2-secrets-and-credential-risks"
+id="toc-2-secrets-and-credential-risks">2. Secrets and Credential
+Risks</a></li>
+<li><a href="#21-token-and-key-exposure"
+id="toc-21-token-and-key-exposure">2.1 Token and Key Exposure</a></li>
+<li><a href="#22-plaintext-secret-storage"
+id="toc-22-plaintext-secret-storage">2.2 Plaintext Secret
+Storage</a></li>
+<li><a href="#23-backup-encryption-controls"
+id="toc-23-backup-encryption-controls">2.3 Backup Encryption
+Controls</a></li>
+<li><a href="#3-signal-security-and-integrity"
+id="toc-3-signal-security-and-integrity">3. Signal Security and
+Integrity</a></li>
+<li><a href="#31-hmac-authentication"
+id="toc-31-hmac-authentication">3.1 HMAC Authentication</a></li>
+<li><a href="#32-replay-and-duplicate-protection"
+id="toc-32-replay-and-duplicate-protection">3.2 Replay and Duplicate
+Protection</a></li>
+<li><a href="#4-trading-safety-controls"
+id="toc-4-trading-safety-controls">4. Trading Safety Controls</a></li>
+<li><a href="#41-dry-run-vs-live-execution"
+id="toc-41-dry-run-vs-live-execution">4.1 Dry-Run vs Live
+Execution</a></li>
+<li><a href="#42-risk-gate-controls" id="toc-42-risk-gate-controls">4.2
+Risk Gate Controls</a></li>
+<li><a href="#43-copy-trade-path-risks"
+id="toc-43-copy-trade-path-risks">4.3 Copy Trade Path Risks</a></li>
+<li><a href="#5-access-control-risks" id="toc-5-access-control-risks">5.
+Access Control Risks</a></li>
+<li><a href="#51-admin-command-surface"
+id="toc-51-admin-command-surface">5.1 Admin Command Surface</a></li>
+<li><a href="#6-observability-and-incident-response"
+id="toc-6-observability-and-incident-response">6. Observability and
+Incident Response</a></li>
+<li><a href="#61-logging-requirements"
+id="toc-61-logging-requirements">6.1 Logging Requirements</a></li>
+<li><a href="#62-recommended-alerts" id="toc-62-recommended-alerts">6.2
+Recommended Alerts</a></li>
+<li><a href="#63-incident-playbook-essentials"
+id="toc-63-incident-playbook-essentials">6.3 Incident Playbook
+Essentials</a></li>
+<li><a href="#7-operational-runbook" id="toc-7-operational-runbook">7.
+Operational Runbook</a></li>
+<li><a href="#71-startup-checklist" id="toc-71-startup-checklist">7.1
+Startup Checklist</a></li>
+<li><a href="#72-pre-live-checklist" id="toc-72-pre-live-checklist">7.2
+Pre-Live Checklist</a></li>
+<li><a href="#73-ongoing-maintenance"
+id="toc-73-ongoing-maintenance">7.3 Ongoing Maintenance</a></li>
+<li><a href="#8-priority-hardening-backlog"
+id="toc-8-priority-hardening-backlog">8. Priority Hardening
+Backlog</a></li>
+<li><a href="#9-verification-commands"
+id="toc-9-verification-commands">9. Verification Commands</a></li>
+<li><a href="#10-final-audit-statement"
+id="toc-10-final-audit-statement">10. Final Audit Statement</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="security-and-operations-audit">Security and Operations
+Audit</h1>
+<p>Navigation: <a href="README.html">Home</a> | <a
+href="PROJECT_MANUAL.html">Project Manual</a> | <a
+href="SECURITY_AND_OPERATIONS_AUDIT.html">Security and Operations
+Audit</a></p>
+<p>This document provides a detailed audit-oriented view of current
+operational and security posture for this repository snapshot.</p>
+<h2 id="1-deployment-topology-risks">1. Deployment Topology Risks</h2>
+<h2 id="11-dual-bot-polling-risk">1.1 Dual Bot Polling Risk</h2>
+<p>Risk:</p>
+<ul>
+<li>Running multiple polling instances with the same Telegram bot token
+causes update conflicts
+(<code>409 terminated by other getUpdates request</code>).</li>
+</ul>
+<p>Mitigation:</p>
+<ol type="1">
+<li>Keep one active polling instance per token.</li>
+<li>If using PM2/server runtime, stop local polling sessions.</li>
+<li>Document single-source ownership of Telegram update processing.</li>
+</ol>
+<h2 id="12-multi-service-drift-risk">1.2 Multi-Service Drift Risk</h2>
+<p>Risk:</p>
+<ul>
+<li>TS and Rust services can drift in env vars, signal contract, and
+routing assumptions.</li>
+</ul>
+<p>Mitigation:</p>
+<ol type="1">
+<li>Keep shared signal contract versioned and tested.</li>
+<li>Add CI tests that start Rust receiver and run TS self-test
+suite.</li>
+<li>Freeze deployment playbook that always restarts both services after
+contract-affecting changes.</li>
+</ol>
+<h2 id="2-secrets-and-credential-risks">2. Secrets and Credential
+Risks</h2>
+<h2 id="21-token-and-key-exposure">2.1 Token and Key Exposure</h2>
+<p>Risk:</p>
+<ul>
+<li>Any bot token, auth secret, or private key exposed in chat/logs is
+effectively compromised.</li>
+</ul>
+<p>Mitigation:</p>
+<ol type="1">
+<li>Rotate Telegram bot token if exposed.</li>
+<li>Rotate signal auth secrets when leaked.</li>
+<li>Replace compromised wallet keys and move funds to fresh wallet
+before live operation.</li>
+</ol>
+<h2 id="22-plaintext-secret-storage">2.2 Plaintext Secret Storage</h2>
+<p>Risk:</p>
+<ul>
+<li><code>.env</code> files contain high-value secrets and
+credentials.</li>
+</ul>
+<p>Mitigation:</p>
+<ol type="1">
+<li>Keep <code>.env</code> out of version control and backups unless
+encrypted.</li>
+<li>Prefer secret injection at runtime (vault/secret manager).</li>
+<li>Restrict host/file permissions for runtime env files.</li>
+</ol>
+<h2 id="23-backup-encryption-controls">2.3 Backup Encryption
+Controls</h2>
+<p>Current controls:</p>
+<ul>
+<li>Backup can run plaintext or encrypted.</li>
+<li>Private key inclusion is gated by toggles.</li>
+</ul>
+<p>Risk:</p>
+<ul>
+<li>Misconfiguration can still create high-risk backup artifacts.</li>
+</ul>
+<p>Mitigation:</p>
+<ol type="1">
+<li>Production policy: encrypted backups only.</li>
+<li>Production policy: private key export disabled unless emergency
+procedure is approved.</li>
+<li>Run restore test drill quarterly with encrypted backup file
+path.</li>
+</ol>
+<h2 id="3-signal-security-and-integrity">3. Signal Security and
+Integrity</h2>
+<h2 id="31-hmac-authentication">3.1 HMAC Authentication</h2>
+<p>Current:</p>
+<ul>
+<li>TS emitter can sign messages.</li>
+<li>Rust receiver validates signature and timestamp when auth is
+enabled.</li>
+</ul>
+<p>Risk:</p>
+<ul>
+<li>Shared secret mismatch causes rejected signals.</li>
+<li>Weak/no secret in non-prod can leak into prod deployment.</li>
+</ul>
+<p>Mitigation:</p>
+<ol type="1">
+<li>Enforce non-empty secret in all non-dry-run environments.</li>
+<li>Add startup validation that fails boot when
+<code>SIGNAL_REQUIRE_AUTH=true</code> and secret missing.</li>
+<li>Add monitoring alert for spikes in <code>invalid_signature</code>
+responses.</li>
+</ol>
+<h2 id="32-replay-and-duplicate-protection">3.2 Replay and Duplicate
+Protection</h2>
+<p>Current:</p>
+<ul>
+<li>Timestamp skew window and dedupe window are enforced.</li>
+</ul>
+<p>Risk:</p>
+<ul>
+<li>Incorrect clock sync can reject valid messages.</li>
+<li>Too-wide windows increase replay risk.</li>
+</ul>
+<p>Mitigation:</p>
+<ol type="1">
+<li>Keep NTP time sync enforced on hosts.</li>
+<li>Keep dedupe and skew windows minimal but practical.</li>
+<li>Monitor duplicate rejection rates and adjust with evidence.</li>
+</ol>
+<h2 id="4-trading-safety-controls">4. Trading Safety Controls</h2>
+<h2 id="41-dry-run-vs-live-execution">4.1 Dry-Run vs Live Execution</h2>
+<p>Current:</p>
+<ul>
+<li><code>SIGNAL_RECEIVER_DRY_RUN</code> controls execution mode.</li>
+</ul>
+<p>Risk:</p>
+<ul>
+<li>Single env toggle can accidentally enable live behavior.</li>
+</ul>
+<p>Mitigation:</p>
+<ol type="1">
+<li>Require two-step live activation:</li>
+</ol>
+<ul>
+<li><code>SIGNAL_RECEIVER_DRY_RUN=false</code></li>
+<li><code>/trading/enable</code> explicit call</li>
+</ul>
+<ol start="2" type="1">
+<li>Keep startup checklist that verifies <code>/health</code> mode
+before enabling.</li>
+</ol>
+<h2 id="42-risk-gate-controls">4.2 Risk Gate Controls</h2>
+<p>Current:</p>
+<ul>
+<li><code>SIGNAL_MAX_RISK_SCORE</code> now configurable from env.</li>
+</ul>
+<p>Risk:</p>
+<ul>
+<li>Overly permissive values execute lower-quality/high-risk
+signals.</li>
+</ul>
+<p>Mitigation:</p>
+<ol type="1">
+<li>Track performance by risk bucket.</li>
+<li>Start conservative and increment threshold with evidence.</li>
+<li>Pair with additional limits (slippage, position sizing,
+allowlist/denylist).</li>
+</ol>
+<h2 id="43-copy-trade-path-risks">4.3 Copy Trade Path Risks</h2>
+<p>Current:</p>
+<ul>
+<li>Native <code>COPY_TRADE</code> path exists TS and Rust side.</li>
+<li>Auto-emission from detected swaps is active in watcher
+integration.</li>
+</ul>
+<p>Risk:</p>
+<ul>
+<li>Poor direction/mint inference can cause unintended actions.</li>
+</ul>
+<p>Mitigation:</p>
+<ol type="1">
+<li>Log signal metadata for every auto-emitted copy trade.</li>
+<li>Validate token mint extraction paths for each DEX parser case.</li>
+<li>Consider pre-execution simulation checks before live buy/sell.</li>
+</ol>
+<h2 id="5-access-control-risks">5. Access Control Risks</h2>
+<h2 id="51-admin-command-surface">5.1 Admin Command Surface</h2>
+<p>Risk:</p>
+<ul>
+<li>High-privilege commands impact bans and trading controls.</li>
+</ul>
+<p>Mitigation:</p>
+<ol type="1">
+<li>Restrict admin IDs and review regularly.</li>
+<li>Add role-based permission model if multiple operators are
+required.</li>
+<li>Add persistent audit log table for admin actions.</li>
+</ol>
+<h2 id="6-observability-and-incident-response">6. Observability and
+Incident Response</h2>
+<h2 id="61-logging-requirements">6.1 Logging Requirements</h2>
+<p>Required logs:</p>
+<ol type="1">
+<li>Signal receive/reject/execute outcomes.</li>
+<li>Trading state transitions (enable, disable, pause, resume).</li>
+<li>Authentication failures and duplicate rejections.</li>
+<li>Copy-trade auto-emission events with wallet/signature context.</li>
+</ol>
+<h2 id="62-recommended-alerts">6.2 Recommended Alerts</h2>
+<ol type="1">
+<li>Rust <code>/health</code> not reachable.</li>
+<li>Spike in <code>invalid_signature</code> or duplicate responses.</li>
+<li>Consecutive execution failures above threshold.</li>
+<li>Unexpected mode mismatch (<code>dry-run</code> expected but
+<code>live</code> observed).</li>
+</ol>
+<h2 id="63-incident-playbook-essentials">6.3 Incident Playbook
+Essentials</h2>
+<ol type="1">
+<li>Immediate kill switch:</li>
+</ol>
+<ul>
+<li><code>POST /trading/disable</code></li>
+<li>set <code>SIGNAL_RECEIVER_DRY_RUN=true</code></li>
+<li>restart Rust service</li>
+</ul>
+<ol start="2" type="1">
+<li>Revoke and rotate compromised credentials.</li>
+<li>Export logs for timeline and root-cause review.</li>
+<li>Backfill an incident report with preventive action items.</li>
+</ol>
+<h2 id="7-operational-runbook">7. Operational Runbook</h2>
+<h2 id="71-startup-checklist">7.1 Startup Checklist</h2>
+<ol type="1">
+<li>Validate env files on TS and Rust sides.</li>
+<li>Confirm DB reachable.</li>
+<li>Start Rust service and verify <code>GET /health</code>.</li>
+<li>Start TS service and verify bot webhook/polling mode behavior.</li>
+<li>Run <code>pnpm signals:self-test</code> where applicable.</li>
+</ol>
+<h2 id="72-pre-live-checklist">7.2 Pre-Live Checklist</h2>
+<ol type="1">
+<li>Confirm <code>mode: dry-run</code> while test-signing signals.</li>
+<li>Confirm dedupe, auth, and endpoint status responses are
+expected.</li>
+<li>Confirm risk threshold and slippage settings.</li>
+<li>Confirm target wallet and MEV service settings.</li>
+<li>Enable live only after approval and runbook sign-off.</li>
+</ol>
+<h2 id="73-ongoing-maintenance">7.3 Ongoing Maintenance</h2>
+<ol type="1">
+<li>Review wallet bans and scam flags regularly.</li>
+<li>Review trading outcomes and rejection reasons daily.</li>
+<li>Rotate credentials periodically.</li>
+<li>Test encrypted backup and restore monthly.</li>
+</ol>
+<h2 id="8-priority-hardening-backlog">8. Priority Hardening Backlog</h2>
+<p>Priority 0:</p>
+<ol type="1">
+<li>Rotate all exposed tokens/secrets/keys immediately.</li>
+<li>Enforce non-empty auth secret in live mode.</li>
+<li>Add immutable audit logs for admin and trading-control actions.</li>
+</ol>
+<p>Priority 1:</p>
+<ol type="1">
+<li>Add CI integration test for full TS-&gt;Rust signed signal
+flow.</li>
+<li>Add circuit breakers (max daily loss, max failures per
+interval).</li>
+<li>Add stronger secret redaction guarantees in all log paths.</li>
+</ol>
+<p>Priority 2:</p>
+<ol type="1">
+<li>Add richer metrics and dashboards.</li>
+<li>Add role-based admin control model.</li>
+<li>Add simulation/preflight checks for copy-trade auto-emitted
+signals.</li>
+</ol>
+<h2 id="9-verification-commands">9. Verification Commands</h2>
+<p>Use these as operator checks:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># TS type safety check</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">pnpm</span> <span class="at">-s</span> tsc <span class="at">--noEmit</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Rust compile check</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> Auto-solana-trading-bot</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> check <span class="at">--bin</span> trading-bot</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Signal receiver self test</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ..</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="ex">pnpm</span> signals:self-test</span></code></pre></div>
+<h2 id="10-final-audit-statement">10. Final Audit Statement</h2>
+<p>The project is feature-rich and operationally capable for wallet
+intelligence and controlled signal-driven trading, but safe production
+operation depends on strict secret hygiene, disciplined live-mode
+controls, and stronger auditability of privileged operations.</p>
+<hr />
+<p>Previous: <a href="PROJECT_MANUAL.html">Project Manual</a> | Home: <a
+href="README.html">README</a></p>
+</body>
+</html>

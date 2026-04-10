@@ -15,6 +15,9 @@ import {
 } from '../constants/trace-platforms'
 import { KNOWN_SCAM_WALLETS } from '../constants/known-scam-wallets'
 import { ValidTransactions } from './valid-transactions'
+import { AnomalyDetector } from './anomaly-detector'
+import { ChainRegistry } from './chains'
+import { SupportedChain } from './chains/types'
 
 export type FlowStep = {
   hop: number
@@ -43,6 +46,27 @@ type QueueNode = {
 }
 
 export class FundFlowTracer {
+  private anomalyDetector: AnomalyDetector
+  private chainRegistry: ChainRegistry
+
+  constructor() {
+    this.anomalyDetector = new AnomalyDetector()
+    this.chainRegistry = new ChainRegistry()
+  }
+
+  async traceWalletFlowByChain(walletAddress: string, chain: SupportedChain, limit = 25) {
+    const adapter = this.chainRegistry.getAdapter(chain)
+    const normalizedWallet = adapter.normalizeWallet(walletAddress)
+    const txs = await adapter.getRecentTransactions(normalizedWallet, limit)
+
+    return {
+      wallet: normalizedWallet,
+      chain,
+      tracedAt: new Date().toISOString(),
+      transactions: txs,
+    }
+  }
+
   async traceWalletFlow(walletAddress: string, maxHops = 3, signaturesPerHop = 12): Promise<FlowTraceResult> {
     const visited = new Set<string>()
     const queue: QueueNode[] = [{ address: walletAddress, hop: 0 }]
@@ -86,6 +110,11 @@ export class FundFlowTracer {
           }
         }
       }
+    }
+
+    const anomalies = this.anomalyDetector.detect(steps)
+    for (const anomaly of anomalies) {
+      alerts.push(`[ANOMALY_DETECTED] ${anomaly.type}: ${anomaly.message}`)
     }
 
     return {

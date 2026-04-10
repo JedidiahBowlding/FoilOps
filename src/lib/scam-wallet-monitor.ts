@@ -11,16 +11,111 @@ import { PrismaScamWalletRepository } from '../repositories/prisma/scam-wallet'
 import { bot } from '../providers/telegram'
 import { FundFlowTracer } from './fund-flow-tracer'
 import { tradeSignalEmitter } from './trade-signal-emitter'
+import { WalletClusterService } from './wallet-cluster'
+import { AlertRuleDeliveryShape, PrismaUserAlertRuleRepository } from '../repositories/prisma/user-alert-rule'
+import { AlertEventType } from '@prisma/client'
+
+type AlertDeliveryInput = {
+  eventType: AlertEventType
+  walletAddress: string
+  tokenMint?: string
+  riskScore: number
+  transactionSize?: number
+  details?: string
+}
+
+export function resolveAlertChatId(userId: string): string | number | null {
+  const explicitRoute = process.env[`ALERT_CHAT_ID_${userId}`]
+  const candidate = (explicitRoute || userId || '').trim()
+  if (!candidate) return null
+
+  if (/^-?\d+$/.test(candidate)) {
+    return Number(candidate)
+  }
+
+  return candidate
+}
+
+export function shouldDeliverAlert(rule: AlertRuleDeliveryShape, input: AlertDeliveryInput): boolean {
+  if (!rule.eventTypes.includes(input.eventType)) return false
+  if (input.riskScore < rule.minRiskScore) return false
+
+  const txSize = input.transactionSize ?? 0
+  if (txSize < rule.minTransactionSize) return false
+
+  return true
+}
+
+export function renderAlertTemplate(input: AlertDeliveryInput): string {
+  const token = input.tokenMint || 'unknown'
+  const risk = `${input.riskScore}/100`
+  const txSizeText = (input.transactionSize || 0) > 0 ? `\nTx Size: ${input.transactionSize}` : ''
+
+  if (input.eventType === 'SUSPICIOUS_PRELAUNCH_SIGNAL') {
+    return [
+      '🚨 PRELAUNCH RISK SIGNAL',
+      `Wallet: ${input.walletAddress}`,
+      `Token: ${token}`,
+      `Risk: ${risk}`,
+      `${txSizeText}`,
+      input.details ? `Details: ${input.details}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n')
+  }
+
+  if (input.eventType === 'ANOMALY_DETECTED') {
+    return [
+      '⚠️ ANOMALY DETECTED',
+      `Wallet: ${input.walletAddress}`,
+      `Token: ${token}`,
+      `Risk: ${risk}`,
+      `${txSizeText}`,
+      input.details ? `Details: ${input.details}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n')
+  }
+
+  if (input.eventType === 'CLUSTER_ALERT') {
+    return [
+      '🧬 CLUSTER ALERT',
+      `Wallet: ${input.walletAddress}`,
+      `Token: ${token}`,
+      `Risk: ${risk}`,
+      `${txSizeText}`,
+      input.details ? `Details: ${input.details}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n')
+  }
+
+  return [
+    '📡 SCAM INTEL ALERT',
+    `Event: ${input.eventType}`,
+    `Wallet: ${input.walletAddress}`,
+    `Token: ${token}`,
+    `Risk: ${risk}`,
+    `${txSizeText}`,
+    input.details ? `Details: ${input.details}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n')
+}
 
 export class ScamWalletMonitor {
   private scamWalletRepository: PrismaScamWalletRepository
   private subscriptions: Map<string, number>
   private fundFlowTracer: FundFlowTracer
+  private walletClusterService: WalletClusterService
+  private userAlertRuleRepository: PrismaUserAlertRuleRepository
 
   constructor() {
     this.scamWalletRepository = new PrismaScamWalletRepository()
     this.subscriptions = new Map()
     this.fundFlowTracer = new FundFlowTracer()
+    this.walletClusterService = new WalletClusterService()
+    this.userAlertRuleRepository = new PrismaUserAlertRuleRepository()
   }
 
   async init() {
@@ -91,6 +186,8 @@ export class ScamWalletMonitor {
     const trace = await this.fundFlowTracer.traceWalletFlow(walletAddress, 3, 10)
     await this.scamWalletRepository.saveFlowTrace(walletAddress, trace, 'SUSPICIOUS_LAUNCH')
 
+    const cluster = await this.walletClusterService.buildCluster(walletAddress)
+
     const signal = tradeSignalEmitter.createSignal({
       signalType: 'SUSPICIOUS_TOKEN_LAUNCH',
       riskScore: event.riskScoreSnapshot,
@@ -103,6 +200,66 @@ export class ScamWalletMonitor {
       },
     })
     await tradeSignalEmitter.emit(signal)
+
+    const prelaunchRiskScore = Math.min(100, event.riskScoreSnapshot + Math.round(cluster.combinedRiskScore / 5))
+    const prelaunchSignal = tradeSignalEmitter.createSignal({
+      signalType: 'SUSPICIOUS_PRELAUNCH_SIGNAL',
+      riskScore: prelaunchRiskScore,
+      trackedWallet: walletAddress,
+      developerWallet: walletAddress,
+      tokenMint,
+      traceAlerts: trace.alerts,
+      metadata: {
+        txSignature: logs.signature,
+        clusterScore: cluster.clusterScore,
+        linkedWallets: cluster.linkedWallets,
+        priorRugsEstimate: cluster.linkedWallets.length,
+      },
+    })
+    await tradeSignalEmitter.emit(prelaunchSignal)
+
+    await this.scamWalletRepository.recordEvent({
+      address: walletAddress,
+      eventType: 'SUSPICIOUS_PRELAUNCH_SIGNAL',
+      txSignature: logs.signature,
+      tokenMint,
+      platform: swap,
+      details: 'Prelaunch suspicion signal generated',
+      metadata: {
+        clusterScore: cluster.clusterScore,
+        linkedWallets: cluster.linkedWallets,
+      },
+    })
+
+    for (const anomaly of trace.alerts.filter((alert) => alert.includes('[ANOMALY_DETECTED]'))) {
+      await this.scamWalletRepository.recordEvent({
+        address: walletAddress,
+        eventType: 'ANOMALY_DETECTED',
+        txSignature: logs.signature,
+        tokenMint,
+        platform: swap,
+        details: anomaly,
+        metadata: {
+          anomaly,
+        },
+      })
+    }
+
+    if (prelaunchRiskScore >= 85) {
+      await tradeSignalEmitter.emitAutoActionSignal({
+        signalType: 'AUTO_AVOID',
+        actionHint: 'AUTO_AVOID',
+        tokenMint,
+        trackedWallet: walletAddress,
+        developerWallet: walletAddress,
+        riskScore: prelaunchRiskScore,
+        traceAlerts: trace.alerts,
+        metadata: {
+          trigger: 'high_prelaunch_risk',
+          clusterScore: cluster.clusterScore,
+        },
+      })
+    }
 
     const adminId = process.env.ADMIN_CHAT_ID ?? ''
 
@@ -121,7 +278,9 @@ export class ScamWalletMonitor {
         `Token: ${tokenLabel}`,
         `Tx: <code>${logs.signature}</code>`,
         `Risk score: <b>${event.riskScoreSnapshot}/100</b>`,
+        `Prelaunch score: <b>${prelaunchRiskScore}/100</b>`,
         `Flow hops traced: <b>${trace.steps.length}</b>`,
+        `Cluster linked wallets: <b>${cluster.linkedWallets.length}</b>`,
       ].join('\n'),
       {
         parse_mode: 'HTML',
@@ -136,6 +295,40 @@ export class ScamWalletMonitor {
           parse_mode: 'HTML',
         },
       )
+    }
+
+    await this.dispatchUserAlertRules({
+      eventType: 'SUSPICIOUS_PRELAUNCH_SIGNAL',
+      walletAddress,
+      tokenMint,
+      riskScore: prelaunchRiskScore,
+      transactionSize: 0,
+      details: 'Prelaunch suspicion signal generated',
+    })
+
+    for (const anomaly of trace.alerts.filter((alert) => alert.includes('[ANOMALY_DETECTED]'))) {
+      await this.dispatchUserAlertRules({
+        eventType: 'ANOMALY_DETECTED',
+        walletAddress,
+        tokenMint,
+        riskScore: prelaunchRiskScore,
+        transactionSize: 0,
+        details: anomaly,
+      })
+    }
+  }
+
+  private async dispatchUserAlertRules(input: AlertDeliveryInput) {
+    const rules = await this.userAlertRuleRepository.listAllRulesForDelivery()
+    const message = renderAlertTemplate(input)
+
+    for (const rule of rules) {
+      if (!shouldDeliverAlert(rule, input)) continue
+
+      const chatId = resolveAlertChatId(rule.userId)
+      if (chatId === null) continue
+
+      await bot.sendMessage(chatId, message)
     }
   }
 

@@ -195,6 +195,9 @@ export class PrismaScamWalletRepository {
         eventType: {
           in: [
             ScamEventType.SUSPICIOUS_TOKEN_LAUNCH,
+            ScamEventType.SUSPICIOUS_PRELAUNCH_SIGNAL,
+            ScamEventType.ANOMALY_DETECTED,
+            ScamEventType.CLUSTER_ALERT,
             ScamEventType.PLATFORM_INTERACTION,
             ScamEventType.FLOW_TO_NEW_LAUNCH,
           ],

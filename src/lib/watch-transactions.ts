@@ -13,6 +13,7 @@ import { CronJobs } from './cron-jobs'
 import { PrismaUserRepository } from '../repositories/prisma/user'
 import { WalletPool } from '../config/wallet-pool'
 import TelegramBot from 'node-telegram-bot-api'
+import { tradeSignalEmitter } from './trade-signal-emitter'
 
 export class WatchTransaction extends EventEmitter {
   private walletTransactions: Map<string, { count: number; startTime: number }>
@@ -20,6 +21,7 @@ export class WatchTransaction extends EventEmitter {
   private rateLimit: RateLimit
 
   private prismaUserRepository: PrismaUserRepository
+  private static readonly SOL_MINT = 'So11111111111111111111111111111111111111112'
   constructor() {
     super()
 
@@ -119,6 +121,8 @@ export class WatchTransaction extends EventEmitter {
               }
               console.log(parsed.description)
 
+              await this.emitCopyTradeSignalFromParsedSwap(walletAddress, transactionSignature, parsed)
+
               // await this.sendTransactionMessageToUsers(wallet, parsed)S
               await this.sendMessageToUsers(wallet, parsed, (handler, parsedData, userId) =>
                 handler.sendTransactionMessage(parsedData, userId),
@@ -147,6 +151,54 @@ export class WatchTransaction extends EventEmitter {
       }
     } catch (error) {
       console.error('Error in watchSocket:', error)
+    }
+  }
+
+  private async emitCopyTradeSignalFromParsedSwap(
+    walletAddress: string,
+    transactionSignature: string,
+    parsed: {
+      type: string | undefined
+      tokenTransfers: {
+        tokenInMint: string
+        tokenOutMint: string
+      }
+      platform: SwapType
+    },
+  ): Promise<void> {
+    const direction = parsed.type === 'sell' ? 'sell' : parsed.type === 'buy' ? 'buy' : null
+    if (!direction) {
+      return
+    }
+
+    const tokenMint =
+      direction === 'buy'
+        ? parsed.tokenTransfers.tokenInMint
+        : direction === 'sell'
+          ? parsed.tokenTransfers.tokenOutMint
+          : ''
+
+    if (!tokenMint || tokenMint === WatchTransaction.SOL_MINT) {
+      return
+    }
+
+    const copyTradeRiskScore = Number(process.env.COPY_TRADE_RISK_SCORE || 35)
+
+    try {
+      await tradeSignalEmitter.emitCopyTradeSignal({
+        tokenMint,
+        riskScore: copyTradeRiskScore,
+        direction,
+        trackedWallet: walletAddress,
+        copiedWallet: walletAddress,
+        copiedTxSignature: transactionSignature,
+        metadata: {
+          source: 'wallet-watcher',
+          platform: parsed.platform,
+        },
+      })
+    } catch (error) {
+      console.log('COPY_TRADE_SIGNAL_EMIT_ERROR', error)
     }
   }
 

@@ -21,6 +21,8 @@ import { ScamWalletMonitor } from './lib/scam-wallet-monitor'
 import { ScamDashboard } from './lib/scam-dashboard'
 import { TokenInvestigator } from './lib/token-investigator'
 import { PrismaScamWalletRepository } from './repositories/prisma/scam-wallet'
+import { WalletClusterService } from './lib/wallet-cluster'
+import { registerGraphRoutes } from './http/graph-routes'
 
 dotenv.config()
 
@@ -45,6 +47,7 @@ class Main {
   private scamDashboard: ScamDashboard
   private tokenInvestigator: TokenInvestigator
   private scamWalletRepository: PrismaScamWalletRepository
+  private walletClusterService: WalletClusterService
   constructor(private app: Express = express()) {
     this.setupMiddleware()
     this.setupRoutes()
@@ -67,6 +70,7 @@ class Main {
     this.scamDashboard = new ScamDashboard()
     this.tokenInvestigator = new TokenInvestigator()
     this.scamWalletRepository = new PrismaScamWalletRepository()
+    this.walletClusterService = new WalletClusterService()
 
     this.startServer()
   }
@@ -150,6 +154,11 @@ class Main {
         console.error('Token investigation API error', error)
         res.status(500).json({ message: 'Failed to investigate token contract' })
       }
+    })
+
+    registerGraphRoutes(this.app, {
+      scamWalletRepository: this.scamWalletRepository,
+      walletClusterService: this.walletClusterService,
     })
   }
 

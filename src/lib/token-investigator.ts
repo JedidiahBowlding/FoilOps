@@ -14,6 +14,8 @@ import { FundFlowTracer, FlowTraceResult } from './fund-flow-tracer'
 import { ValidTransactions } from './valid-transactions'
 import { TokenInfoPump } from '../types/pumpfun-types'
 import { PumpDetail } from '../types/gmgn-ai-types'
+import { ChainRegistry } from './chains'
+import { SupportedChain } from './chains/types'
 
 export type DeveloperResolutionSource = 'mintAuthority' | 'freezeAuthority' | 'firstSigner'
 
@@ -69,9 +71,23 @@ export type WalletFundingSource = {
 
 export class TokenInvestigator {
   private fundFlowTracer: FundFlowTracer
+  private chainRegistry: ChainRegistry
 
   constructor() {
     this.fundFlowTracer = new FundFlowTracer()
+    this.chainRegistry = new ChainRegistry()
+  }
+
+  async investigateWalletOnChain(wallet: string, chain: SupportedChain) {
+    const adapter = this.chainRegistry.getAdapter(chain)
+    const normalizedWallet = adapter.normalizeWallet(wallet)
+    const transactions = await adapter.getRecentTransactions(normalizedWallet, 25)
+
+    return {
+      chain,
+      wallet: normalizedWallet,
+      transactions,
+    }
   }
 
   async investigateToken(tokenMint: string): Promise<TokenInvestigationResult | null> {

@@ -1,4 +1,5 @@
 import TelegramBot from 'node-telegram-bot-api'
+import { AlertEventType } from '@prisma/client'
 import { PublicKey } from '@solana/web3.js'
 import { BotMiddleware } from '../../config/bot-middleware'
 import { SUB_MENU } from '../../config/bot-menus'
@@ -7,12 +8,18 @@ import { ScamWalletMonitor } from '../../lib/scam-wallet-monitor'
 import { FundFlowTracer } from '../../lib/fund-flow-tracer'
 import { TokenInvestigator } from '../../lib/token-investigator'
 import { tradeSignalEmitter } from '../../lib/trade-signal-emitter'
+import { WalletClusterService } from '../../lib/wallet-cluster'
+import { AiAnalyzer } from '../../lib/ai-analyzer'
+import { PrismaUserAlertRuleRepository } from '../../repositories/prisma/user-alert-rule'
 
 export class ScamWalletCommand {
   private scamWalletRepository: PrismaScamWalletRepository
   private scamWalletMonitor: ScamWalletMonitor
   private fundFlowTracer: FundFlowTracer
   private tokenInvestigator: TokenInvestigator
+  private walletClusterService: WalletClusterService
+  private aiAnalyzer: AiAnalyzer
+  private userAlertRuleRepository: PrismaUserAlertRuleRepository
 
   constructor(
     private bot: TelegramBot,
@@ -23,6 +30,9 @@ export class ScamWalletCommand {
     this.scamWalletMonitor = scamWalletMonitor
     this.fundFlowTracer = new FundFlowTracer()
     this.tokenInvestigator = new TokenInvestigator()
+    this.walletClusterService = new WalletClusterService()
+    this.aiAnalyzer = new AiAnalyzer()
+    this.userAlertRuleRepository = new PrismaUserAlertRuleRepository()
   }
 
   public registerHandlers() {
@@ -31,6 +41,191 @@ export class ScamWalletCommand {
     this.scamFeedHandler()
     this.flowMapHandler()
     this.traceTokenHandler()
+    this.clusterHandler()
+    this.analyzeHandler()
+    this.setAlertHandler()
+    this.viewAlertsHandler()
+    this.deleteAlertHandler()
+  }
+
+  private clusterHandler() {
+    this.bot.onText(/\/cluster(?:\s+([^\s]+))?/, async (msg, match) => {
+      const userId = String(msg.from?.id || '')
+      if (!BotMiddleware.isUserBotAdmin(userId)) return
+
+      const chatId = msg.chat.id
+      const wallet = match?.[1]?.trim()
+
+      if (!wallet) {
+        await this.bot.sendMessage(chatId, 'Usage: <code>/cluster &lt;wallet_address&gt;</code>', {
+          parse_mode: 'HTML',
+          reply_markup: SUB_MENU,
+        })
+        return
+      }
+
+      const cluster = await this.walletClusterService.buildCluster(wallet)
+
+      await this.scamWalletRepository.recordEvent({
+        address: wallet,
+        eventType: 'CLUSTER_ALERT',
+        details: `Cluster recalculated with ${cluster.linkedWallets.length} linked wallets`,
+        metadata: {
+          linkedWallets: cluster.linkedWallets,
+          clusterScore: cluster.clusterScore,
+          combinedRiskScore: cluster.combinedRiskScore,
+        },
+      })
+
+      await this.bot.sendMessage(
+        chatId,
+        [
+          '🧬 <b>Wallet Cluster Report</b>',
+          `Wallet: <code>${wallet}</code>`,
+          `Linked wallets: <b>${cluster.linkedWallets.length}</b>`,
+          `Cluster score: <b>${cluster.clusterScore}</b>`,
+          `Combined risk: <b>${cluster.combinedRiskScore}/100</b>`,
+          '',
+          '<b>Shared behaviors:</b>',
+          ...cluster.sharedBehaviors.sharedFundingSources.map((item) => `• ${item}`),
+          ...cluster.sharedBehaviors.repeatedInteractionPatterns.map((item) => `• ${item}`),
+          ...cluster.sharedBehaviors.flowOverlaps.map((item) => `• ${item}`),
+          ...cluster.sharedBehaviors.deploymentRelationships.map((item) => `• ${item}`),
+        ].join('\n'),
+        {
+          parse_mode: 'HTML',
+          reply_markup: SUB_MENU,
+        },
+      )
+    })
+  }
+
+  private analyzeHandler() {
+    this.bot.onText(/\/analyze(?:\s+([^\s]+))?/, async (msg, match) => {
+      const userId = String(msg.from?.id || '')
+      if (!BotMiddleware.isUserBotAdmin(userId)) return
+
+      const chatId = msg.chat.id
+      const wallet = match?.[1]?.trim()
+
+      if (!wallet) {
+        await this.bot.sendMessage(chatId, 'Usage: <code>/analyze &lt;wallet_address&gt;</code>', {
+          parse_mode: 'HTML',
+          reply_markup: SUB_MENU,
+        })
+        return
+      }
+
+      const analysis = await this.aiAnalyzer.analyzeWallet(wallet)
+      await this.bot.sendMessage(chatId, `<pre>${analysis}</pre>`, {
+        parse_mode: 'HTML',
+        reply_markup: SUB_MENU,
+      })
+    })
+  }
+
+  private setAlertHandler() {
+    this.bot.onText(/\/set_alert(?:\s+(\d+))?(?:\s+(\d+(?:\.\d+)?))?(?:\s+(.+))?/, async (msg, match) => {
+      const userId = String(msg.from?.id || '')
+      const chatId = msg.chat.id
+
+      const minRiskScore = Number(match?.[1] || 70)
+      const minTransactionSize = Number(match?.[2] || 0)
+      const rawEventTypes = match?.[3] || 'SUSPICIOUS_TOKEN_LAUNCH,ANOMALY_DETECTED,SUSPICIOUS_PRELAUNCH_SIGNAL'
+
+      const eventTypes = rawEventTypes
+        .split(',')
+        .map((part) => part.trim().toUpperCase())
+        .filter((part): part is AlertEventType => {
+          return [
+            'SUSPICIOUS_TOKEN_LAUNCH',
+            'SUSPICIOUS_PRELAUNCH_SIGNAL',
+            'ANOMALY_DETECTED',
+            'PLATFORM_INTERACTION',
+            'FLOW_TO_NEW_LAUNCH',
+            'TOKEN_INVESTIGATION',
+            'CLUSTER_ALERT',
+          ].includes(part)
+        })
+
+      const rule = await this.userAlertRuleRepository.setRule(userId, {
+        minRiskScore: Math.max(0, Math.min(100, minRiskScore)),
+        minTransactionSize: Math.max(0, minTransactionSize),
+        eventTypes: eventTypes.length > 0 ? eventTypes : ['SUSPICIOUS_TOKEN_LAUNCH', 'ANOMALY_DETECTED'],
+      })
+
+      await this.bot.sendMessage(
+        chatId,
+        [
+          '✅ <b>Alert rule saved</b>',
+          `Rule ID: <code>${rule.id}</code>`,
+          `Min risk score: <b>${rule.minRiskScore}</b>`,
+          `Min transaction size: <b>${rule.minTransactionSize}</b>`,
+          `Event types: <b>${rule.eventTypes.join(', ')}</b>`,
+          '',
+          'Usage: /set_alert [minRiskScore] [minTransactionSize] [event1,event2,...]',
+        ].join('\n'),
+        {
+          parse_mode: 'HTML',
+          reply_markup: SUB_MENU,
+        },
+      )
+    })
+  }
+
+  private viewAlertsHandler() {
+    this.bot.onText(/\/view_alerts/, async (msg) => {
+      const userId = String(msg.from?.id || '')
+      const chatId = msg.chat.id
+
+      const rules = await this.userAlertRuleRepository.listRules(userId)
+      if (rules.length === 0) {
+        await this.bot.sendMessage(chatId, 'No alert rules found. Use /set_alert to create one.', {
+          reply_markup: SUB_MENU,
+        })
+        return
+      }
+
+      const lines = ['📡 <b>Your Alert Rules</b>', '']
+      for (const rule of rules) {
+        lines.push(`• ID: <code>${rule.id}</code>`)
+        lines.push(`  Min risk: <b>${rule.minRiskScore}</b> | Min tx size: <b>${rule.minTransactionSize}</b>`)
+        lines.push(`  Events: ${rule.eventTypes.join(', ')}`)
+        lines.push('')
+      }
+
+      await this.bot.sendMessage(chatId, lines.join('\n'), {
+        parse_mode: 'HTML',
+        reply_markup: SUB_MENU,
+      })
+    })
+  }
+
+  private deleteAlertHandler() {
+    this.bot.onText(/\/delete_alert(?:\s+([^\s]+))?/, async (msg, match) => {
+      const userId = String(msg.from?.id || '')
+      const chatId = msg.chat.id
+      const ruleId = match?.[1]?.trim()
+
+      if (!ruleId) {
+        await this.bot.sendMessage(chatId, 'Usage: <code>/delete_alert &lt;rule_id&gt;</code>', {
+          parse_mode: 'HTML',
+          reply_markup: SUB_MENU,
+        })
+        return
+      }
+
+      const deleted = await this.userAlertRuleRepository.deleteRule(userId, ruleId)
+      if (!deleted) {
+        await this.bot.sendMessage(chatId, 'Rule not found for your user.', { reply_markup: SUB_MENU })
+        return
+      }
+
+      await this.bot.sendMessage(chatId, `🗑️ Alert rule deleted: <code>${ruleId}</code>`, {
+        parse_mode: 'HTML',
+        reply_markup: SUB_MENU,
+      })
+    })
   }
 
   private flagWalletHandler() {
@@ -144,11 +339,11 @@ export class ScamWalletCommand {
       const alerts = await this.scamWalletRepository.getRecentAlerts(limit)
 
       if (alerts.length === 0) {
-        await this.bot.sendMessage(chatId, 'No suspicious token launch alerts yet.', { reply_markup: SUB_MENU })
+        await this.bot.sendMessage(chatId, 'No intelligence alerts yet.', { reply_markup: SUB_MENU })
         return
       }
 
-      const messageLines = ['🚨 <b>Suspicious Launch Alert Feed</b>', '']
+      const messageLines = ['🚨 <b>Intelligence Feed</b>', '']
 
       for (const alert of alerts) {
         messageLines.push(`• Wallet: <code>${alert.scamWallet.address}</code>`)
@@ -163,6 +358,18 @@ export class ScamWalletCommand {
       await this.bot.sendMessage(chatId, messageLines.join('\n'), {
         parse_mode: 'HTML',
         reply_markup: SUB_MENU,
+      })
+
+      await this.bot.sendMessage(chatId, 'Intelligence feed actions:', {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: 'Track Dev', callback_data: 'track_dev' },
+              { text: 'View Flow', callback_data: 'view_flow' },
+              { text: 'View Cluster', callback_data: 'view_cluster' },
+            ],
+          ],
+        },
       })
     })
   }

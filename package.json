@@ -4,7 +4,8 @@
   "description": "",
   "main": "dist/src/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "start": "tsc && node ./dist/src/main.js",
     "start:test": "tsc && node ./dist/src/test.js",
     "start-both": "./start-both.sh",
@@ -55,9 +56,12 @@
     "@types/node": "^20.14.9",
     "@types/node-cron": "^3.0.11",
     "@types/node-telegram-bot-api": "^0.64.7",
+    "@types/supertest": "^7.2.0",
     "prettier": "^3.3.3",
     "prisma": "^5.16.2",
+    "supertest": "^7.2.2",
     "ts-node": "^10.9.2",
-    "typescript": "^5.5.2"
+    "typescript": "^5.5.2",
+    "vitest": "^4.1.4"
   }
 }

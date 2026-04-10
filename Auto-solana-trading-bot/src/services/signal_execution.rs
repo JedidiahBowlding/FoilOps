@@ -183,6 +183,9 @@ impl SignalExecutionEngine {
         let action = match signal.signal_type.as_str() {
             "TOKEN_INVESTIGATION" => "BUY_TOKEN",
             "SUSPICIOUS_TOKEN_LAUNCH" => "SELL_TOKEN",
+            "AUTO_SELL" => "SELL_TOKEN",
+            "AUTO_AVOID" => "WATCH_ONLY",
+            "AUTO_WATCH" => "WATCH_ONLY",
             "COPY_TRADE" => "COPY_TRADE",
             _ => "WATCH_ONLY",
         };
@@ -191,10 +194,12 @@ impl SignalExecutionEngine {
             request_id: signal.signal_id.clone(),
             signal_type: signal.signal_type.clone(),
             action: action.to_string(),
+            action_hint: signal.action_hint.clone(),
             target_wallet,
             token_mint: signal.token_mint.clone(),
             risk_score: signal.risk_score,
             risk_level: signal.risk_level.clone(),
+            metadata: signal.metadata.clone(),
             reason: format!("Signal-based execution: {}", signal.signal_type),
         }
     }
@@ -379,16 +384,44 @@ impl SignalExecutionEngine {
     }
 
     async fn execute_copy_trade(&self, request: &ExecutionRequest) -> Result<String> {
-        // For copy trading, we need token mint and amount from the signal metadata
-        let token_mint = match &request.token_mint {
-            Some(mint) => mint.clone(),
-            None => return Ok("NO_TOKEN_MINT_FOR_COPY_TRADE".to_string()),
-        };
+        let direction = self.resolve_copy_trade_direction(request)?;
 
-        // Copy trading uses the existing swap_to_events logic but with risk controls
-        // This would integrate with the existing WebSocket monitoring system
+        match direction.as_str() {
+            "buy" => self.execute_buy(request).await,
+            "sell" => self.execute_sell(request).await,
+            _ => Ok("COPY_TRADE_INVALID_DIRECTION".to_string()),
+        }
+    }
 
-        Ok(format!("COPY_TRADE_SIGNAL_RECEIVED: {} from {}", token_mint, request.target_wallet))
+    fn resolve_copy_trade_direction(&self, request: &ExecutionRequest) -> Result<String> {
+        let metadata_direction = request
+            .metadata
+            .as_ref()
+            .and_then(|metadata| metadata.get("direction").and_then(|value| value.as_str()))
+            .or_else(|| {
+                request
+                    .metadata
+                    .as_ref()
+                    .and_then(|metadata| metadata.get("action").and_then(|value| value.as_str()))
+            })
+            .or_else(|| {
+                request
+                    .metadata
+                    .as_ref()
+                    .and_then(|metadata| metadata.get("side").and_then(|value| value.as_str()))
+            });
+
+        let candidate = metadata_direction
+            .or_else(|| Some(request.action_hint.as_str()))
+            .ok_or_else(|| anyhow!("COPY_TRADE_DIRECTION_MISSING"))?
+            .trim()
+            .to_lowercase();
+
+        match candidate.as_str() {
+            "buy" | "long" => Ok("buy".to_string()),
+            "sell" | "short" => Ok("sell".to_string()),
+            _ => Err(anyhow!("COPY_TRADE_DIRECTION_UNSUPPORTED: {}", candidate)),
+        }
     }
 
     async fn determine_dex(&self, token_mint: &str) -> Result<String> {
