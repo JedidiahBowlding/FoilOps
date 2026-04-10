@@ -241,6 +241,21 @@ function renderGraphPage(wallet: string) {
         label.textContent = short(node.label)
         svg.appendChild(label)
       })
+
+      if (edges.length === 0) {
+        const hint = mk('text', {
+          x: cx,
+          y: 390,
+          'text-anchor': 'middle',
+          'font-size': 12,
+          fill: '#5f5446',
+        })
+        hint.textContent =
+          nodes.length <= 1
+            ? 'No flow/cluster links found yet for this wallet. Try /flag_wallet or /cluster to enrich data.'
+            : 'Showing inferred cluster links. No recorded fund-flow edges for this wallet yet.'
+        svg.appendChild(hint)
+      }
     }
 
     async function loadGraph() {
@@ -301,6 +316,23 @@ export function registerGraphRoutes(app: Express, deps: GraphRouteDeps) {
       })
 
       const clusterWallets = Array.isArray(cluster?.wallets) ? cluster.wallets : []
+      for (const clusterWallet of clusterWallets) {
+        nodeSet.add(clusterWallet)
+      }
+
+      if (edges.length === 0) {
+        for (const clusterWallet of clusterWallets) {
+          if (clusterWallet === wallet) continue
+          edges.push({
+            from: wallet,
+            to: clusterWallet,
+            label: 'cluster-link',
+            signature: 'cluster-link',
+            hop: 0,
+          })
+        }
+      }
+
       const nodes = Array.from(nodeSet).map((address) => ({
         id: address,
         label: address,
