@@ -423,6 +423,85 @@ impl SignalExecutionEngine {
         })
     }
 
+    pub async fn enable_trading_async(&self) -> String {
+        let mut state = self.state.lock().await;
+        state.config.enabled = true;
+        "TRADING_ENABLED".to_string()
+    }
+
+    pub async fn disable_trading_async(&self) -> String {
+        let mut state = self.state.lock().await;
+        state.config.enabled = false;
+        "TRADING_DISABLED".to_string()
+    }
+
+    pub async fn pause_trading_async(&self) -> String {
+        let mut state = self.state.lock().await;
+        state.config.paused = true;
+        "TRADING_PAUSED".to_string()
+    }
+
+    pub async fn resume_trading_async(&self) -> String {
+        let mut state = self.state.lock().await;
+        state.config.paused = false;
+        "TRADING_RESUMED".to_string()
+    }
+
+    pub async fn set_slippage_async(&self, slippage: f64) -> String {
+        let mut state = self.state.lock().await;
+        state.config.slippage = slippage.max(0.1).min(50.0);
+        format!("SLIPPAGE_SET: {}%", state.config.slippage)
+    }
+
+    pub async fn get_slippage_async(&self) -> f64 {
+        let state = self.state.lock().await;
+        state.config.slippage
+    }
+
+    pub async fn set_target_wallet_async(&self, wallet: Option<String>) -> String {
+        let mut state = self.state.lock().await;
+        state.config.target_wallet = wallet.clone();
+        format!("TARGET_WALLET_SET: {}", wallet.unwrap_or_else(|| "None".to_string()))
+    }
+
+    pub async fn get_target_wallet_async(&self) -> Option<String> {
+        let state = self.state.lock().await;
+        state.config.target_wallet.clone()
+    }
+
+    pub async fn set_mev_service_async(&self, service: String) -> String {
+        let mut state = self.state.lock().await;
+        state.config.mev_service = service.clone();
+        format!("MEV_SERVICE_SET: {}", service)
+    }
+
+    pub async fn get_mev_service_async(&self) -> String {
+        let state = self.state.lock().await;
+        state.config.mev_service.clone()
+    }
+
+    pub async fn get_recent_trades_async(&self) -> serde_json::Value {
+        let state = self.state.lock().await;
+        let recent: Vec<&TradeRecord> = state.recent_trades.iter().rev().take(10).collect();
+        serde_json::json!(recent)
+    }
+
+    pub async fn get_trading_stats_async(&self) -> serde_json::Value {
+        let state = self.state.lock().await;
+        serde_json::json!({
+            "totalPnL": state.total_pnl,
+            "winRate": state.win_rate,
+            "totalTrades": state.total_trades,
+            "winningTrades": state.winning_trades,
+            "activePositions": state.active_positions.len()
+        })
+    }
+
+    pub async fn get_config_async(&self) -> serde_json::Value {
+        let state = self.state.lock().await;
+        serde_json::json!(state.config)
+    }
+
     pub fn get_trading_status(&self) -> Result<serde_json::Value> {
         let state = self.state.blocking_lock();
         Ok(serde_json::json!({

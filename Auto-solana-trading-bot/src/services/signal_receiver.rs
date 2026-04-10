@@ -355,10 +355,7 @@ async fn get_recent_trades(
     State(state): State<Arc<SignalReceiverState>>,
 ) -> Json<Value> {
     if let Some(engine) = &state.execution_engine {
-        match engine.get_recent_trades() {
-            Ok(trades) => Json(trades),
-            Err(e) => Json(serde_json::json!({ "error": format!("Failed to get recent trades: {}", e) }))
-        }
+        Json(engine.get_recent_trades_async().await)
     } else {
         Json(serde_json::json!([]))
     }
@@ -369,10 +366,7 @@ async fn get_trading_stats(
     State(state): State<Arc<SignalReceiverState>>,
 ) -> Json<Value> {
     if let Some(engine) = &state.execution_engine {
-        match engine.get_trading_stats() {
-            Ok(stats) => Json(stats),
-            Err(e) => Json(serde_json::json!({ "error": format!("Failed to get trading stats: {}", e) }))
-        }
+        Json(engine.get_trading_stats_async().await)
     } else {
         Json(serde_json::json!({
             "totalPnL": 0.0,
@@ -389,10 +383,7 @@ async fn get_config(
     State(state): State<Arc<SignalReceiverState>>,
 ) -> Json<Value> {
     if let Some(engine) = &state.execution_engine {
-        match engine.get_config() {
-            Ok(config) => Json(config),
-            Err(e) => Json(serde_json::json!({ "error": format!("Failed to get config: {}", e) }))
-        }
+        Json(engine.get_config_async().await)
     } else {
         Json(serde_json::json!({
             "enabled": false,
@@ -418,10 +409,8 @@ async fn enable_trading(
     State(state): State<Arc<SignalReceiverState>>,
 ) -> (StatusCode, Json<Value>) {
     if let Some(engine) = &state.execution_engine {
-        match engine.enable_trading() {
-            Ok(result) => (StatusCode::OK, Json(serde_json::json!({ "status": "enabled", "message": result }))),
-            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "status": "error", "message": e.to_string() })))
-        }
+        let result = engine.enable_trading_async().await;
+        (StatusCode::OK, Json(serde_json::json!({ "status": "enabled", "message": result })))
     } else {
         (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
     }
@@ -431,10 +420,8 @@ async fn disable_trading(
     State(state): State<Arc<SignalReceiverState>>,
 ) -> (StatusCode, Json<Value>) {
     if let Some(engine) = &state.execution_engine {
-        match engine.disable_trading() {
-            Ok(result) => (StatusCode::OK, Json(serde_json::json!({ "status": "disabled", "message": result }))),
-            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "status": "error", "message": e.to_string() })))
-        }
+        let result = engine.disable_trading_async().await;
+        (StatusCode::OK, Json(serde_json::json!({ "status": "disabled", "message": result })))
     } else {
         (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
     }
@@ -444,10 +431,8 @@ async fn pause_trading(
     State(state): State<Arc<SignalReceiverState>>,
 ) -> (StatusCode, Json<Value>) {
     if let Some(engine) = &state.execution_engine {
-        match engine.pause_trading() {
-            Ok(result) => (StatusCode::OK, Json(serde_json::json!({ "status": "paused", "message": result }))),
-            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "status": "error", "message": e.to_string() })))
-        }
+        let result = engine.pause_trading_async().await;
+        (StatusCode::OK, Json(serde_json::json!({ "status": "paused", "message": result })))
     } else {
         (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
     }
@@ -457,10 +442,8 @@ async fn resume_trading(
     State(state): State<Arc<SignalReceiverState>>,
 ) -> (StatusCode, Json<Value>) {
     if let Some(engine) = &state.execution_engine {
-        match engine.resume_trading() {
-            Ok(result) => (StatusCode::OK, Json(serde_json::json!({ "status": "resumed", "message": result }))),
-            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "status": "error", "message": e.to_string() })))
-        }
+        let result = engine.resume_trading_async().await;
+        (StatusCode::OK, Json(serde_json::json!({ "status": "resumed", "message": result })))
     } else {
         (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
     }
@@ -470,7 +453,7 @@ async fn get_slippage(
     State(state): State<Arc<SignalReceiverState>>,
 ) -> Json<Value> {
     if let Some(engine) = &state.execution_engine {
-        Json(serde_json::json!({ "slippage": engine.get_slippage() }))
+        Json(serde_json::json!({ "slippage": engine.get_slippage_async().await }))
     } else {
         Json(serde_json::json!({ "slippage": 3.0 }))
     }
@@ -482,10 +465,8 @@ async fn set_slippage(
 ) -> (StatusCode, Json<Value>) {
     if let Some(engine) = &state.execution_engine {
         if let Some(slippage) = payload["slippage"].as_f64() {
-            match engine.set_slippage(slippage) {
-                Ok(result) => (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "message": result }))),
-                Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "status": "error", "message": e.to_string() })))
-            }
+            let result = engine.set_slippage_async(slippage).await;
+            (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "message": result })))
         } else {
             (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "status": "error", "message": "Invalid slippage value" })))
         }
@@ -498,7 +479,7 @@ async fn get_target(
     State(state): State<Arc<SignalReceiverState>>,
 ) -> Json<Value> {
     if let Some(engine) = &state.execution_engine {
-        Json(serde_json::json!({ "target_wallet": engine.get_target_wallet() }))
+        Json(serde_json::json!({ "target_wallet": engine.get_target_wallet_async().await }))
     } else {
         Json(serde_json::json!({ "target_wallet": null }))
     }
@@ -510,10 +491,8 @@ async fn set_target(
 ) -> (StatusCode, Json<Value>) {
     if let Some(engine) = &state.execution_engine {
         let target_wallet = payload["target_wallet"].as_str().map(|s| s.to_string());
-        match engine.set_target_wallet(target_wallet) {
-            Ok(result) => (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "message": result }))),
-            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "status": "error", "message": e.to_string() })))
-        }
+        let result = engine.set_target_wallet_async(target_wallet).await;
+        (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "message": result })))
     } else {
         (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
     }
@@ -524,7 +503,7 @@ async fn get_mev_service(
 ) -> Json<Value> {
     if let Some(engine) = &state.execution_engine {
         Json(serde_json::json!({
-            "mev_service": engine.get_mev_service(),
+            "mev_service": engine.get_mev_service_async().await,
             "available_services": ["jito", "nozomi", "zero_slot", "none"]
         }))
     } else {
@@ -541,10 +520,8 @@ async fn set_mev_service(
 ) -> (StatusCode, Json<Value>) {
     if let Some(engine) = &state.execution_engine {
         if let Some(service) = payload["service"].as_str() {
-            match engine.set_mev_service(service.to_string()) {
-                Ok(result) => (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "message": result }))),
-                Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "status": "error", "message": e.to_string() })))
-            }
+            let result = engine.set_mev_service_async(service.to_string()).await;
+            (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "message": result })))
         } else {
             (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "status": "error", "message": "Invalid service value" })))
         }
