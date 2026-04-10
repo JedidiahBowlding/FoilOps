@@ -26,6 +26,7 @@ pub struct TradingConfig {
     pub allowed_dexes: Vec<String>, // ["pump_fun", "raydium"]
     pub denylist: Vec<String>, // blocked token mints
     pub allowlist: Vec<String>, // allowed token mints (if not empty, only these)
+    pub max_risk_score: f64, // signals with riskScore above this are rejected
 }
 
 impl Default for TradingConfig {
@@ -46,6 +47,7 @@ impl Default for TradingConfig {
             allowed_dexes: vec!["pump_fun".to_string(), "raydium".to_string()],
             denylist: vec![],
             allowlist: vec![],
+            max_risk_score: 75.0,
         }
     }
 }
@@ -103,9 +105,11 @@ pub struct SignalExecutionEngine {
 }
 
 impl SignalExecutionEngine {
-    pub fn new(app_state: AppState) -> Self {
+    pub fn new(app_state: AppState, max_risk_score: f64) -> Self {
+        let mut trading_state = TradingState::default();
+        trading_state.config.max_risk_score = max_risk_score;
         Self {
-            state: Arc::new(Mutex::new(TradingState::default())),
+            state: Arc::new(Mutex::new(trading_state)),
             app_state,
         }
     }
@@ -143,8 +147,8 @@ impl SignalExecutionEngine {
 
     fn validate_signal_risk_gates(&self, signal: &TradeSignalV1, state: &TradingState) -> Result<(), String> {
         // Risk score validation
-        if signal.risk_score > 75.0 {
-            return Err("risk_score_too_high".to_string());
+        if signal.risk_score > state.config.max_risk_score {
+            return Err(format!("risk_score_too_high: {} > {}", signal.risk_score, state.config.max_risk_score));
         }
 
         // Token validation - check denylist/allowlist

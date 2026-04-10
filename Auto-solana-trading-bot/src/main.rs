@@ -55,6 +55,10 @@ async fn main() {
         .ok()
         .and_then(|value| value.parse::<u64>().ok())
         .unwrap_or(120);
+    let signal_max_risk_score = env::var("SIGNAL_MAX_RISK_SCORE")
+        .ok()
+        .and_then(|value| value.parse::<f64>().ok())
+        .unwrap_or(75.0);
 
     let signal_receiver_bind_for_task = signal_receiver_bind.clone();
     let signal_auth_secret_for_task = signal_auth_secret.clone();
@@ -66,7 +70,7 @@ async fn main() {
         wallet: import_wallet().expect("Failed to import wallet"),
     };
 
-    let execution_engine = Arc::new(SignalExecutionEngine::new(app_state));
+    let execution_engine = Arc::new(SignalExecutionEngine::new(app_state, signal_max_risk_score));
 
     tokio::spawn(async move {
         if let Err(error) = start_signal_receiver(
