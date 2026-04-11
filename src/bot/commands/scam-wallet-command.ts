@@ -43,9 +43,97 @@ export class ScamWalletCommand {
     this.traceTokenHandler()
     this.clusterHandler()
     this.analyzeHandler()
+    this.graphWalletHandler()
+    this.graphNeighborsHandler()
     this.setAlertHandler()
     this.viewAlertsHandler()
     this.deleteAlertHandler()
+  }
+
+  private graphWalletHandler() {
+    this.bot.onText(/\/graph_wallet(?:\s+([^\s]+))?/, async (msg, match) => {
+      const userId = String(msg.from?.id || '')
+      if (!BotMiddleware.isUserBotAdmin(userId)) return
+
+      const chatId = msg.chat.id
+      const wallet = match?.[1]?.trim()
+
+      if (!wallet) {
+        await this.bot.sendMessage(chatId, 'Usage: <code>/graph_wallet &lt;wallet_address&gt;</code>', {
+          parse_mode: 'HTML',
+          reply_markup: SUB_MENU,
+        })
+        return
+      }
+
+      if (!this.isValidPublicKey(wallet)) {
+        await this.bot.sendMessage(chatId, 'Invalid wallet address.', { reply_markup: SUB_MENU })
+        return
+      }
+
+      const graphData = await this.getGraphData(wallet)
+      const analysis = await this.aiAnalyzer.analyzeWallet(wallet)
+
+      const lines = [
+        '🕸️ <b>Graph Wallet Summary</b>',
+        `Wallet: <code>${wallet}</code>`,
+        `Nodes: <b>${graphData.nodes.length}</b>`,
+        `Edges: <b>${graphData.edges.length}</b>`,
+        `Cluster score: <b>${graphData.cluster?.score ?? 'n/a'}</b>`,
+        `Cluster risk: <b>${graphData.cluster?.riskScore ?? 'n/a'}</b>`,
+        '',
+        '<b>Analysis</b>',
+        ...analysis.split('\n').slice(0, 6),
+      ]
+
+      await this.bot.sendMessage(chatId, lines.join('\n'), {
+        parse_mode: 'HTML',
+        reply_markup: this.graphInlineMenu(wallet),
+      })
+    })
+  }
+
+  private graphNeighborsHandler() {
+    this.bot.onText(/\/graph_neighbors(?:\s+([^\s]+))?/, async (msg, match) => {
+      const userId = String(msg.from?.id || '')
+      if (!BotMiddleware.isUserBotAdmin(userId)) return
+
+      const chatId = msg.chat.id
+      const wallet = match?.[1]?.trim()
+
+      if (!wallet) {
+        await this.bot.sendMessage(chatId, 'Usage: <code>/graph_neighbors &lt;wallet_address&gt;</code>', {
+          parse_mode: 'HTML',
+          reply_markup: SUB_MENU,
+        })
+        return
+      }
+
+      const graphData = await this.getGraphData(wallet)
+      const neighbors = graphData.edges.filter((edge) => edge.from === wallet || edge.to === wallet).slice(0, 12)
+
+      if (neighbors.length === 0) {
+        await this.bot.sendMessage(chatId, 'No graph neighbors found yet for this wallet.', {
+          reply_markup: this.graphInlineMenu(wallet),
+        })
+        return
+      }
+
+      const lines = ['🧭 <b>Graph Neighbors</b>', `Wallet: <code>${wallet}</code>`, '']
+
+      for (const edge of neighbors) {
+        const other = edge.from === wallet ? edge.to : edge.from
+        lines.push(`• <code>${other}</code>`)
+        lines.push(`  ${edge.label} | hop ${edge.hop}`)
+        lines.push(`  <a href="https://solscan.io/tx/${edge.signature}">Tx</a>`)
+      }
+
+      await this.bot.sendMessage(chatId, lines.join('\n'), {
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+        reply_markup: this.graphInlineMenu(wallet),
+      })
+    })
   }
 
   private clusterHandler() {
@@ -735,6 +823,73 @@ export class ScamWalletCommand {
       return true
     } catch {
       return false
+    }
+  }
+
+  private async getGraphData(wallet: string) {
+    const latestFlow = await this.scamWalletRepository.getLatestFlowTrace(wallet)
+    const cluster = await this.walletClusterService.getLatestCluster(wallet)
+
+    const flowMetadata = latestFlow?.metadata as
+      | {
+          steps?: Array<{ from: string; to: string; signature: string; amount: string; asset: string; hop: number }>
+        }
+      | undefined
+
+    const steps = flowMetadata?.steps || []
+    const nodeSet = new Set<string>([wallet])
+    const edges = steps.map((step) => {
+      nodeSet.add(step.from)
+      nodeSet.add(step.to)
+      return {
+        from: step.from,
+        to: step.to,
+        label: `${step.amount} ${step.asset}`,
+        signature: step.signature,
+        hop: step.hop,
+      }
+    })
+
+    const clusterWallets = Array.isArray(cluster?.wallets) ? cluster.wallets : []
+    for (const clusterWallet of clusterWallets) {
+      nodeSet.add(clusterWallet)
+    }
+
+    const nodes = Array.from(nodeSet).map((address) => ({
+      id: address,
+      label: address,
+      inCluster: clusterWallets.includes(address),
+    }))
+
+    return {
+      wallet,
+      nodes,
+      edges,
+      cluster: cluster
+        ? {
+            score: cluster.clusterScore,
+            riskScore: cluster.riskScore,
+            wallets: cluster.wallets,
+          }
+        : null,
+    }
+  }
+
+  private graphInlineMenu(wallet: string) {
+    const appUrl = (process.env.APP_URL || `http://127.0.0.1:${process.env.PORT || 3001}`).replace(/\/$/, '')
+
+    return {
+      inline_keyboard: [
+        [
+          { text: 'Analyze', callback_data: `ga:${wallet}` },
+          { text: 'Neighbors', callback_data: `gn:${wallet}` },
+        ],
+        [
+          { text: 'Trace', callback_data: `gt:${wallet}` },
+          { text: 'Summary', callback_data: `gw:${wallet}` },
+        ],
+        [{ text: 'Open Web Graph', url: `${appUrl}/graph/${wallet}` }],
+      ],
     }
   }
 }

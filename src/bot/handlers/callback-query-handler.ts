@@ -22,6 +22,10 @@ import { GET_50_WALLETS_PROMOTION } from '../../constants/promotions'
 import { PrismaUserRepository } from '../../repositories/prisma/user'
 import { GroupsCommand } from '../commands/groups-command'
 import { HelpCommand } from '../commands/help-command'
+import { BotMiddleware } from '../../config/bot-middleware'
+import { PrismaScamWalletRepository } from '../../repositories/prisma/scam-wallet'
+import { WalletClusterService } from '../../lib/wallet-cluster'
+import { AiAnalyzer } from '../../lib/ai-analyzer'
 
 export class CallbackQueryHandler {
   private addCommand: AddCommand
@@ -37,6 +41,9 @@ export class CallbackQueryHandler {
   private updateBotStatusHandler: UpdateBotStatusHandler
 
   private prismaUserRepository: PrismaUserRepository
+  private scamWalletRepository: PrismaScamWalletRepository
+  private walletClusterService: WalletClusterService
+  private aiAnalyzer: AiAnalyzer
 
   private upgradePlanHandler: UpgradePlanHandler
   private donateHandler: DonateHandler
@@ -57,6 +64,9 @@ export class CallbackQueryHandler {
     this.updateBotStatusHandler = new UpdateBotStatusHandler(this.bot)
 
     this.prismaUserRepository = new PrismaUserRepository()
+    this.scamWalletRepository = new PrismaScamWalletRepository()
+    this.walletClusterService = new WalletClusterService()
+    this.aiAnalyzer = new AiAnalyzer()
 
     this.upgradePlanHandler = new UpgradePlanHandler(this.bot)
     this.donateHandler = new DonateHandler(this.bot)
@@ -83,6 +93,79 @@ export class CallbackQueryHandler {
         console.log(`User wants to donate ${donationAmount} SOL`)
         await this.donateHandler.makeDonation(message, Number(donationAmount))
         return
+      }
+
+      if (data?.startsWith('ga:') || data?.startsWith('gn:') || data?.startsWith('gt:') || data?.startsWith('gw:')) {
+        if (!BotMiddleware.isUserBotAdmin(userId)) return
+
+        const wallet = data.slice(3).trim()
+        if (!wallet) return
+
+        if (data.startsWith('ga:')) {
+          const analysis = await this.aiAnalyzer.analyzeWallet(wallet)
+          await this.bot.sendMessage(chatId, `<pre>${analysis}</pre>`, {
+            parse_mode: 'HTML',
+            reply_markup: SUB_MENU,
+          })
+          return
+        }
+
+        const graphData = await this.getGraphData(wallet)
+
+        if (data.startsWith('gn:')) {
+          const neighbors = graphData.edges.filter((edge) => edge.from === wallet || edge.to === wallet).slice(0, 12)
+          if (neighbors.length === 0) {
+            await this.bot.sendMessage(chatId, 'No graph neighbors found yet for this wallet.', {
+              reply_markup: SUB_MENU,
+            })
+            return
+          }
+
+          const lines = ['🧭 <b>Graph Neighbors</b>', `Wallet: <code>${wallet}</code>`, '']
+          for (const edge of neighbors) {
+            const other = edge.from === wallet ? edge.to : edge.from
+            lines.push(`• <code>${other}</code>`) 
+            lines.push(`  ${edge.label} | hop ${edge.hop}`)
+            lines.push(`  <a href="https://solscan.io/tx/${edge.signature}">Tx</a>`)
+          }
+
+          await this.bot.sendMessage(chatId, lines.join('\n'), {
+            parse_mode: 'HTML',
+            disable_web_page_preview: true,
+            reply_markup: SUB_MENU,
+          })
+          return
+        }
+
+        if (data.startsWith('gt:')) {
+          const lines = ['🗺️ <b>Graph Trace</b>', `Wallet: <code>${wallet}</code>`, '']
+          for (const edge of graphData.edges.slice(0, 20)) {
+            lines.push(`• <code>${edge.from}</code> → <code>${edge.to}</code>`) 
+            lines.push(`  ${edge.label} | hop ${edge.hop}`)
+          }
+          await this.bot.sendMessage(chatId, lines.join('\n'), {
+            parse_mode: 'HTML',
+            reply_markup: SUB_MENU,
+          })
+          return
+        }
+
+        if (data.startsWith('gw:')) {
+          const lines = [
+            '🕸️ <b>Graph Wallet Summary</b>',
+            `Wallet: <code>${wallet}</code>`,
+            `Nodes: <b>${graphData.nodes.length}</b>`,
+            `Edges: <b>${graphData.edges.length}</b>`,
+            `Cluster score: <b>${graphData.cluster?.score ?? 'n/a'}</b>`,
+            `Cluster risk: <b>${graphData.cluster?.riskScore ?? 'n/a'}</b>`,
+          ]
+
+          await this.bot.sendMessage(chatId, lines.join('\n'), {
+            parse_mode: 'HTML',
+            reply_markup: SUB_MENU,
+          })
+          return
+        }
       }
 
       switch (data) {
@@ -270,5 +353,54 @@ export class CallbackQueryHandler {
 
       // this.bot.sendMessage(chatId, responseText);
     })
+  }
+
+  private async getGraphData(wallet: string) {
+    const latestFlow = await this.scamWalletRepository.getLatestFlowTrace(wallet)
+    const cluster = await this.walletClusterService.getLatestCluster(wallet)
+
+    const flowMetadata = latestFlow?.metadata as
+      | {
+          steps?: Array<{ from: string; to: string; signature: string; amount: string; asset: string; hop: number }>
+        }
+      | undefined
+
+    const steps = flowMetadata?.steps || []
+    const nodeSet = new Set<string>([wallet])
+    const edges = steps.map((step) => {
+      nodeSet.add(step.from)
+      nodeSet.add(step.to)
+      return {
+        from: step.from,
+        to: step.to,
+        label: `${step.amount} ${step.asset}`,
+        signature: step.signature,
+        hop: step.hop,
+      }
+    })
+
+    const clusterWallets = Array.isArray(cluster?.wallets) ? cluster.wallets : []
+    for (const clusterWallet of clusterWallets) {
+      nodeSet.add(clusterWallet)
+    }
+
+    const nodes = Array.from(nodeSet).map((address) => ({
+      id: address,
+      label: address,
+      inCluster: clusterWallets.includes(address),
+    }))
+
+    return {
+      wallet,
+      nodes,
+      edges,
+      cluster: cluster
+        ? {
+            score: cluster.clusterScore,
+            riskScore: cluster.riskScore,
+            wallets: cluster.wallets,
+          }
+        : null,
+    }
   }
 }
