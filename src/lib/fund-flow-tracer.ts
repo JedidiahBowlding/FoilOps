@@ -47,6 +47,8 @@ type QueueNode = {
 
 export type FlowTraceOptions = {
   traceAllFirstHopRecipients?: boolean
+  followAllRecipients?: boolean
+  maxVisitedWallets?: number
 }
 
 export class FundFlowTracer {
@@ -81,9 +83,15 @@ export class FundFlowTracer {
     const queue: QueueNode[] = [{ address: walletAddress, hop: 0 }]
     const steps: FlowStep[] = []
     const alerts: string[] = []
+    const maxVisitedWallets = Math.max(10, options.maxVisitedWallets || 300)
 
     while (queue.length > 0) {
       const current = queue.shift()!
+
+      if (visited.size >= maxVisitedWallets) {
+        alerts.push(`Trace truncated at ${maxVisitedWallets} wallets to protect runtime`)
+        break
+      }
 
       if (visited.has(current.address) || current.hop >= maxHops) {
         continue
@@ -285,6 +293,11 @@ export class FundFlowTracer {
   }
 
   private shouldContinueTracing(step: FlowStep, nextHop: number, options: FlowTraceOptions): boolean {
+    // Full-recipient traversal mode: continue through every wallet-like destination.
+    if (options.followAllRecipients) {
+      return this.isLikelyTraceTarget(step.to)
+    }
+
     // Always fan-out through first-hop recipients when explicitly requested.
     if (options.traceAllFirstHopRecipients && nextHop === 1) {
       return this.isLikelyTraceTarget(step.to)

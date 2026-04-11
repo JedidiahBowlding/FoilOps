@@ -254,8 +254,9 @@ export class ScamWalletCommand {
       const reason = providedReason || 'Flagged manually by admin'
       const flagged = await this.scamWalletRepository.manualFlagWallet(providedAddress, reason)
 
-      const trace = await this.fundFlowTracer.traceWalletFlow(providedAddress, 3, 10, {
-        traceAllFirstHopRecipients: true,
+      const trace = await this.fundFlowTracer.traceWalletFlow(providedAddress, 8, 20, {
+        followAllRecipients: true,
+        maxVisitedWallets: 500,
       })
       await this.scamWalletRepository.saveFlowTrace(providedAddress, trace, 'MANUAL_FLAG')
 
