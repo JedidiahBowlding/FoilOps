@@ -124,7 +124,7 @@ export class CallbackQueryHandler {
           const lines = ['🧭 <b>Graph Neighbors</b>', `Wallet: <code>${wallet}</code>`, '']
           for (const edge of neighbors) {
             const other = edge.from === wallet ? edge.to : edge.from
-            lines.push(`• <code>${other}</code>`) 
+            lines.push(`• <code>${other}</code>`)
             lines.push(`  ${edge.label} | hop ${edge.hop}`)
             lines.push(`  <a href="https://solscan.io/tx/${edge.signature}">Tx</a>`)
           }
@@ -140,7 +140,7 @@ export class CallbackQueryHandler {
         if (data.startsWith('gt:')) {
           const lines = ['🗺️ <b>Graph Trace</b>', `Wallet: <code>${wallet}</code>`, '']
           for (const edge of graphData.edges.slice(0, 20)) {
-            lines.push(`• <code>${edge.from}</code> → <code>${edge.to}</code>`) 
+            lines.push(`• <code>${edge.from}</code> → <code>${edge.to}</code>`)
             lines.push(`  ${edge.label} | hop ${edge.hop}`)
           }
           await this.bot.sendMessage(chatId, lines.join('\n'), {

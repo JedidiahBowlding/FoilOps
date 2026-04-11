@@ -118,27 +118,27 @@ export class WalletBehaviorProfiler {
 
     if (txPerMinute >= 4) {
       botScore += 30
-      indicators.push(`high cadence (${txPerMinute.toFixed(2)} tx/min)`) 
+      indicators.push(`high cadence (${txPerMinute.toFixed(2)} tx/min)`)
     }
     if (medianIntervalSeconds > 0 && medianIntervalSeconds <= 20) {
       botScore += 20
-      indicators.push(`low median interval (${medianIntervalSeconds.toFixed(1)}s)`) 
+      indicators.push(`low median interval (${medianIntervalSeconds.toFixed(1)}s)`)
     }
     if (outgoingTransfers >= 15 && destinations.size >= 8) {
       botScore += 22
-      indicators.push(`fan-out transfers (${outgoingTransfers} / ${destinations.size} destinations)`) 
+      indicators.push(`fan-out transfers (${outgoingTransfers} / ${destinations.size} destinations)`)
     }
     if (tinyTransferRatio >= 0.6 && outgoingTransfers >= 10) {
       botScore += 18
-      indicators.push(`micro-transfer ratio ${(tinyTransferRatio * 100).toFixed(1)}%`) 
+      indicators.push(`micro-transfer ratio ${(tinyTransferRatio * 100).toFixed(1)}%`)
     }
 
     if (mintLikeLogCount >= 8) {
       devScore += 55
-      indicators.push(`frequent mint/create logs (${mintLikeLogCount})`) 
+      indicators.push(`frequent mint/create logs (${mintLikeLogCount})`)
     } else if (mintLikeLogCount >= 3) {
       devScore += 35
-      indicators.push(`moderate mint/create logs (${mintLikeLogCount})`) 
+      indicators.push(`moderate mint/create logs (${mintLikeLogCount})`)
     }
 
     if (destinations.size <= 3 && mintLikeLogCount >= 3) {
