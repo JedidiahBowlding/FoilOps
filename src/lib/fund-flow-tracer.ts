@@ -45,6 +45,10 @@ type QueueNode = {
   hop: number
 }
 
+export type FlowTraceOptions = {
+  traceAllFirstHopRecipients?: boolean
+}
+
 export class FundFlowTracer {
   private anomalyDetector: AnomalyDetector
   private chainRegistry: ChainRegistry
@@ -67,7 +71,12 @@ export class FundFlowTracer {
     }
   }
 
-  async traceWalletFlow(walletAddress: string, maxHops = 3, signaturesPerHop = 12): Promise<FlowTraceResult> {
+  async traceWalletFlow(
+    walletAddress: string,
+    maxHops = 3,
+    signaturesPerHop = 12,
+    options: FlowTraceOptions = {},
+  ): Promise<FlowTraceResult> {
     const visited = new Set<string>()
     const queue: QueueNode[] = [{ address: walletAddress, hop: 0 }]
     const steps: FlowStep[] = []
@@ -105,7 +114,7 @@ export class FundFlowTracer {
             )
           }
 
-          if (!visited.has(step.to) && this.shouldContinueTracing(step)) {
+          if (!visited.has(step.to) && this.shouldContinueTracing(step, current.hop + 1, options)) {
             queue.push({ address: step.to, hop: current.hop + 1 })
           }
         }
@@ -275,8 +284,25 @@ export class FundFlowTracer {
     }
   }
 
-  private shouldContinueTracing(step: FlowStep): boolean {
+  private shouldContinueTracing(step: FlowStep, nextHop: number, options: FlowTraceOptions): boolean {
+    // Always fan-out through first-hop recipients when explicitly requested.
+    if (options.traceAllFirstHopRecipients && nextHop === 1) {
+      return this.isLikelyTraceTarget(step.to)
+    }
+
     // Continue only through wallet-like unknown/scam paths to avoid noisy program accounts.
-    return step.categories.includes('UNKNOWN') || step.categories.includes('SCAM')
+    if (!(step.categories.includes('UNKNOWN') || step.categories.includes('SCAM'))) {
+      return false
+    }
+
+    return this.isLikelyTraceTarget(step.to)
+  }
+
+  private isLikelyTraceTarget(address: string): boolean {
+    if (!address) return false
+    if (KNOWN_PLATFORM_PROGRAMS[address]) return false
+
+    const base58Regex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/
+    return base58Regex.test(address)
   }
 }

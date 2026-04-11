@@ -183,7 +183,9 @@ export class ScamWalletMonitor {
       return
     }
 
-    const trace = await this.fundFlowTracer.traceWalletFlow(walletAddress, 3, 10)
+    const trace = await this.fundFlowTracer.traceWalletFlow(walletAddress, 3, 10, {
+      traceAllFirstHopRecipients: true,
+    })
     await this.scamWalletRepository.saveFlowTrace(walletAddress, trace, 'SUSPICIOUS_LAUNCH')
 
     const cluster = await this.walletClusterService.buildCluster(walletAddress)
