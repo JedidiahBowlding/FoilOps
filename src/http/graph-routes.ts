@@ -144,11 +144,77 @@ function renderGraphPage(wallet: string) {
       padding: 8px 10px;
       cursor: pointer;
       font-family: Menlo, Monaco, Consolas, monospace;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      line-height: 1.4;
+      max-width: 100%;
     }
 
     .wallet-chip:hover {
       border-color: var(--accent);
       box-shadow: 0 0 0 2px rgba(0, 122, 110, 0.12);
+    }
+
+    .wallet-popup {
+      position: fixed;
+      right: 14px;
+      bottom: 14px;
+      width: min(420px, calc(100vw - 28px));
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.16);
+      padding: 12px;
+      z-index: 20;
+      display: none;
+    }
+
+    .wallet-popup.active {
+      display: block;
+    }
+
+    .wallet-popup-title {
+      font-weight: 700;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .wallet-popup-value {
+      font-family: Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+      background: #fbf7f0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      margin-bottom: 10px;
+    }
+
+    .wallet-popup-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .wallet-popup-actions button,
+    .wallet-popup-actions a {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      padding: 7px 10px;
+      font-size: 12px;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .wallet-popup-actions button.primary {
+      border: 0;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 700;
     }
 
     .dot {
@@ -189,6 +255,16 @@ function renderGraphPage(wallet: string) {
       </div>
       <div id="wallet-list" class="wallet-list"></div>
     </div>
+
+    <div id="wallet-popup" class="wallet-popup" role="dialog" aria-modal="false" aria-label="Wallet details">
+      <div class="wallet-popup-title">Wallet Address</div>
+      <div id="wallet-popup-value" class="wallet-popup-value"></div>
+      <div class="wallet-popup-actions">
+        <button id="wallet-popup-copy" class="primary" type="button">Copy Address</button>
+        <a id="wallet-popup-solscan" href="#" target="_blank" rel="noopener noreferrer">Open in Solscan</a>
+        <button id="wallet-popup-close" type="button">Close</button>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -197,6 +273,12 @@ function renderGraphPage(wallet: string) {
     const walletInput = document.getElementById('wallet')
     const button = document.getElementById('load')
     const walletList = document.getElementById('wallet-list')
+    const walletPopup = document.getElementById('wallet-popup')
+    const walletPopupValue = document.getElementById('wallet-popup-value')
+    const walletPopupCopy = document.getElementById('wallet-popup-copy')
+    const walletPopupClose = document.getElementById('wallet-popup-close')
+    const walletPopupSolscan = document.getElementById('wallet-popup-solscan')
+    let selectedWalletAddress = ''
 
     function short(value) {
       if (!value || value.length < 10) return value
@@ -225,6 +307,18 @@ function renderGraphPage(wallet: string) {
       }
     }
 
+    function openWalletPopup(address) {
+      selectedWalletAddress = address
+      walletPopupValue.textContent = address
+      walletPopupSolscan.href = 'https://solscan.io/account/' + encodeURIComponent(address)
+      walletPopup.classList.add('active')
+    }
+
+    function closeWalletPopup() {
+      walletPopup.classList.remove('active')
+      selectedWalletAddress = ''
+    }
+
     function renderWalletList(data) {
       walletList.innerHTML = ''
 
@@ -238,9 +332,9 @@ function renderGraphPage(wallet: string) {
         const chip = document.createElement('button')
         chip.className = 'wallet-chip'
         chip.type = 'button'
-        chip.title = 'Click to copy full wallet address'
+        chip.title = 'Click to view/copy full wallet address'
         chip.textContent = (node.id === data.wallet ? '[PRIMARY] ' : '') + node.label
-        chip.addEventListener('click', () => copyWalletAddress(node.label))
+        chip.addEventListener('click', () => openWalletPopup(node.label))
         walletList.appendChild(chip)
       })
     }
@@ -295,6 +389,16 @@ function renderGraphPage(wallet: string) {
           fill,
         }))
 
+        const circle = mk('circle', {
+          cx: point.x,
+          cy: point.y,
+          r: isPrimary ? 15 : 12,
+          fill: 'transparent',
+          style: 'cursor:pointer;',
+        })
+        circle.addEventListener('click', () => openWalletPopup(node.label))
+        svg.appendChild(circle)
+
         const label = mk('text', {
           x: point.x,
           y: point.y - 14,
@@ -304,8 +408,8 @@ function renderGraphPage(wallet: string) {
           style: 'cursor:pointer; user-select:none;',
         })
         label.textContent = short(node.label)
-        label.setAttribute('title', 'Click to copy wallet address')
-        label.addEventListener('click', () => copyWalletAddress(node.label))
+        label.setAttribute('title', 'Click to view/copy wallet address')
+        label.addEventListener('click', () => openWalletPopup(node.label))
         svg.appendChild(label)
       })
 
@@ -353,6 +457,12 @@ function renderGraphPage(wallet: string) {
     }
 
     button.addEventListener('click', loadGraph)
+    walletPopupCopy.addEventListener('click', () => {
+      if (selectedWalletAddress) {
+        copyWalletAddress(selectedWalletAddress)
+      }
+    })
+    walletPopupClose.addEventListener('click', closeWalletPopup)
     walletInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') loadGraph()
     })
