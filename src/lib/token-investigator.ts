@@ -17,7 +17,12 @@ import { PumpDetail } from '../types/gmgn-ai-types'
 import { ChainRegistry } from './chains'
 import { SupportedChain } from './chains/types'
 
-export type DeveloperResolutionSource = 'mintAuthority' | 'freezeAuthority' | 'firstSigner'
+export type DeveloperResolutionSource =
+  | 'enrichmentCreator'
+  | 'mintAuthority'
+  | 'freezeAuthority'
+  | 'txAuthority'
+  | 'firstSigner'
 
 export type TokenEnrichmentData = {
   name?: string
@@ -44,6 +49,7 @@ export type TokenEnrichmentData = {
   isHoneypot?: boolean | null
   renounced?: boolean | null
   launchpad?: string
+  creatorAddress?: string
 }
 
 export type TokenInvestigationResult = {
@@ -92,14 +98,15 @@ export class TokenInvestigator {
   }
 
   async investigateToken(tokenMint: string): Promise<TokenInvestigationResult | null> {
-    const developer = await this.resolveDeveloperWallet(tokenMint)
+    const enrichment = await this.withTimeout(this.fetchTokenEnrichment(tokenMint), 12_000, {} as TokenEnrichmentData)
+
+    const developer = await this.resolveDeveloperWallet(tokenMint, enrichment)
     if (!developer) {
       return null
     }
 
-    const [relatedTokens, enrichment, devTrace, initialFundingSource] = await Promise.all([
+    const [relatedTokens, devTrace, initialFundingSource] = await Promise.all([
       this.withTimeout(this.getDeveloperTokenHistory(developer.wallet, tokenMint), 15_000, [tokenMint]),
-      this.withTimeout(this.fetchTokenEnrichment(tokenMint), 12_000, {} as TokenEnrichmentData),
       this.withTimeout(
         this.fundFlowTracer.traceWalletFlow(developer.wallet, 4, 12, {
           followAllRecipients: false,
@@ -188,6 +195,7 @@ export class TokenInvestigator {
       isHoneypot: gmgnData?.is_honeypot,
       renounced: gmgnData?.renounced,
       launchpad: gmgnData?.launchpad || (pumpData ? 'Pump.fun' : undefined),
+      creatorAddress: gmgnData?.creator_address || pumpData?.creator || undefined,
     }
   }
 
@@ -222,17 +230,23 @@ export class TokenInvestigator {
 
   private async resolveDeveloperWallet(
     tokenMint: string,
+    enrichment?: TokenEnrichmentData,
   ): Promise<{ wallet: string; source: DeveloperResolutionSource } | null> {
+    const enrichmentCreator = enrichment?.creatorAddress
+    if (enrichmentCreator && this.isLikelyUserWallet(enrichmentCreator)) {
+      return { wallet: enrichmentCreator, source: 'enrichmentCreator' }
+    }
+
     const mintAuthority = await this.withTimeout(
       this.getMintAuthority(tokenMint),
       TokenInvestigator.RPC_CALL_TIMEOUT_MS,
       null,
     )
-    if (mintAuthority?.mintAuthority) {
+    if (mintAuthority?.mintAuthority && this.isLikelyUserWallet(mintAuthority.mintAuthority)) {
       return { wallet: mintAuthority.mintAuthority, source: 'mintAuthority' }
     }
 
-    if (mintAuthority?.freezeAuthority) {
+    if (mintAuthority?.freezeAuthority && this.isLikelyUserWallet(mintAuthority.freezeAuthority)) {
       return { wallet: mintAuthority.freezeAuthority, source: 'freezeAuthority' }
     }
 
@@ -246,8 +260,13 @@ export class TokenInvestigator {
       return null
     }
 
+    const txAuthority = this.extractLikelyCreatorFromTx(tx, tokenMint)
+    if (txAuthority) {
+      return { wallet: txAuthority, source: 'txAuthority' }
+    }
+
     const firstSigner = tx.transaction.message.accountKeys[0]?.pubkey.toString()
-    if (!firstSigner) {
+    if (!firstSigner || !this.isLikelyUserWallet(firstSigner)) {
       return null
     }
 
@@ -279,11 +298,7 @@ export class TokenInvestigator {
     return oldestSignatures[0]?.signature
   }
 
-  private async getOldestSignatures(
-    address: string,
-    count: number,
-    maxPages = 6,
-  ): Promise<ConfirmedSignatureInfo[]> {
+  private async getOldestSignatures(address: string, count: number, maxPages = 6): Promise<ConfirmedSignatureInfo[]> {
     try {
       let before: string | undefined = undefined
       let lastBatch: ConfirmedSignatureInfo[] = []
@@ -544,6 +559,64 @@ export class TokenInvestigator {
   private findTokenMintByAccount(balances: TokenBalance[], accountAddress: string): string | undefined {
     const match = balances.find((balance) => balance.owner === accountAddress)
     return match?.mint
+  }
+
+  private extractLikelyCreatorFromTx(transaction: ParsedTransactionWithMeta, tokenMint: string): string | null {
+    const candidates = new Set<string>()
+
+    const signerCandidates = transaction.transaction.message.accountKeys
+      .filter((account) => account.signer)
+      .map((account) => account.pubkey.toBase58())
+    signerCandidates.forEach((candidate) => candidates.add(candidate))
+
+    const instructions = [
+      ...(transaction.transaction.message.instructions || []),
+      ...((transaction.meta?.innerInstructions || []).flatMap((inner) => inner.instructions) as (
+        | ParsedInstruction
+        | PartiallyDecodedInstruction
+      )[]),
+    ]
+
+    for (const instruction of instructions) {
+      if (!('parsed' in instruction)) continue
+
+      const parsedInstruction = instruction as ParsedInstruction
+      const info = (parsedInstruction.parsed as { info?: Record<string, unknown> })?.info
+      if (!info || typeof info !== 'object') continue
+
+      const likelyFields = ['authority', 'owner', 'wallet', 'user', 'payer', 'source', 'mintAuthority', 'freezeAuthority']
+      for (const field of likelyFields) {
+        const value = info[field]
+        if (typeof value === 'string') {
+          candidates.add(value)
+        }
+      }
+    }
+
+    for (const candidate of candidates) {
+      if (candidate === tokenMint) continue
+      if (this.isLikelyUserWallet(candidate)) {
+        return candidate
+      }
+    }
+
+    return null
+  }
+
+  private isLikelyUserWallet(address: string): boolean {
+    if (!this.isValidPublicKey(address)) return false
+    if (KNOWN_PLATFORM_WALLETS[address]) return false
+    if (KNOWN_PLATFORM_PROGRAMS[address]) return false
+    return true
+  }
+
+  private isValidPublicKey(address: string): boolean {
+    try {
+      new PublicKey(address)
+      return true
+    } catch {
+      return false
+    }
   }
 
   private emptyTrace(wallet: string, maxHops: number): FlowTraceResult {
