@@ -536,27 +536,33 @@ export class ScamWalletCommand {
       const chatId = msg.chat.id
       const tokenMint = match?.[1]?.trim()
 
-      if (!tokenMint) {
-        await this.bot.sendMessage(chatId, 'Usage: <code>/trace_token &lt;token_contract_address&gt;</code>', {
+      try {
+        if (!tokenMint) {
+          await this.bot.sendMessage(chatId, 'Usage: <code>/trace_token &lt;token_contract_address&gt;</code>', {
+            parse_mode: 'HTML',
+            reply_markup: SUB_MENU,
+          })
+          return
+        }
+
+        if (!this.isValidPublicKey(tokenMint)) {
+          await this.bot.sendMessage(chatId, 'Invalid token contract address.', { reply_markup: SUB_MENU })
+          return
+        }
+
+        await this.bot.sendMessage(chatId, `🔎 Investigating token <code>${tokenMint}</code> ...`, {
           parse_mode: 'HTML',
           reply_markup: SUB_MENU,
         })
-        return
-      }
 
-      if (!this.isValidPublicKey(tokenMint)) {
-        await this.bot.sendMessage(chatId, 'Invalid token contract address.', { reply_markup: SUB_MENU })
-        return
-      }
+        const investigation = await this.tokenInvestigator.investigateToken(tokenMint)
 
-      const investigation = await this.tokenInvestigator.investigateToken(tokenMint)
-
-      if (!investigation) {
-        await this.bot.sendMessage(chatId, 'Unable to resolve the developer wallet for that token.', {
-          reply_markup: SUB_MENU,
-        })
-        return
-      }
+        if (!investigation) {
+          await this.bot.sendMessage(chatId, 'Unable to resolve the developer wallet for that token.', {
+            reply_markup: SUB_MENU,
+          })
+          return
+        }
 
       await this.scamWalletRepository.manualFlagWallet(
         investigation.developerWallet,
@@ -796,13 +802,19 @@ export class ScamWalletCommand {
         disable_web_page_preview: true,
       })
 
-      // ── Message 7: Alerts ─────────────────────────────────────────────────
-      if (investigation.alerts.length > 0) {
-        await this.bot.sendMessage(
-          chatId,
-          ['🚨 <b>Investigation Alerts</b>', '', ...investigation.alerts.slice(0, 10).map((a) => `• ${a}`)].join('\n'),
-          { parse_mode: 'HTML', reply_markup: SUB_MENU },
-        )
+        // ── Message 7: Alerts ─────────────────────────────────────────────────
+        if (investigation.alerts.length > 0) {
+          await this.bot.sendMessage(
+            chatId,
+            ['🚨 <b>Investigation Alerts</b>', '', ...investigation.alerts.slice(0, 10).map((a) => `• ${a}`)].join('\n'),
+            { parse_mode: 'HTML', reply_markup: SUB_MENU },
+          )
+        }
+      } catch (error) {
+        console.error('TRACE_TOKEN_COMMAND_ERROR', error)
+        await this.bot.sendMessage(chatId, 'Token investigation failed. Please try again in a moment.', {
+          reply_markup: SUB_MENU,
+        })
       }
     })
   }
