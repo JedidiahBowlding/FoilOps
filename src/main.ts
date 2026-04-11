@@ -23,6 +23,7 @@ import { TokenInvestigator } from './lib/token-investigator'
 import { PrismaScamWalletRepository } from './repositories/prisma/scam-wallet'
 import { WalletClusterService } from './lib/wallet-cluster'
 import { registerGraphRoutes } from './http/graph-routes'
+import { AiAnalyzer } from './lib/ai-analyzer'
 
 dotenv.config()
 
@@ -48,6 +49,7 @@ class Main {
   private tokenInvestigator: TokenInvestigator
   private scamWalletRepository: PrismaScamWalletRepository
   private walletClusterService: WalletClusterService
+  private aiAnalyzer: AiAnalyzer
   constructor(private app: Express = express()) {
     this.setupMiddleware()
 
@@ -70,6 +72,7 @@ class Main {
     this.tokenInvestigator = new TokenInvestigator()
     this.scamWalletRepository = new PrismaScamWalletRepository()
     this.walletClusterService = new WalletClusterService()
+    this.aiAnalyzer = new AiAnalyzer()
 
     // register routes after route dependencies are initialized
     this.setupRoutes()
@@ -161,6 +164,7 @@ class Main {
     registerGraphRoutes(this.app, {
       scamWalletRepository: this.scamWalletRepository,
       walletClusterService: this.walletClusterService,
+      aiAnalyzer: this.aiAnalyzer,
     })
   }
 

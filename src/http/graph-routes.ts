@@ -24,6 +24,9 @@ type WalletClusterServiceLike = {
 export type GraphRouteDeps = {
   scamWalletRepository: ScamWalletRepositoryLike
   walletClusterService: WalletClusterServiceLike
+  aiAnalyzer?: {
+    analyzeWallet(wallet: string): Promise<string>
+  }
 }
 
 function extractFlowSteps(flowMetadata: unknown): FlowStep[] {
@@ -108,6 +111,20 @@ function renderGraphPage(wallet: string) {
       color: var(--muted);
       font-size: 13px;
       margin-top: 8px;
+    }
+
+    .analysis-panel {
+      margin-top: 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      padding: 10px;
+      font-family: Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      max-height: 180px;
+      overflow-y: auto;
     }
 
     svg {
@@ -198,6 +215,20 @@ function renderGraphPage(wallet: string) {
       flex-wrap: wrap;
     }
 
+    .wallet-popup-analysis {
+      margin-top: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbf7f0;
+      padding: 8px;
+      font-family: Menlo, Monaco, Consolas, monospace;
+      font-size: 11px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      max-height: 160px;
+      overflow-y: auto;
+    }
+
     .wallet-popup-actions button,
     .wallet-popup-actions a {
       border: 1px solid var(--line);
@@ -244,6 +275,7 @@ function renderGraphPage(wallet: string) {
         <button id="load">Load Graph</button>
       </div>
       <div id="meta" class="meta">Loading...</div>
+      <div id="analysis-summary" class="analysis-panel">Analysis loading...</div>
     </div>
 
     <div class="panel">
@@ -261,9 +293,11 @@ function renderGraphPage(wallet: string) {
       <div id="wallet-popup-value" class="wallet-popup-value"></div>
       <div class="wallet-popup-actions">
         <button id="wallet-popup-copy" class="primary" type="button">Copy Address</button>
+        <button id="wallet-popup-analyze" type="button">Analyze Wallet</button>
         <a id="wallet-popup-solscan" href="#" target="_blank" rel="noopener noreferrer">Open in Solscan</a>
         <button id="wallet-popup-close" type="button">Close</button>
       </div>
+      <div id="wallet-popup-analysis" class="wallet-popup-analysis">Analysis not loaded.</div>
     </div>
   </div>
 
@@ -273,11 +307,14 @@ function renderGraphPage(wallet: string) {
     const walletInput = document.getElementById('wallet')
     const button = document.getElementById('load')
     const walletList = document.getElementById('wallet-list')
+    const analysisSummary = document.getElementById('analysis-summary')
     const walletPopup = document.getElementById('wallet-popup')
     const walletPopupValue = document.getElementById('wallet-popup-value')
     const walletPopupCopy = document.getElementById('wallet-popup-copy')
+    const walletPopupAnalyze = document.getElementById('wallet-popup-analyze')
     const walletPopupClose = document.getElementById('wallet-popup-close')
     const walletPopupSolscan = document.getElementById('wallet-popup-solscan')
+    const walletPopupAnalysis = document.getElementById('wallet-popup-analysis')
     let selectedWalletAddress = ''
 
     function short(value) {
@@ -311,12 +348,29 @@ function renderGraphPage(wallet: string) {
       selectedWalletAddress = address
       walletPopupValue.textContent = address
       walletPopupSolscan.href = 'https://solscan.io/account/' + encodeURIComponent(address)
+      walletPopupAnalysis.textContent = 'Analysis loading...'
       walletPopup.classList.add('active')
+      loadWalletAnalysis(address, walletPopupAnalysis)
     }
 
     function closeWalletPopup() {
       walletPopup.classList.remove('active')
       selectedWalletAddress = ''
+    }
+
+    async function loadWalletAnalysis(address, targetElement) {
+      try {
+        const response = await fetch('/api/graph/analyze/' + encodeURIComponent(address))
+        if (!response.ok) {
+          targetElement.textContent = 'Analysis unavailable for this wallet right now.'
+          return
+        }
+
+        const payload = await response.json()
+        targetElement.textContent = payload.analysis || 'No analysis returned.'
+      } catch {
+        targetElement.textContent = 'Analysis request failed.'
+      }
     }
 
     function renderWalletList(data) {
@@ -453,6 +507,8 @@ function renderGraphPage(wallet: string) {
       meta.textContent = 'Nodes: ' + data.nodes.length + ' | Edges: ' + data.edges.length + ' | ' + clusterSummary
       draw(data)
       renderWalletList(data)
+      analysisSummary.textContent = 'Analysis loading...'
+      loadWalletAnalysis(wallet, analysisSummary)
       history.replaceState({}, '', '/graph/' + encodeURIComponent(wallet))
     }
 
@@ -460,6 +516,12 @@ function renderGraphPage(wallet: string) {
     walletPopupCopy.addEventListener('click', () => {
       if (selectedWalletAddress) {
         copyWalletAddress(selectedWalletAddress)
+      }
+    })
+    walletPopupAnalyze.addEventListener('click', () => {
+      if (selectedWalletAddress) {
+        walletPopupAnalysis.textContent = 'Analysis loading...'
+        loadWalletAnalysis(selectedWalletAddress, walletPopupAnalysis)
       }
     })
     walletPopupClose.addEventListener('click', closeWalletPopup)
@@ -532,6 +594,25 @@ export function registerGraphRoutes(app: Express, deps: GraphRouteDeps) {
     } catch (error) {
       console.error('Graph API error', error)
       res.status(500).json({ message: 'Failed to build graph data' })
+    }
+  })
+
+  app.get('/api/graph/analyze/:wallet', async (req: Request, res: Response) => {
+    try {
+      const wallet = req.params.wallet
+      if (!deps.aiAnalyzer) {
+        res.status(200).json({
+          wallet,
+          analysis: 'Analyzer is not configured for graph mode.',
+        })
+        return
+      }
+
+      const analysis = await deps.aiAnalyzer.analyzeWallet(wallet)
+      res.status(200).json({ wallet, analysis })
+    } catch (error) {
+      console.error('Graph analyze API error', error)
+      res.status(500).json({ message: 'Failed to analyze wallet for graph view' })
     }
   })
 
