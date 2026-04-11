@@ -72,6 +72,7 @@ export type WalletFundingSource = {
 export class TokenInvestigator {
   private fundFlowTracer: FundFlowTracer
   private chainRegistry: ChainRegistry
+  private static readonly RPC_CALL_TIMEOUT_MS = 8_000
 
   constructor() {
     this.fundFlowTracer = new FundFlowTracer()
@@ -97,16 +98,30 @@ export class TokenInvestigator {
     }
 
     const [relatedTokens, enrichment, devTrace, initialFundingSource] = await Promise.all([
-      this.getDeveloperTokenHistory(developer.wallet, tokenMint),
-      this.fetchTokenEnrichment(tokenMint),
-      this.fundFlowTracer.traceWalletFlow(developer.wallet, 5, 25),
-      this.findInitialFundingSource(developer.wallet),
+      this.withTimeout(this.getDeveloperTokenHistory(developer.wallet, tokenMint), 15_000, [tokenMint]),
+      this.withTimeout(this.fetchTokenEnrichment(tokenMint), 12_000, {} as TokenEnrichmentData),
+      this.withTimeout(
+        this.fundFlowTracer.traceWalletFlow(developer.wallet, 4, 12, {
+          followAllRecipients: false,
+          maxVisitedWallets: 120,
+        }),
+        30_000,
+        this.emptyTrace(developer.wallet, 4),
+      ),
+      this.withTimeout(this.findInitialFundingSource(developer.wallet), 12_000, null),
     ])
 
     let poolTrace: FlowTraceResult | null = null
     const poolAddress = enrichment.raydiumPool || enrichment.bondingCurve
     if (poolAddress && poolAddress !== developer.wallet) {
-      poolTrace = await this.fundFlowTracer.traceWalletFlow(poolAddress, 3, 20)
+      poolTrace = await this.withTimeout(
+        this.fundFlowTracer.traceWalletFlow(poolAddress, 3, 10, {
+          followAllRecipients: false,
+          maxVisitedWallets: 80,
+        }),
+        20_000,
+        null,
+      )
     }
 
     const alerts = [...devTrace.alerts, ...(poolTrace?.alerts || [])]
@@ -208,7 +223,11 @@ export class TokenInvestigator {
   private async resolveDeveloperWallet(
     tokenMint: string,
   ): Promise<{ wallet: string; source: DeveloperResolutionSource } | null> {
-    const mintAuthority = await this.getMintAuthority(tokenMint)
+    const mintAuthority = await this.withTimeout(
+      this.getMintAuthority(tokenMint),
+      TokenInvestigator.RPC_CALL_TIMEOUT_MS,
+      null,
+    )
     if (mintAuthority?.mintAuthority) {
       return { wallet: mintAuthority.mintAuthority, source: 'mintAuthority' }
     }
@@ -217,12 +236,12 @@ export class TokenInvestigator {
       return { wallet: mintAuthority.freezeAuthority, source: 'freezeAuthority' }
     }
 
-    const oldestSignature = await this.getOldestSignature(tokenMint)
+    const oldestSignature = await this.withTimeout(this.getOldestSignature(tokenMint), 12_000, undefined)
     if (!oldestSignature) {
       return null
     }
 
-    const tx = await this.getParsedTransaction(oldestSignature)
+    const tx = await this.withTimeout(this.getParsedTransaction(oldestSignature), 10_000, null)
     if (!tx) {
       return null
     }
@@ -260,16 +279,25 @@ export class TokenInvestigator {
     return oldestSignatures[0]?.signature
   }
 
-  private async getOldestSignatures(address: string, count: number): Promise<ConfirmedSignatureInfo[]> {
+  private async getOldestSignatures(
+    address: string,
+    count: number,
+    maxPages = 6,
+  ): Promise<ConfirmedSignatureInfo[]> {
     try {
       let before: string | undefined = undefined
       let lastBatch: ConfirmedSignatureInfo[] = []
+      let pageCount = 0
 
-      while (true) {
-        const batch = await RpcConnectionManager.getRandomConnection().getSignaturesForAddress(new PublicKey(address), {
-          before,
-          limit: 1000,
-        })
+      while (pageCount < maxPages) {
+        const batch: ConfirmedSignatureInfo[] = await this.withTimeout<ConfirmedSignatureInfo[]>(
+          RpcConnectionManager.getRandomConnection().getSignaturesForAddress(new PublicKey(address), {
+            before,
+            limit: 500,
+          }),
+          TokenInvestigator.RPC_CALL_TIMEOUT_MS,
+          [],
+        )
 
         if (batch.length === 0) {
           break
@@ -277,8 +305,9 @@ export class TokenInvestigator {
 
         lastBatch = batch
         before = batch[batch.length - 1]?.signature
+        pageCount += 1
 
-        if (batch.length < 1000) {
+        if (batch.length < 500) {
           break
         }
       }
@@ -291,10 +320,10 @@ export class TokenInvestigator {
   }
 
   private async findInitialFundingSource(walletAddress: string): Promise<WalletFundingSource | null> {
-    const oldestSignatures = await this.getOldestSignatures(walletAddress, 15)
+    const oldestSignatures = await this.getOldestSignatures(walletAddress, 12, 4)
 
     for (const signatureInfo of oldestSignatures) {
-      const transaction = await this.getParsedTransaction(signatureInfo.signature)
+      const transaction = await this.withTimeout(this.getParsedTransaction(signatureInfo.signature), 6_000, null)
       if (!transaction) {
         continue
       }
@@ -515,5 +544,30 @@ export class TokenInvestigator {
   private findTokenMintByAccount(balances: TokenBalance[], accountAddress: string): string | undefined {
     const match = balances.find((balance) => balance.owner === accountAddress)
     return match?.mint
+  }
+
+  private emptyTrace(wallet: string, maxHops: number): FlowTraceResult {
+    return {
+      wallet,
+      tracedAt: new Date().toISOString(),
+      maxHops,
+      steps: [],
+      alerts: ['Flow trace fallback used due to timeout'],
+    }
+  }
+
+  private async withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    try {
+      return await Promise.race([
+        promise,
+        new Promise<T>((resolve) => {
+          timer = setTimeout(() => resolve(fallback), timeoutMs)
+          timer.unref?.()
+        }),
+      ])
+    } finally {
+      if (timer) clearTimeout(timer)
+    }
   }
 }
