@@ -127,6 +127,30 @@ function renderGraphPage(wallet: string) {
       margin-top: 8px;
     }
 
+    .wallet-list {
+      margin-top: 12px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 8px;
+    }
+
+    .wallet-chip {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      text-align: left;
+      font-size: 12px;
+      padding: 8px 10px;
+      cursor: pointer;
+      font-family: Menlo, Monaco, Consolas, monospace;
+    }
+
+    .wallet-chip:hover {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(0, 122, 110, 0.12);
+    }
+
     .dot {
       width: 10px;
       height: 10px;
@@ -163,6 +187,7 @@ function renderGraphPage(wallet: string) {
         <span><span class="dot" style="background:#b14a2c"></span>Primary Wallet</span>
         <span><span class="dot" style="background:#7a6f63"></span>Related Wallet</span>
       </div>
+      <div id="wallet-list" class="wallet-list"></div>
     </div>
   </div>
 
@@ -171,6 +196,7 @@ function renderGraphPage(wallet: string) {
     const meta = document.getElementById('meta')
     const walletInput = document.getElementById('wallet')
     const button = document.getElementById('load')
+    const walletList = document.getElementById('wallet-list')
 
     function short(value) {
       if (!value || value.length < 10) return value
@@ -179,6 +205,44 @@ function renderGraphPage(wallet: string) {
 
     function clearSvg() {
       while (svg.firstChild) svg.removeChild(svg.firstChild)
+    }
+
+    async function copyWalletAddress(address) {
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(address)
+        } else {
+          const input = document.createElement('textarea')
+          input.value = address
+          document.body.appendChild(input)
+          input.select()
+          document.execCommand('copy')
+          document.body.removeChild(input)
+        }
+        meta.textContent = 'Copied wallet: ' + address
+      } catch {
+        meta.textContent = 'Could not copy wallet address from browser clipboard.'
+      }
+    }
+
+    function renderWalletList(data) {
+      walletList.innerHTML = ''
+
+      const sortedNodes = [...(data.nodes || [])].sort((a, b) => {
+        if (a.id === data.wallet) return -1
+        if (b.id === data.wallet) return 1
+        return a.id.localeCompare(b.id)
+      })
+
+      sortedNodes.forEach((node) => {
+        const chip = document.createElement('button')
+        chip.className = 'wallet-chip'
+        chip.type = 'button'
+        chip.title = 'Click to copy full wallet address'
+        chip.textContent = (node.id === data.wallet ? '[PRIMARY] ' : '') + node.label
+        chip.addEventListener('click', () => copyWalletAddress(node.label))
+        walletList.appendChild(chip)
+      })
     }
 
     function mk(tag, attrs = {}) {
@@ -237,8 +301,11 @@ function renderGraphPage(wallet: string) {
           'text-anchor': 'middle',
           'font-size': 11,
           fill: '#1f1a14',
+          style: 'cursor:pointer; user-select:none;',
         })
         label.textContent = short(node.label)
+        label.setAttribute('title', 'Click to copy wallet address')
+        label.addEventListener('click', () => copyWalletAddress(node.label))
         svg.appendChild(label)
       })
 
@@ -281,6 +348,7 @@ function renderGraphPage(wallet: string) {
 
       meta.textContent = 'Nodes: ' + data.nodes.length + ' | Edges: ' + data.edges.length + ' | ' + clusterSummary
       draw(data)
+      renderWalletList(data)
       history.replaceState({}, '', '/graph/' + encodeURIComponent(wallet))
     }
 
