@@ -517,6 +517,91 @@ impl SignalExecutionEngine {
         state.config.mev_service.clone()
     }
 
+    pub async fn get_safety_summary_async(&self) -> serde_json::Value {
+        let state = self.state.lock().await;
+        serde_json::json!({
+            "maxRiskScore": state.config.max_risk_score,
+            "minLiquidityUsd": state.config.min_liquidity_usd,
+            "maxPositionSizeSol": state.config.max_position_size_sol,
+            "maxConcurrentTrades": state.config.max_concurrent_trades,
+            "slippage": state.config.slippage,
+            "buyAmountSol": state.config.buy_amount_sol,
+            "activePositions": state.active_positions.len(),
+            "enabled": state.config.enabled,
+            "paused": state.config.paused
+        })
+    }
+
+    pub async fn set_max_risk_score_async(&self, score: f64) -> String {
+        let mut state = self.state.lock().await;
+        state.config.max_risk_score = score.clamp(0.0, 100.0);
+        format!("MAX_RISK_SCORE_SET: {}", state.config.max_risk_score)
+    }
+
+    pub async fn set_mode_async(&self, mode: String) -> String {
+        let normalized = mode.trim().to_lowercase();
+        let mut state = self.state.lock().await;
+
+        state.config.mode = match normalized.as_str() {
+            "copy_trade" | "signal_based" | "manual" | "conservative" => normalized,
+            _ => "signal_based".to_string(),
+        };
+
+        format!("MODE_SET: {}", state.config.mode)
+    }
+
+    pub async fn set_buy_amount_sol_async(&self, amount: f64) -> String {
+        let mut state = self.state.lock().await;
+        state.config.buy_amount_sol = amount.max(0.001);
+        format!("BUY_AMOUNT_SOL_SET: {}", state.config.buy_amount_sol)
+    }
+
+    pub async fn apply_profile_async(&self, profile: String) -> String {
+        let normalized = profile.trim().to_lowercase();
+        let mut state = self.state.lock().await;
+
+        match normalized.as_str() {
+            "conservative" => {
+                state.config.max_risk_score = 55.0;
+                state.config.buy_amount_sol = 0.005;
+                state.config.max_position_size_sol = 0.03;
+                state.config.slippage = 1.5;
+            }
+            "balanced" => {
+                state.config.max_risk_score = 70.0;
+                state.config.buy_amount_sol = 0.01;
+                state.config.max_position_size_sol = 0.10;
+                state.config.slippage = 3.0;
+            }
+            "aggressive" => {
+                state.config.max_risk_score = 85.0;
+                state.config.buy_amount_sol = 0.02;
+                state.config.max_position_size_sol = 0.20;
+                state.config.slippage = 5.0;
+            }
+            _ => return "PROFILE_INVALID".to_string(),
+        }
+
+        format!("PROFILE_APPLIED: {}", normalized)
+    }
+
+    pub async fn tighten_risk_async(&self) -> String {
+        let mut state = self.state.lock().await;
+        state.config.max_risk_score = (state.config.max_risk_score - 10.0).max(25.0);
+        state.config.slippage = (state.config.slippage - 0.5).max(0.5);
+        format!(
+            "RISK_TIGHTENED: max_risk_score={}, slippage={}",
+            state.config.max_risk_score, state.config.slippage
+        )
+    }
+
+    pub async fn kill_switch_async(&self) -> String {
+        let mut state = self.state.lock().await;
+        state.config.enabled = false;
+        state.config.paused = true;
+        "KILL_SWITCH_ACTIVATED: All trading disabled".to_string()
+    }
+
     pub async fn get_recent_trades_async(&self) -> serde_json::Value {
         let state = self.state.lock().await;
         let recent: Vec<&TradeRecord> = state.recent_trades.iter().rev().take(10).collect();

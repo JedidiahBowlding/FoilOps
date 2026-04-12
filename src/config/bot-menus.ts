@@ -38,6 +38,7 @@ export const SCAM_INTEL_MENU: InlineKeyboardMarkup = {
 export const TRADING_MENU: InlineKeyboardMarkup = {
   inline_keyboard: [
     [{ text: '📊 Status', callback_data: 'trading_status' }],
+    [{ text: '🛡️ Safety', callback_data: 'trading_safety' }],
     [{ text: '💰 Balance', callback_data: 'trading_balance' }],
     [{ text: '📈 Recent Trades', callback_data: 'trading_trades' }],
     [
@@ -47,6 +48,10 @@ export const TRADING_MENU: InlineKeyboardMarkup = {
     [
       { text: '⏸️ Pause', callback_data: 'trading_pause' },
       { text: '▶️ Resume', callback_data: 'trading_resume' },
+    ],
+    [
+      { text: '⚠️ Tighten Risk', callback_data: 'trading_tighten_risk' },
+      { text: '🛑 Kill Switch', callback_data: 'trading_kill' },
     ],
     [{ text: '⚙️ Config', callback_data: 'trading_config' }],
     [{ text: '🔙 Back', callback_data: 'back_to_main_menu' }],

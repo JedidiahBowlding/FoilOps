@@ -130,6 +130,12 @@ pub async fn start_signal_receiver(
         .route("/trading/slippage", get(get_slippage).post(set_slippage))
         .route("/trading/target", get(get_target).post(set_target))
         .route("/trading/mev", get(get_mev_service).post(set_mev_service))
+        .route("/trading/kill-switch", post(kill_switch))
+        .route("/trading/risk", get(get_risk).post(set_risk))
+        .route("/trading/profile", post(set_profile))
+        .route("/trading/mode", post(set_mode))
+        .route("/trading/size", post(set_size))
+        .route("/trading/safety", get(get_safety))
         .with_state(state);
 
     println!(
@@ -197,11 +203,25 @@ async fn receive_signal(
         if let Some(engine) = &state.execution_engine {
             match engine.execute_signal(&signal).await {
                 Ok(result) => {
-                    println!("[LIVE EXECUTION] id={} result={}", signal.signal_id, result);
+                    println!(
+                        "[LIVE EXECUTION] id={} type={} risk={} token={} result={}",
+                        signal.signal_id,
+                        signal.signal_type,
+                        signal.risk_score,
+                        signal.token_mint.clone().unwrap_or_else(|| "n/a".to_string()),
+                        result
+                    );
                     Some(result)
                 }
                 Err(e) => {
-                    println!("[EXECUTION ERROR] id={} error={}", signal.signal_id, e);
+                    println!(
+                        "[EXECUTION ERROR] id={} type={} risk={} token={} error={}",
+                        signal.signal_id,
+                        signal.signal_type,
+                        signal.risk_score,
+                        signal.token_mint.clone().unwrap_or_else(|| "n/a".to_string()),
+                        e
+                    );
                     Some(format!("EXECUTION_ERROR: {}", e))
                 }
             }
@@ -529,5 +549,100 @@ async fn set_mev_service(
         }
     } else {
         (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
+    }
+}
+
+async fn kill_switch(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> (StatusCode, Json<Value>) {
+    if let Some(engine) = &state.execution_engine {
+        let result = engine.kill_switch_async().await;
+        (StatusCode::OK, Json(serde_json::json!({ "status": "stopped", "message": result })))
+    } else {
+        (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
+    }
+}
+
+async fn get_risk(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> Json<Value> {
+    if let Some(engine) = &state.execution_engine {
+        Json(serde_json::json!({ "safety": engine.get_safety_summary_async().await }))
+    } else {
+        Json(serde_json::json!({ "safety": null }))
+    }
+}
+
+async fn set_risk(
+    State(state): State<Arc<SignalReceiverState>>,
+    Json(payload): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Some(engine) = &state.execution_engine {
+        if let Some(score) = payload["max_risk_score"].as_f64() {
+            let result = engine.set_max_risk_score_async(score).await;
+            (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "message": result })))
+        } else {
+            (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "status": "error", "message": "Invalid max_risk_score" })))
+        }
+    } else {
+        (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
+    }
+}
+
+async fn set_profile(
+    State(state): State<Arc<SignalReceiverState>>,
+    Json(payload): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Some(engine) = &state.execution_engine {
+        if let Some(profile) = payload["profile"].as_str() {
+            let result = engine.apply_profile_async(profile.to_string()).await;
+            (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "message": result })))
+        } else {
+            (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "status": "error", "message": "Invalid profile" })))
+        }
+    } else {
+        (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
+    }
+}
+
+async fn set_mode(
+    State(state): State<Arc<SignalReceiverState>>,
+    Json(payload): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Some(engine) = &state.execution_engine {
+        if let Some(mode) = payload["mode"].as_str() {
+            let result = engine.set_mode_async(mode.to_string()).await;
+            (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "message": result })))
+        } else {
+            (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "status": "error", "message": "Invalid mode" })))
+        }
+    } else {
+        (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
+    }
+}
+
+async fn set_size(
+    State(state): State<Arc<SignalReceiverState>>,
+    Json(payload): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Some(engine) = &state.execution_engine {
+        if let Some(amount) = payload["buy_amount_sol"].as_f64() {
+            let result = engine.set_buy_amount_sol_async(amount).await;
+            (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "message": result })))
+        } else {
+            (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "status": "error", "message": "Invalid buy_amount_sol" })))
+        }
+    } else {
+        (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
+    }
+}
+
+async fn get_safety(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> Json<Value> {
+    if let Some(engine) = &state.execution_engine {
+        Json(engine.get_safety_summary_async().await)
+    } else {
+        Json(serde_json::json!({ "error": "No execution engine available" }))
     }
 }

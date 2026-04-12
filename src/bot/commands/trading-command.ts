@@ -300,5 +300,142 @@ ${tradeMessages}
         this.bot.sendMessage(chatId, '❌ Failed to manage target wallet')
       }
     })
+
+    this.bot.onText(/\/trading_safety/, async (msg) => {
+      const chatId = msg.chat.id
+      const userId = String(msg.from?.id)
+
+      if (!userId || !BotMiddleware.isUserBotAdmin(userId)) {
+        return this.bot.sendMessage(chatId, '❌ Access denied. Admin only command.')
+      }
+
+      try {
+        const response = await axios.get(`${this.tradingBotUrl}/trading/safety`)
+        const s = response.data
+
+        await this.bot.sendMessage(
+          chatId,
+          [
+            '🛡️ <b>Trading Safety Summary</b>',
+            `Max risk score: <b>${s.maxRiskScore ?? 'n/a'}</b>`,
+            `Min liquidity USD: <b>${s.minLiquidityUsd ?? 'n/a'}</b>`,
+            `Max position size: <b>${s.maxPositionSizeSol ?? 'n/a'} SOL</b>`,
+            `Max concurrent trades: <b>${s.maxConcurrentTrades ?? 'n/a'}</b>`,
+            `Buy amount: <b>${s.buyAmountSol ?? 'n/a'} SOL</b>`,
+            `Slippage: <b>${s.slippage ?? 'n/a'}%</b>`,
+            `Enabled: <b>${s.enabled ? 'Yes' : 'No'}</b> | Paused: <b>${s.paused ? 'Yes' : 'No'}</b>`,
+          ].join('\n'),
+          {
+            parse_mode: 'HTML',
+          },
+        )
+      } catch (error) {
+        console.error('Trading safety error:', error)
+        this.bot.sendMessage(chatId, '❌ Failed to fetch safety summary')
+      }
+    })
+
+    this.bot.onText(/\/trading_profile(?:\s+(conservative|balanced|aggressive))?/i, async (msg, match) => {
+      const chatId = msg.chat.id
+      const userId = String(msg.from?.id)
+      const profile = match?.[1]?.toLowerCase()
+
+      if (!userId || !BotMiddleware.isUserBotAdmin(userId)) {
+        return this.bot.sendMessage(chatId, '❌ Access denied. Admin only command.')
+      }
+
+      if (!profile) {
+        return this.bot.sendMessage(chatId, 'Usage: /trading_profile conservative|balanced|aggressive')
+      }
+
+      try {
+        const response = await axios.post(`${this.tradingBotUrl}/trading/profile`, { profile })
+        this.bot.sendMessage(chatId, `✅ ${response.data?.message || 'Profile updated'}`)
+      } catch (error) {
+        console.error('Trading profile error:', error)
+        this.bot.sendMessage(chatId, '❌ Failed to update trading profile')
+      }
+    })
+
+    this.bot.onText(/\/trading_mode(?:\s+(copy_trade|signal_based|manual|conservative))?/i, async (msg, match) => {
+      const chatId = msg.chat.id
+      const userId = String(msg.from?.id)
+      const mode = match?.[1]?.toLowerCase()
+
+      if (!userId || !BotMiddleware.isUserBotAdmin(userId)) {
+        return this.bot.sendMessage(chatId, '❌ Access denied. Admin only command.')
+      }
+
+      if (!mode) {
+        return this.bot.sendMessage(chatId, 'Usage: /trading_mode copy_trade|signal_based|manual|conservative')
+      }
+
+      try {
+        const response = await axios.post(`${this.tradingBotUrl}/trading/mode`, { mode })
+        this.bot.sendMessage(chatId, `✅ ${response.data?.message || 'Mode updated'}`)
+      } catch (error) {
+        console.error('Trading mode error:', error)
+        this.bot.sendMessage(chatId, '❌ Failed to update trading mode')
+      }
+    })
+
+    this.bot.onText(/\/trading_size(?:\s+(\d+(?:\.\d+)?))?/, async (msg, match) => {
+      const chatId = msg.chat.id
+      const userId = String(msg.from?.id)
+      const amount = match?.[1] ? Number(match[1]) : NaN
+
+      if (!userId || !BotMiddleware.isUserBotAdmin(userId)) {
+        return this.bot.sendMessage(chatId, '❌ Access denied. Admin only command.')
+      }
+
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return this.bot.sendMessage(chatId, 'Usage: /trading_size <buy_amount_sol>')
+      }
+
+      try {
+        const response = await axios.post(`${this.tradingBotUrl}/trading/size`, { buy_amount_sol: amount })
+        this.bot.sendMessage(chatId, `✅ ${response.data?.message || 'Size updated'}`)
+      } catch (error) {
+        console.error('Trading size error:', error)
+        this.bot.sendMessage(chatId, '❌ Failed to update trade size')
+      }
+    })
+
+    this.bot.onText(/\/trading_tighten_risk/, async (msg) => {
+      const chatId = msg.chat.id
+      const userId = String(msg.from?.id)
+
+      if (!userId || !BotMiddleware.isUserBotAdmin(userId)) {
+        return this.bot.sendMessage(chatId, '❌ Access denied. Admin only command.')
+      }
+
+      try {
+        const safety = await axios.get(`${this.tradingBotUrl}/trading/safety`)
+        const current = Number(safety.data?.maxRiskScore || 75)
+        const next = Math.max(25, current - 10)
+        const response = await axios.post(`${this.tradingBotUrl}/trading/risk`, { max_risk_score: next })
+        this.bot.sendMessage(chatId, `✅ ${response.data?.message || `Risk tightened to ${next}`}`)
+      } catch (error) {
+        console.error('Trading tighten risk error:', error)
+        this.bot.sendMessage(chatId, '❌ Failed to tighten risk controls')
+      }
+    })
+
+    this.bot.onText(/\/trading_kill/, async (msg) => {
+      const chatId = msg.chat.id
+      const userId = String(msg.from?.id)
+
+      if (!userId || !BotMiddleware.isUserBotAdmin(userId)) {
+        return this.bot.sendMessage(chatId, '❌ Access denied. Admin only command.')
+      }
+
+      try {
+        const response = await axios.post(`${this.tradingBotUrl}/trading/kill-switch`)
+        this.bot.sendMessage(chatId, `🛑 ${response.data?.message || 'Kill switch activated'}`)
+      } catch (error) {
+        console.error('Trading kill switch error:', error)
+        this.bot.sendMessage(chatId, '❌ Failed to activate kill switch')
+      }
+    })
   }
 }

@@ -300,6 +300,9 @@ export class CallbackQueryHandler {
         case 'trading_balance':
           this.bot.sendMessage(chatId, 'Send: <code>/trading_balance</code>', { parse_mode: 'HTML' })
           break
+        case 'trading_safety':
+          this.bot.sendMessage(chatId, 'Send: <code>/trading_safety</code>', { parse_mode: 'HTML' })
+          break
         case 'trading_trades':
           this.bot.sendMessage(chatId, 'Send: <code>/trading_trades</code>', { parse_mode: 'HTML' })
           break
@@ -315,10 +318,20 @@ export class CallbackQueryHandler {
         case 'trading_resume':
           this.bot.sendMessage(chatId, 'Send: <code>/trading_resume</code>', { parse_mode: 'HTML' })
           break
+        case 'trading_tighten_risk':
+          this.bot.sendMessage(chatId, 'Send: <code>/trading_tighten_risk</code>', { parse_mode: 'HTML' })
+          break
+        case 'trading_kill':
+          this.bot.sendMessage(chatId, 'Send: <code>/trading_kill</code>', { parse_mode: 'HTML' })
+          break
         case 'trading_config':
-          this.bot.sendMessage(chatId, 'Send: <code>/trading_slippage</code> or <code>/trading_target</code>', {
+          this.bot.sendMessage(
+            chatId,
+            'Commands: <code>/trading_slippage</code>, <code>/trading_target</code>, <code>/trading_profile</code>, <code>/trading_mode</code>, <code>/trading_size</code>',
+            {
             parse_mode: 'HTML',
-          })
+            },
+          )
           break
         case 'my_wallet':
           this.myWalletCommand.myWalletCommandHandler(message)
