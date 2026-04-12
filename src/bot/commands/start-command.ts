@@ -13,6 +13,44 @@ export class StartCommand {
     this.prismaUserRepository = new PrismaUserRepository()
   }
 
+  private buildDirectoryChunks(): string[] {
+    const full = CommandsDirectory.getFullCommandDirectory()
+    const separator = '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n'
+    const sections = full.split(separator)
+    const chunks: string[] = []
+    let current = ''
+
+    for (let i = 0; i < sections.length; i += 1) {
+      const part = i === 0 ? sections[i] : `${separator}${sections[i]}`
+      if ((current + part).length > 3500) {
+        if (current.length > 0) {
+          chunks.push(current)
+          current = part
+        } else {
+          chunks.push(part)
+          current = ''
+        }
+      } else {
+        current += part
+      }
+    }
+
+    if (current.length > 0) {
+      chunks.push(current)
+    }
+
+    return chunks
+  }
+
+  private async sendCommandDirectory(chatId: number) {
+    const chunks = this.buildDirectoryChunks()
+    for (const chunk of chunks) {
+      await this.bot.sendMessage(chatId, chunk, {
+        parse_mode: 'HTML',
+      })
+    }
+  }
+
   public start() {
     this.bot.onText(/\/start/, async (msg) => {
       const chatId = msg.chat.id
@@ -37,10 +75,8 @@ export class StartCommand {
         this.bot.sendMessage(chatId, messageText, { reply_markup: START_MENU, parse_mode: 'HTML' })
 
         // Send comprehensive command directory after a short delay
-        setTimeout(() => {
-          this.bot.sendMessage(chatId, CommandsDirectory.getFullCommandDirectory(), {
-            parse_mode: 'HTML',
-          })
+        setTimeout(async () => {
+          await this.sendCommandDirectory(chatId)
         }, 500)
       }
 

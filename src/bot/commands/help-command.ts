@@ -9,22 +9,74 @@ export class HelpCommand {
     this.setupHelpCommands()
   }
 
-  private setupHelpCommands() {
-    // Main /help command - shows full command directory
-    this.bot.onText(/^\/help$/, async (msg) => {
-      this.bot.sendMessage(msg.chat.id, CommandsDirectory.getFullCommandDirectory(), {
+  private buildDirectoryChunks(): string[] {
+    const full = CommandsDirectory.getFullCommandDirectory()
+    const separator = '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n'
+    const sections = full.split(separator)
+    const chunks: string[] = []
+    let current = ''
+
+    for (let i = 0; i < sections.length; i += 1) {
+      const part = i === 0 ? sections[i] : `${separator}${sections[i]}`
+      if ((current + part).length > 3500) {
+        if (current.length > 0) {
+          chunks.push(current)
+          current = part
+        } else {
+          chunks.push(part)
+          current = ''
+        }
+      } else {
+        current += part
+      }
+    }
+
+    if (current.length > 0) {
+      chunks.push(current)
+    }
+
+    return chunks
+  }
+
+  private async sendCommandDirectory(chatId: number, firstChunkAsEdit?: { messageId: number }) {
+    const chunks = this.buildDirectoryChunks()
+
+    if (chunks.length === 0) {
+      return
+    }
+
+    if (firstChunkAsEdit) {
+      await this.bot.editMessageText(chunks[0], {
+        chat_id: chatId,
+        message_id: firstChunkAsEdit.messageId,
+        parse_mode: 'HTML',
+        reply_markup: SUB_MENU,
+      })
+
+      for (let i = 1; i < chunks.length; i += 1) {
+        await this.bot.sendMessage(chatId, chunks[i], {
+          parse_mode: 'HTML',
+        })
+      }
+      return
+    }
+
+    for (let i = 0; i < chunks.length; i += 1) {
+      await this.bot.sendMessage(chatId, chunks[i], {
         parse_mode: 'HTML',
       })
+    }
+  }
+
+  private setupHelpCommands() {
+    // Main /help command - shows full command directory
+    this.bot.onText(/^\/help(?:@\w+)?$/i, async (msg) => {
+      await this.sendCommandDirectory(msg.chat.id)
     })
   }
 
   public helpButtonHandler(message: TelegramBot.Message) {
-    this.bot.editMessageText(CommandsDirectory.getFullCommandDirectory(), {
-      chat_id: message.chat.id,
-      message_id: message.message_id,
-      parse_mode: 'HTML',
-      reply_markup: SUB_MENU,
-    })
+    void this.sendCommandDirectory(message.chat.id, { messageId: message.message_id })
   }
 
   public groupHelpCommandHandler() {
