@@ -14,6 +14,7 @@ use solana_sdk::program_pack::Pack;
 use solana_sdk::pubkey::Pubkey;
 use std::env;
 use std::future::pending;
+use std::panic;
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio_tungstenite::{connect_async, tungstenite::Message as WsMessage};
@@ -64,14 +65,51 @@ async fn main() {
     let signal_receiver_bind_for_task = signal_receiver_bind.clone();
     let signal_auth_secret_for_task = signal_auth_secret.clone();
 
-    // Create execution engine for live trading
-    let app_state = AppState {
-        rpc_client: create_rpc_client().expect("Failed to create RPC client"),
-        rpc_nonblocking_client: create_nonblocking_rpc_client().await.expect("Failed to create nonblocking RPC client"),
-        wallet: import_wallet().expect("Failed to import wallet"),
+    // Create execution engine for live trading when wallet + RPC config are valid.
+    let execution_engine: Option<Arc<SignalExecutionEngine>> = match create_rpc_client() {
+        Ok(rpc_client) => match create_nonblocking_rpc_client().await {
+            Ok(rpc_nonblocking_client) => {
+                let wallet_result = panic::catch_unwind(|| import_wallet());
+                match wallet_result {
+                    Ok(Ok(wallet)) => {
+                        let app_state = AppState {
+                            rpc_client,
+                            rpc_nonblocking_client,
+                            wallet,
+                        };
+                        Some(Arc::new(SignalExecutionEngine::new(app_state, signal_max_risk_score)))
+                    }
+                    Ok(Err(error)) => {
+                        eprintln!(
+                            "Execution engine disabled: failed to import PRIVATE_KEY: {}. Signal receiver will still run.",
+                            error
+                        );
+                        None
+                    }
+                    Err(_) => {
+                        eprintln!(
+                            "Execution engine disabled: PRIVATE_KEY format caused panic during parsing. Signal receiver will still run."
+                        );
+                        None
+                    }
+                }
+            }
+            Err(error) => {
+                eprintln!(
+                    "Execution engine disabled: failed to create nonblocking RPC client: {}. Signal receiver will still run.",
+                    error
+                );
+                None
+            }
+        },
+        Err(error) => {
+            eprintln!(
+                "Execution engine disabled: failed to create RPC client: {}. Signal receiver will still run.",
+                error
+            );
+            None
+        }
     };
-
-    let execution_engine = Arc::new(SignalExecutionEngine::new(app_state, signal_max_risk_score));
 
     tokio::spawn(async move {
         if let Err(error) = start_signal_receiver(
@@ -81,7 +119,7 @@ async fn main() {
             signal_auth_secret_for_task,
             signal_dedup_window_seconds,
             signal_max_timestamp_skew_seconds,
-            Some(execution_engine),
+            execution_engine,
         ).await {
             eprintln!("Signal receiver failed: {}", error);
         }
