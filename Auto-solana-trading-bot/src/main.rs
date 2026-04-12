@@ -13,6 +13,7 @@ use solana_client::rpc_client::RpcClient;
 use solana_sdk::program_pack::Pack;
 use solana_sdk::pubkey::Pubkey;
 use std::env;
+use std::future::pending;
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio_tungstenite::{connect_async, tungstenite::Message as WsMessage};
@@ -86,17 +87,40 @@ async fn main() {
         }
     });
 
-    let sol_address = env::var("SOL_PUBKEY").expect("SOL_PUBKEY not set");
-    let rpc_https_url = env::var("RPC_ENDPOINT").expect("RPC_ENDPOINT not set");
+    let required_loop_env = [
+        "SOL_PUBKEY",
+        "RPC_ENDPOINT",
+        "JUP_PUBKEY",
+        "TARGET_PUBKEY",
+        "RPC_WEBSOCKET_ENDPOINT",
+    ];
+    let missing_loop_env: Vec<&str> = required_loop_env
+        .iter()
+        .copied()
+        .filter(|key| env::var(key).is_err())
+        .collect();
+
+    if !missing_loop_env.is_empty() {
+        eprintln!(
+            "Copy-trading loop disabled. Missing env vars: {}. Signal receiver remains active on {}.",
+            missing_loop_env.join(", "),
+            signal_receiver_bind
+        );
+        pending::<()>().await;
+        return;
+    }
+
+    let sol_address = env::var("SOL_PUBKEY").unwrap();
+    let rpc_https_url = env::var("RPC_ENDPOINT").unwrap();
     let _rpc_client = RpcClient::new(rpc_https_url.clone());
-    let unwanted_key = env::var("JUP_PUBKEY").expect("JUP_PUBKEY not set");
-    let target = env::var("TARGET_PUBKEY").expect("TARGET_PUBKEY not set");
+    let unwanted_key = env::var("JUP_PUBKEY").unwrap();
+    let target = env::var("TARGET_PUBKEY").unwrap();
 
     // Create batch RPC client for optimized calls
     let rpc_nonblocking = create_nonblocking_rpc_client().await.expect("Failed to create RPC client");
     let batch_client = Arc::new(BatchRpcClient::new(rpc_nonblocking));
 
-    let ws_url = env::var("RPC_WEBSOCKET_ENDPOINT").expect("WS_URL not set");
+    let ws_url = env::var("RPC_WEBSOCKET_ENDPOINT").unwrap();
     println!(
         "ENV loaded => SOL_PUBKEY={}, TARGET_PUBKEY={}, JUP_PUBKEY={}, RPC_ENDPOINT={}, RPC_WEBSOCKET_ENDPOINT={}, SLIPPAGE={}, JITO_TIP_VALUE={}, NOZOMI_TIP_VALUE={}, ZERO_SLOT_TIP_VALUE={}, TELEGRAM_BOT_TOKEN={}, TELEGRAM_CHAT_ID={}",
         mask(&sol_address),
