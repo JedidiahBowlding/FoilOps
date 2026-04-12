@@ -71,6 +71,10 @@ Primary repository entry points:
   - `GET /dashboard/scam-wallets`
   - `GET /api/scam-wallets`
   - `GET /api/token-investigation/:tokenMint`
+- Registers trading operations endpoints:
+  - `GET /dashboard/trading-ops`
+  - `GET /api/trading-ops`
+  - `GET /api/trading-ops/export?format=json|csv`
 
 ## 3.2 Telegram Commands (User/Admin)
 
@@ -86,6 +90,7 @@ Common user commands include:
 - `/help_group`
 - `/help_notify`
 - `/groups` and related activation flow
+- `/help`
 
 Trading/admin related commands include:
 
@@ -98,11 +103,27 @@ Trading/admin related commands include:
 - `/trading_disable`
 - `/trading_pause`
 - `/trading_resume`
+- `/trading_execution_mode [paper|live]`
+- `/trading_sources`
+- `/trading_source_add <wallet>`
+- `/trading_source_remove <wallet>`
+- `/trading_source_cap <wallet> <sol>`
+- `/trading_source_uncap <wallet>`
+- `/trading_source_profile <wallet> <shadow|scalp|swing|defensive|blocked> [notes]`
+- `/trading_alert_quality [min_score] [min_trace_alerts]`
+- `/trading_metrics`
+- `/trading_journal`
+- `/trading_failures`
+- `/trading_retry_failed [signal_id|all]`
+- `/trading_dashboard`
+- `/trading_audit_logs`
+- `/trading_gate_metrics`
 
 Note:
 
 - Admin authorization is mediated by bot middleware checks.
 - Trading commands in TS call Rust HTTP endpoints, not an internal Rust Telegram loop.
+- `/start` now sends both the welcome menu and a full command directory in private chats.
 
 ## 3.3 Wallet Tracking and Parsing
 
@@ -200,6 +221,16 @@ New integration call site now present:
 - `GET|POST /trading/slippage`
 - `GET|POST /trading/target`
 - `GET|POST /trading/mev`
+- `GET|POST /trading/execution-mode`
+- `GET|POST /trading/source-wallets`
+- `GET|POST /trading/alert-quality`
+- `GET /trading/journal`
+- `GET /trading/metrics`
+- `GET /trading/dead-letters`
+- `POST /trading/retry-failed`
+- `GET /trading/safety`
+- `GET /trading/decisions`
+- `GET /trading/audit-logs`
 
 Receiver controls include:
 
@@ -207,6 +238,7 @@ Receiver controls include:
 - timestamp skew validation
 - idempotency key duplicate suppression
 - dry-run vs live mode toggle
+- structured decision/audit logging and dead-letter retry workflow
 
 ## 4.3 Execution Engine and Risk Gates
 
@@ -216,6 +248,8 @@ Receiver controls include:
 - Applies risk gates before execution.
 - Supports action mapping from incoming signal types.
 - Supports configurable max risk gate via env-backed `max_risk_score`.
+- Supports source-wallet watchlist/caps/profile presets for copy-trade control.
+- Records execution journal entries with action/status/reason/profile context.
 
 Current mappings include:
 
@@ -294,6 +328,7 @@ Core:
 
 Signal emitter:
 
+- `TRADING_BOT_URL`
 - `TRADE_SIGNAL_ENDPOINT`
 - `TRADE_SIGNAL_TIMEOUT_MS`
 - `TRADE_SIGNAL_REQUIRE_AUTH`
@@ -463,6 +498,9 @@ When auth is required:
 13. Copy trade via signal path: Yes (native `COPY_TRADE` in TS + Rust handler execution)
 14. Auto-emit copy trade signal from detected wallet swaps: Yes
 15. Backup/restore support: Yes (encrypted and plaintext modes)
+16. Dead-letter queue and retry for failed/blocked signals: Yes
+17. Audit log endpoint and gate-specific rejection counters: Yes
+18. Trading ops dashboard (HTML + JSON + CSV export): Yes
 
 ## 11. Troubleshooting Reference
 
@@ -533,7 +571,7 @@ Notes:
 1. `/start`
 
 - Example input: `/start`
-- Expected response: welcome/start menu message; in group chats, group-specific start guidance.
+- Expected response: welcome/start menu message plus full command directory in private chats; in group chats, group-specific start guidance.
 
 1. `/add`
 
@@ -690,6 +728,70 @@ Notes:
 - Example input (set): `/trading_target 4kAfac1KbyoT5SZhMDRUeGRfJs3Gb1gqZrGneQwxF5pd`
 - Expected response: `Target wallet set to ...`.
 
+1. `/trading_execution_mode [paper|live]`
+
+- Example input (get): `/trading_execution_mode`
+- Expected response: current execution mode (`paper` or `live`).
+- Example input (set): `/trading_execution_mode paper`
+- Expected response: mode update confirmation.
+
+1. `/trading_sources`
+
+- Example input: `/trading_sources`
+- Expected response: source-wallet watchlist with caps/profile presets and usage hints.
+
+1. `/trading_source_add <wallet>`
+
+- Example input: `/trading_source_add 4kAfac1KbyoT5SZhMDRUeGRfJs3Gb1gqZrGneQwxF5pd`
+- Expected response: source wallet added confirmation.
+
+1. `/trading_source_profile <wallet> <preset> [notes]`
+
+- Example input: `/trading_source_profile 4kAfac1KbyoT5SZhMDRUeGRfJs3Gb1gqZrGneQwxF5pd scalp fast copier`
+- Expected response: profile assignment confirmation.
+
+1. `/trading_alert_quality [min_score] [min_trace_alerts]`
+
+- Example input (get): `/trading_alert_quality`
+- Expected response: current quality thresholds.
+- Example input (set): `/trading_alert_quality 70 3`
+- Expected response: threshold update confirmation.
+
+1. `/trading_metrics`
+
+- Example input: `/trading_metrics`
+- Expected response: receiver metrics (received/accepted/executed/blocked/failed/rejected/duplicate/retried/dead-letter).
+
+1. `/trading_journal`
+
+- Example input: `/trading_journal`
+- Expected response: recent journal entries (status, action, token, source, profile, reason).
+
+1. `/trading_failures`
+
+- Example input: `/trading_failures`
+- Expected response: recent dead-letter queue entries and retry hints.
+
+1. `/trading_retry_failed [signal_id|all]`
+
+- Example input: `/trading_retry_failed all`
+- Expected response: retried signal list with resulting status.
+
+1. `/trading_dashboard`
+
+- Example input: `/trading_dashboard`
+- Expected response: links for HTML dashboard and JSON/CSV exports.
+
+1. `/trading_audit_logs`
+
+- Example input: `/trading_audit_logs`
+- Expected response: event summary and recent audit events (blocked/rejected/executed, gate attribution).
+
+1. `/trading_gate_metrics`
+
+- Example input: `/trading_gate_metrics`
+- Expected response: gate-specific rejection counters and acceptance-rate context.
+
 ## 15.4 Common Error Patterns Across Commands
 
 1. Non-admin execution on admin command:
@@ -722,7 +824,7 @@ Conventions:
 
 ```text
 Operator> /start
-Bot> Welcome message + main menu buttons
+Bot> Welcome message + main menu buttons + full command directory
 
 Operator> /add
 Bot> Send me the wallet address you want to track.
@@ -828,6 +930,35 @@ Bot> Target wallet: Not set
 
 Operator> /trading_target 4kAfac1KbyoT5SZhMDRUeGRfJs3Gb1gqZrGneQwxF5pd
 Bot> Target wallet set to 4kAfac1...
+```
+
+## 16.8.1 Phase 3 Ops Surface Commands
+
+```text
+Operator> /trading_metrics
+Bot> Trading Ops Metrics
+Bot> Execution mode: paper
+Bot> Received: 52 | Accepted: 31 | Executed: 12 | Blocked: 14 | Failed: 3 | Rejected: 4
+
+Operator> /trading_failures
+Bot> Failed Signal Queue
+Bot> • blocked COPY_TRADE ... retries: 1
+Bot> • failed TOKEN_INVESTIGATION ... retries: 0
+
+Operator> /trading_retry_failed all
+Bot> Retried 2 failed signal(s)
+Bot> • signal-abc -> executed
+Bot> • signal-def -> blocked | source_wallet_profile_blocked
+
+Operator> /trading_audit_logs
+Bot> Phase 3 Audit Logs
+Bot> Event summary: blocked=14, rejected=4, executed=12
+
+Operator> /trading_gate_metrics
+Bot> Phase 3 Gate Metrics
+Bot> source_wallet_profile_blocked: 6
+Bot> risk_score_exceeded: 4
+Bot> alert_quality_low: 2
 ```
 
 ## 16.9 Access Denied Training Case

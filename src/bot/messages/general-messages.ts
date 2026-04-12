@@ -45,7 +45,9 @@ Detect and track malicious wallets before they strike:
 
 🆙 Click <b>Upgrade</b> to unlock more wallet slots and premium features!
 
-🔔 <b>Note for Free Users:</b> Free wallets may be cleaned up periodically. Upgrade to retain all tracked wallets. 🚀
+� <b>Explore All Features:</b> Use the menu below or send <b>/help</b> to see all 50+ available commands!
+
+�🔔 <b>Note for Free Users:</b> Free wallets may be cleaned up periodically. Upgrade to retain all tracked wallets. 🚀
 `
 
     return messageText

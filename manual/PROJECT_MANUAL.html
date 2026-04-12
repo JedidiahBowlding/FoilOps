@@ -1,323 +1,9 @@
-<!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
-<head>
-  <meta charset="utf-8" />
-  <meta name="generator" content="pandoc" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>PROJECT_MANUAL</title>
-  <style>
-    /* Default styles provided by pandoc.
-    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
-    */
-    html {
-      color: #1a1a1a;
-      background-color: #fdfdfd;
-    }
-    body {
-      margin: 0 auto;
-      max-width: 36em;
-      padding-left: 50px;
-      padding-right: 50px;
-      padding-top: 50px;
-      padding-bottom: 50px;
-      hyphens: auto;
-      overflow-wrap: break-word;
-      text-rendering: optimizeLegibility;
-      font-kerning: normal;
-    }
-    @media (max-width: 600px) {
-      body {
-        font-size: 0.9em;
-        padding: 12px;
-      }
-      h1 {
-        font-size: 1.8em;
-      }
-    }
-    @media print {
-      html {
-        background-color: white;
-      }
-      body {
-        background-color: transparent;
-        color: black;
-        font-size: 12pt;
-      }
-      p, h2, h3 {
-        orphans: 3;
-        widows: 3;
-      }
-      h2, h3, h4 {
-        page-break-after: avoid;
-      }
-    }
-    p {
-      margin: 1em 0;
-    }
-    a {
-      color: #1a1a1a;
-    }
-    a:visited {
-      color: #1a1a1a;
-    }
-    img {
-      max-width: 100%;
-    }
-    svg {
-      height: auto;
-      max-width: 100%;
-    }
-    h1, h2, h3, h4, h5, h6 {
-      margin-top: 1.4em;
-    }
-    h5, h6 {
-      font-size: 1em;
-      font-style: italic;
-    }
-    h6 {
-      font-weight: normal;
-    }
-    ol, ul {
-      padding-left: 1.7em;
-      margin-top: 1em;
-    }
-    li > ol, li > ul {
-      margin-top: 0;
-    }
-    blockquote {
-      margin: 1em 0 1em 1.7em;
-      padding-left: 1em;
-      border-left: 2px solid #e6e6e6;
-      color: #606060;
-    }
-    code {
-      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
-      font-size: 85%;
-      margin: 0;
-      hyphens: manual;
-    }
-    pre {
-      margin: 1em 0;
-      overflow: auto;
-    }
-    pre code {
-      padding: 0;
-      overflow: visible;
-      overflow-wrap: normal;
-    }
-    .sourceCode {
-     background-color: transparent;
-     overflow: visible;
-    }
-    hr {
-      border: none;
-      border-top: 1px solid #1a1a1a;
-      height: 1px;
-      margin: 1em 0;
-    }
-    table {
-      margin: 1em 0;
-      border-collapse: collapse;
-      width: 100%;
-      overflow-x: auto;
-      display: block;
-      font-variant-numeric: lining-nums tabular-nums;
-    }
-    table caption {
-      margin-bottom: 0.75em;
-    }
-    tbody {
-      margin-top: 0.5em;
-      border-top: 1px solid #1a1a1a;
-      border-bottom: 1px solid #1a1a1a;
-    }
-    th {
-      border-top: 1px solid #1a1a1a;
-      padding: 0.25em 0.5em 0.25em 0.5em;
-    }
-    td {
-      padding: 0.125em 0.5em 0.25em 0.5em;
-    }
-    header {
-      margin-bottom: 4em;
-      text-align: center;
-    }
-    #TOC li {
-      list-style: none;
-    }
-    #TOC ul {
-      padding-left: 1.3em;
-    }
-    #TOC > ul {
-      padding-left: 0;
-    }
-    #TOC a:not(:hover) {
-      text-decoration: none;
-    }
-    code{white-space: pre-wrap;}
-    span.smallcaps{font-variant: small-caps;}
-    div.columns{display: flex; gap: min(4vw, 1.5em);}
-    div.column{flex: auto; overflow-x: auto;}
-    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
-    /* The extra [class] is a hack that increases specificity enough to
-       override a similar rule in reveal.js */
-    ul.task-list[class]{list-style: none;}
-    ul.task-list li input[type="checkbox"] {
-      font-size: inherit;
-      width: 0.8em;
-      margin: 0 0.8em 0.2em -1.6em;
-      vertical-align: middle;
-    }
-    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
-  </style>
-</head>
-<body>
-<header id="title-block-header">
-<h1 class="title">PROJECT_MANUAL</h1>
-</header>
-<nav id="TOC" role="doc-toc">
-<ul>
-<li><a href="#foilops-project-manual"
-id="toc-foilops-project-manual">FoilOps Project Manual</a>
-<ul>
-<li><a href="#1-what-this-project-is" id="toc-1-what-this-project-is">1.
-What This Project Is</a></li>
-<li><a href="#2-high-level-architecture"
-id="toc-2-high-level-architecture">2. High-Level Architecture</a></li>
-<li><a href="#21-components" id="toc-21-components">2.1
-Components</a></li>
-<li><a href="#22-core-data-flow" id="toc-22-core-data-flow">2.2 Core
-Data Flow</a></li>
-<li><a href="#3-typescript-service-capabilities"
-id="toc-3-typescript-service-capabilities">3. TypeScript Service
-Capabilities</a></li>
-<li><a href="#31-runtime-boot-and-routes"
-id="toc-31-runtime-boot-and-routes">3.1 Runtime Boot and Routes</a></li>
-<li><a href="#32-telegram-commands-useradmin"
-id="toc-32-telegram-commands-useradmin">3.2 Telegram Commands
-(User/Admin)</a></li>
-<li><a href="#33-wallet-tracking-and-parsing"
-id="toc-33-wallet-tracking-and-parsing">3.3 Wallet Tracking and
-Parsing</a></li>
-<li><a href="#34-scam-intelligence-layer"
-id="toc-34-scam-intelligence-layer">3.4 Scam Intelligence Layer</a></li>
-<li><a href="#35-trade-signal-emission"
-id="toc-35-trade-signal-emission">3.5 Trade Signal Emission</a></li>
-<li><a href="#4-rust-service-capabilities"
-id="toc-4-rust-service-capabilities">4. Rust Service
-Capabilities</a></li>
-<li><a href="#41-rust-main-runtime" id="toc-41-rust-main-runtime">4.1
-Rust Main Runtime</a></li>
-<li><a href="#42-signal-receiver-api"
-id="toc-42-signal-receiver-api">4.2 Signal Receiver API</a></li>
-<li><a href="#43-execution-engine-and-risk-gates"
-id="toc-43-execution-engine-and-risk-gates">4.3 Execution Engine and
-Risk Gates</a></li>
-<li><a href="#44-dex-execution-paths"
-id="toc-44-dex-execution-paths">4.4 DEX Execution Paths</a></li>
-<li><a href="#5-data-model-prisma" id="toc-5-data-model-prisma">5. Data
-Model (Prisma)</a></li>
-<li><a href="#6-environment-variables"
-id="toc-6-environment-variables">6. Environment Variables</a></li>
-<li><a href="#61-typescriptfoilops-side-root-env"
-id="toc-61-typescriptfoilops-side-root-env">6.1 TypeScript/FoilOps side
-(root <code>.env</code>)</a></li>
-<li><a href="#62-rust-side-auto-solana-trading-botenv"
-id="toc-62-rust-side-auto-solana-trading-botenv">6.2 Rust side
-(<code>Auto-solana-trading-bot/.env</code>)</a></li>
-<li><a href="#7-scripts-and-operational-commands"
-id="toc-7-scripts-and-operational-commands">7. Scripts and Operational
-Commands</a></li>
-<li><a href="#8-deployment-modes" id="toc-8-deployment-modes">8.
-Deployment Modes</a></li>
-<li><a href="#81-local-combined-start"
-id="toc-81-local-combined-start">8.1 Local Combined Start</a></li>
-<li><a href="#82-pm2-deployment-pattern"
-id="toc-82-pm2-deployment-pattern">8.2 PM2 Deployment Pattern</a></li>
-<li><a href="#9-signal-contract-and-security"
-id="toc-9-signal-contract-and-security">9. Signal Contract and
-Security</a></li>
-<li><a href="#91-tradesignalv1-shape-camel-case"
-id="toc-91-tradesignalv1-shape-camel-case">9.1 TradeSignalV1 Shape
-(Camel Case)</a></li>
-<li><a href="#92-authentication" id="toc-92-authentication">9.2
-Authentication</a></li>
-<li><a href="#93-dedupe" id="toc-93-dedupe">9.3 Dedupe</a></li>
-<li><a href="#10-feature-by-feature-capability-matrix"
-id="toc-10-feature-by-feature-capability-matrix">10. Feature-by-Feature
-Capability Matrix</a></li>
-<li><a href="#11-troubleshooting-reference"
-id="toc-11-troubleshooting-reference">11. Troubleshooting
-Reference</a></li>
-<li><a href="#12-safe-rollout-checklist"
-id="toc-12-safe-rollout-checklist">12. Safe Rollout Checklist</a></li>
-<li><a href="#13-known-limitations-and-notes"
-id="toc-13-known-limitations-and-notes">13. Known Limitations and
-Notes</a></li>
-<li><a href="#14-recommended-next-documentation-extensions"
-id="toc-14-recommended-next-documentation-extensions">14. Recommended
-Next Documentation Extensions</a></li>
-<li><a href="#15-appendix-a-telegram-command-examples"
-id="toc-15-appendix-a-telegram-command-examples">15. Appendix A:
-Telegram Command Examples</a></li>
-<li><a href="#151-user-commands" id="toc-151-user-commands">15.1 User
-Commands</a></li>
-<li><a href="#152-admin-and-scam-intelligence-commands"
-id="toc-152-admin-and-scam-intelligence-commands">15.2 Admin and
-Scam-Intelligence Commands</a></li>
-<li><a href="#153-trading-commands-admin-only"
-id="toc-153-trading-commands-admin-only">15.3 Trading Commands (Admin
-Only)</a></li>
-<li><a href="#154-common-error-patterns-across-commands"
-id="toc-154-common-error-patterns-across-commands">15.4 Common Error
-Patterns Across Commands</a></li>
-<li><a href="#16-appendix-b-real-transcript-style-operator-training"
-id="toc-16-appendix-b-real-transcript-style-operator-training">16.
-Appendix B: Real Transcript Style Operator Training</a></li>
-<li><a href="#161-onboarding-and-wallet-add-success"
-id="toc-161-onboarding-and-wallet-add-success">16.1 Onboarding and
-Wallet Add Success</a></li>
-<li><a href="#162-add-command-invalid-wallet-then-retry"
-id="toc-162-add-command-invalid-wallet-then-retry">16.2 Add Command
-Invalid Wallet Then Retry</a></li>
-<li><a href="#163-delete-command-for-untracked-wallet"
-id="toc-163-delete-command-for-untracked-wallet">16.3 Delete Command for
-Untracked Wallet</a></li>
-<li><a href="#164-admin-ban-flow" id="toc-164-admin-ban-flow">16.4 Admin
-Ban Flow</a></li>
-<li><a href="#165-scam-flag-and-feed-verification"
-id="toc-165-scam-flag-and-feed-verification">16.5 Scam Flag and Feed
-Verification</a></li>
-<li><a href="#166-token-investigation-flow"
-id="toc-166-token-investigation-flow">16.6 Token Investigation
-Flow</a></li>
-<li><a href="#167-trading-status-and-controls"
-id="toc-167-trading-status-and-controls">16.7 Trading Status and
-Controls</a></li>
-<li><a href="#168-trading-config-commands"
-id="toc-168-trading-config-commands">16.8 Trading Config
-Commands</a></li>
-<li><a href="#169-access-denied-training-case"
-id="toc-169-access-denied-training-case">16.9 Access Denied Training
-Case</a></li>
-<li><a href="#1610-multi-step-prompt-cancellation-behavior"
-id="toc-1610-multi-step-prompt-cancellation-behavior">16.10 Multi-Step
-Prompt Cancellation Behavior</a></li>
-<li><a href="#1611-group-activation-training"
-id="toc-1611-group-activation-training">16.11 Group Activation
-Training</a></li>
-<li><a href="#1612-operator-drill-checklist-for-transcript-practice"
-id="toc-1612-operator-drill-checklist-for-transcript-practice">16.12
-Operator Drill Checklist for Transcript Practice</a></li>
-</ul></li>
-</ul>
-</nav>
 <h1 id="foilops-project-manual">FoilOps Project Manual</h1>
 <p>Navigation: <a href="README.html">Home</a> | <a
 href="PROJECT_MANUAL.html">Project Manual</a> | <a
 href="SECURITY_AND_OPERATIONS_AUDIT.html">Security and Operations
 Audit</a></p>
-<h2 id="1-what-this-project-is">1. What This Project Is</h2>
+<h2 id="what-this-project-is">1. What This Project Is</h2>
 <p>FoilOps is a Solana wallet intelligence platform that combines:</p>
 <ul>
 <li>A TypeScript/Node.js Telegram bot and HTTP app for wallet tracking,
@@ -335,8 +21,8 @@ execute buy/sell logic on Solana.</li>
 <code>Auto-solana-trading-bot/src/services/signal_receiver.rs</code></li>
 <li>Prisma schema: <code>prisma/schema.prisma</code></li>
 </ul>
-<h2 id="2-high-level-architecture">2. High-Level Architecture</h2>
-<h2 id="21-components">2.1 Components</h2>
+<h2 id="high-level-architecture">2. High-Level Architecture</h2>
+<h2 id="components">2.1 Components</h2>
 <ol type="1">
 <li>TypeScript Runtime (FoilOps app)</li>
 </ol>
@@ -373,7 +59,7 @@ event history.</li>
 <li>Combined local startup script: <code>start-both.sh</code></li>
 <li>PM2 can be used for daemonized deployment of the two services.</li>
 </ul>
-<h2 id="22-core-data-flow">2.2 Core Data Flow</h2>
+<h2 id="core-data-flow">2.2 Core Data Flow</h2>
 <ol type="1">
 <li>Wallet activity is observed by FoilOps watcher.</li>
 <li>Parsed transaction details are sent to users/admin logic.</li>
@@ -386,9 +72,9 @@ event history.</li>
 <li>dry-run accepts (no execution), or</li>
 <li>live-mode executes through strategy paths.</li>
 </ul>
-<h2 id="3-typescript-service-capabilities">3. TypeScript Service
+<h2 id="typescript-service-capabilities">3. TypeScript Service
 Capabilities</h2>
-<h2 id="31-runtime-boot-and-routes">3.1 Runtime Boot and Routes</h2>
+<h2 id="runtime-boot-and-routes">3.1 Runtime Boot and Routes</h2>
 <p><code>src/main.ts</code>:</p>
 <ul>
 <li>Starts HTTP server on <code>PORT</code> (default fallback in
@@ -407,8 +93,14 @@ code).</li>
 <li><code>GET /api/scam-wallets</code></li>
 <li><code>GET /api/token-investigation/:tokenMint</code></li>
 </ul></li>
+<li>Registers trading operations endpoints:
+<ul>
+<li><code>GET /dashboard/trading-ops</code></li>
+<li><code>GET /api/trading-ops</code></li>
+<li><code>GET /api/trading-ops/export?format=json|csv</code></li>
+</ul></li>
 </ul>
-<h2 id="32-telegram-commands-useradmin">3.2 Telegram Commands
+<h2 id="telegram-commands-useradmin">3.2 Telegram Commands
 (User/Admin)</h2>
 <p>Command handlers are in <code>src/bot/commands</code>.</p>
 <p>Common user commands include:</p>
@@ -421,6 +113,7 @@ code).</li>
 <li><code>/help_group</code></li>
 <li><code>/help_notify</code></li>
 <li><code>/groups</code> and related activation flow</li>
+<li><code>/help</code></li>
 </ul>
 <p>Trading/admin related commands include:</p>
 <ul>
@@ -433,14 +126,31 @@ code).</li>
 <li><code>/trading_disable</code></li>
 <li><code>/trading_pause</code></li>
 <li><code>/trading_resume</code></li>
+<li><code>/trading_execution_mode [paper|live]</code></li>
+<li><code>/trading_sources</code></li>
+<li><code>/trading_source_add &lt;wallet&gt;</code></li>
+<li><code>/trading_source_remove &lt;wallet&gt;</code></li>
+<li><code>/trading_source_cap &lt;wallet&gt; &lt;sol&gt;</code></li>
+<li><code>/trading_source_uncap &lt;wallet&gt;</code></li>
+<li><code>/trading_source_profile &lt;wallet&gt; &lt;shadow|scalp|swing|defensive|blocked&gt; [notes]</code></li>
+<li><code>/trading_alert_quality [min_score] [min_trace_alerts]</code></li>
+<li><code>/trading_metrics</code></li>
+<li><code>/trading_journal</code></li>
+<li><code>/trading_failures</code></li>
+<li><code>/trading_retry_failed [signal_id|all]</code></li>
+<li><code>/trading_dashboard</code></li>
+<li><code>/trading_audit_logs</code></li>
+<li><code>/trading_gate_metrics</code></li>
 </ul>
 <p>Note:</p>
 <ul>
 <li>Admin authorization is mediated by bot middleware checks.</li>
 <li>Trading commands in TS call Rust HTTP endpoints, not an internal
 Rust Telegram loop.</li>
+<li><code>/start</code> now sends both the welcome menu and a full
+command directory in private chats.</li>
 </ul>
-<h2 id="33-wallet-tracking-and-parsing">3.3 Wallet Tracking and
+<h2 id="wallet-tracking-and-parsing">3.3 Wallet Tracking and
 Parsing</h2>
 <p>Core flow files:</p>
 <ul>
@@ -456,7 +166,7 @@ Parsing</h2>
 summaries.</li>
 <li>Sends messages to tracked users with rate limiting controls.</li>
 </ul>
-<h2 id="34-scam-intelligence-layer">3.4 Scam Intelligence Layer</h2>
+<h2 id="scam-intelligence-layer">3.4 Scam Intelligence Layer</h2>
 <p>Core files:</p>
 <ul>
 <li><code>src/lib/scam-wallet-monitor.ts</code></li>
@@ -476,7 +186,7 @@ summaries.</li>
 <li>Investigate token mint to likely developer wallet.</li>
 <li>Render dashboard and expose JSON for dashboard data.</li>
 </ul>
-<h2 id="35-trade-signal-emission">3.5 Trade Signal Emission</h2>
+<h2 id="trade-signal-emission">3.5 Trade Signal Emission</h2>
 <p>Core files:</p>
 <ul>
 <li><code>src/lib/trade-signal-emitter.ts</code></li>
@@ -508,8 +218,8 @@ summaries.</li>
 <code>COPY_TRADE</code> automatically on detected tracked-wallet swaps
 via <code>emitCopyTradeSignal(...)</code>.</li>
 </ul>
-<h2 id="4-rust-service-capabilities">4. Rust Service Capabilities</h2>
-<h2 id="41-rust-main-runtime">4.1 Rust Main Runtime</h2>
+<h2 id="rust-service-capabilities">4. Rust Service Capabilities</h2>
+<h2 id="rust-main-runtime">4.1 Rust Main Runtime</h2>
 <p><code>Auto-solana-trading-bot/src/main.rs</code>:</p>
 <ul>
 <li>Loads env configuration.</li>
@@ -517,7 +227,7 @@ via <code>emitCopyTradeSignal(...)</code>.</li>
 <li>Spawns signal receiver server.</li>
 <li>Runs additional websocket monitoring logic.</li>
 </ul>
-<h2 id="42-signal-receiver-api">4.2 Signal Receiver API</h2>
+<h2 id="signal-receiver-api">4.2 Signal Receiver API</h2>
 <p><code>Auto-solana-trading-bot/src/services/signal_receiver.rs</code>
 exposes:</p>
 <ul>
@@ -535,6 +245,16 @@ exposes:</p>
 <li><code>GET|POST /trading/slippage</code></li>
 <li><code>GET|POST /trading/target</code></li>
 <li><code>GET|POST /trading/mev</code></li>
+<li><code>GET|POST /trading/execution-mode</code></li>
+<li><code>GET|POST /trading/source-wallets</code></li>
+<li><code>GET|POST /trading/alert-quality</code></li>
+<li><code>GET /trading/journal</code></li>
+<li><code>GET /trading/metrics</code></li>
+<li><code>GET /trading/dead-letters</code></li>
+<li><code>POST /trading/retry-failed</code></li>
+<li><code>GET /trading/safety</code></li>
+<li><code>GET /trading/decisions</code></li>
+<li><code>GET /trading/audit-logs</code></li>
 </ul>
 <p>Receiver controls include:</p>
 <ul>
@@ -543,9 +263,11 @@ exposes:</p>
 <li>timestamp skew validation</li>
 <li>idempotency key duplicate suppression</li>
 <li>dry-run vs live mode toggle</li>
+<li>structured decision/audit logging and dead-letter retry
+workflow</li>
 </ul>
-<h2 id="43-execution-engine-and-risk-gates">4.3 Execution Engine and
-Risk Gates</h2>
+<h2 id="execution-engine-and-risk-gates">4.3 Execution Engine and Risk
+Gates</h2>
 <p><code>Auto-solana-trading-bot/src/services/signal_execution.rs</code>:</p>
 <ul>
 <li>Maintains runtime trading state (<code>enabled</code>,
@@ -554,6 +276,10 @@ Risk Gates</h2>
 <li>Supports action mapping from incoming signal types.</li>
 <li>Supports configurable max risk gate via env-backed
 <code>max_risk_score</code>.</li>
+<li>Supports source-wallet watchlist/caps/profile presets for copy-trade
+control.</li>
+<li>Records execution journal entries with action/status/reason/profile
+context.</li>
 </ul>
 <p>Current mappings include:</p>
 <ul>
@@ -574,7 +300,7 @@ metadata/action hint</li>
 <li>buy aliases: <code>buy</code>, <code>long</code></li>
 <li>sell aliases: <code>sell</code>, <code>short</code></li>
 </ul>
-<h2 id="44-dex-execution-paths">4.4 DEX Execution Paths</h2>
+<h2 id="dex-execution-paths">4.4 DEX Execution Paths</h2>
 <p><code>Auto-solana-trading-bot/src/engine/swap.rs</code>:</p>
 <ul>
 <li><code>pump_swap(...)</code></li>
@@ -582,7 +308,7 @@ metadata/action hint</li>
 </ul>
 <p><code>signal_execution.rs</code> determines DEX path and routes
 buy/sell through these methods.</p>
-<h2 id="5-data-model-prisma">5. Data Model (Prisma)</h2>
+<h2 id="data-model-prisma">5. Data Model (Prisma)</h2>
 <p><code>prisma/schema.prisma</code> entities and enums include:</p>
 <p>Enums:</p>
 <ul>
@@ -621,8 +347,8 @@ buy/sell through these methods.</p>
 <li>Promotion purchases</li>
 <li>Group linkage</li>
 </ul>
-<h2 id="6-environment-variables">6. Environment Variables</h2>
-<h2 id="61-typescriptfoilops-side-root-env">6.1 TypeScript/FoilOps side
+<h2 id="environment-variables">6. Environment Variables</h2>
+<h2 id="typescriptfoilops-side-root-.env">6.1 TypeScript/FoilOps side
 (root <code>.env</code>)</h2>
 <p>Core:</p>
 <ul>
@@ -637,6 +363,7 @@ buy/sell through these methods.</p>
 </ul>
 <p>Signal emitter:</p>
 <ul>
+<li><code>TRADING_BOT_URL</code></li>
 <li><code>TRADE_SIGNAL_ENDPOINT</code></li>
 <li><code>TRADE_SIGNAL_TIMEOUT_MS</code></li>
 <li><code>TRADE_SIGNAL_REQUIRE_AUTH</code></li>
@@ -661,7 +388,7 @@ buy/sell through these methods.</p>
 <li><code>BACKUP_ENCRYPTION_KEY</code></li>
 <li><code>BACKUP_FILE</code></li>
 </ul>
-<h2 id="62-rust-side-auto-solana-trading-botenv">6.2 Rust side
+<h2 id="rust-side-auto-solana-trading-bot.env">6.2 Rust side
 (<code>Auto-solana-trading-bot/.env</code>)</h2>
 <p>Core:</p>
 <ul>
@@ -690,7 +417,7 @@ buy/sell through these methods.</p>
 <li><code>SIGNAL_DEDUP_WINDOW_SECONDS</code></li>
 <li><code>SIGNAL_MAX_TIMESTAMP_SKEW_SECONDS</code></li>
 </ul>
-<h2 id="7-scripts-and-operational-commands">7. Scripts and Operational
+<h2 id="scripts-and-operational-commands">7. Scripts and Operational
 Commands</h2>
 <p>From <code>package.json</code>:</p>
 <p>Runtime:</p>
@@ -730,8 +457,8 @@ Commands</h2>
 <li><code>pnpm format:check</code></li>
 <li><code>pnpm format:write</code></li>
 </ul>
-<h2 id="8-deployment-modes">8. Deployment Modes</h2>
-<h2 id="81-local-combined-start">8.1 Local Combined Start</h2>
+<h2 id="deployment-modes">8. Deployment Modes</h2>
+<h2 id="local-combined-start">8.1 Local Combined Start</h2>
 <p><code>start-both.sh</code>:</p>
 <ul>
 <li>resolves app port from env</li>
@@ -740,7 +467,7 @@ Commands</h2>
 <li>starts TS bot (<code>pnpm start</code>)</li>
 <li>traps <code>SIGINT/SIGTERM</code> and cleans child processes</li>
 </ul>
-<h2 id="82-pm2-deployment-pattern">8.2 PM2 Deployment Pattern</h2>
+<h2 id="pm2-deployment-pattern">8.2 PM2 Deployment Pattern</h2>
 <p>Operationally, common pattern is two separate PM2 apps:</p>
 <ul>
 <li>one for FoilOps TypeScript service</li>
@@ -752,10 +479,10 @@ Commands</h2>
 Telegram bot token simultaneously</li>
 <li>save PM2 process list after clean restart</li>
 </ul>
-<h2 id="9-signal-contract-and-security">9. Signal Contract and
+<h2 id="signal-contract-and-security">9. Signal Contract and
 Security</h2>
-<h2 id="91-tradesignalv1-shape-camel-case">9.1 TradeSignalV1 Shape
-(Camel Case)</h2>
+<h2 id="tradesignalv1-shape-camel-case">9.1 TradeSignalV1 Shape (Camel
+Case)</h2>
 <p>Important fields:</p>
 <ul>
 <li><code>schemaVersion</code></li>
@@ -773,7 +500,7 @@ Security</h2>
 <li><code>actionHint</code></li>
 <li><code>metadata</code></li>
 </ul>
-<h2 id="92-authentication">9.2 Authentication</h2>
+<h2 id="authentication">9.2 Authentication</h2>
 <p>When auth is required:</p>
 <ul>
 <li>include timestamp header</li>
@@ -781,13 +508,13 @@ Security</h2>
 <code>timestamp.payload</code></li>
 <li>receiver verifies signature and freshness</li>
 </ul>
-<h2 id="93-dedupe">9.3 Dedupe</h2>
+<h2 id="dedupe">9.3 Dedupe</h2>
 <ul>
 <li>TS emitter tracks recent idempotency keys locally.</li>
 <li>Rust receiver rejects duplicate keys/signals within configured
 dedupe window.</li>
 </ul>
-<h2 id="10-feature-by-feature-capability-matrix">10. Feature-by-Feature
+<h2 id="feature-by-feature-capability-matrix">10. Feature-by-Feature
 Capability Matrix</h2>
 <ol type="1">
 <li>Real-time wallet tracking: Yes</li>
@@ -808,8 +535,11 @@ Rust API)</li>
 TS + Rust handler execution)</li>
 <li>Auto-emit copy trade signal from detected wallet swaps: Yes</li>
 <li>Backup/restore support: Yes (encrypted and plaintext modes)</li>
+<li>Dead-letter queue and retry for failed/blocked signals: Yes</li>
+<li>Audit log endpoint and gate-specific rejection counters: Yes</li>
+<li>Trading ops dashboard (HTML + JSON + CSV export): Yes</li>
 </ol>
-<h2 id="11-troubleshooting-reference">11. Troubleshooting Reference</h2>
+<h2 id="troubleshooting-reference">11. Troubleshooting Reference</h2>
 <ol type="1">
 <li>Telegram 409 conflict errors</li>
 </ol>
@@ -849,7 +579,7 @@ composition.</li>
 <li>Check <code>SIGNAL_RECEIVER_DRY_RUN</code> in runtime env used by
 Rust process.</li>
 </ul>
-<h2 id="12-safe-rollout-checklist">12. Safe Rollout Checklist</h2>
+<h2 id="safe-rollout-checklist">12. Safe Rollout Checklist</h2>
 <p>Before live trading:</p>
 <ol type="1">
 <li>Ensure fresh, uncompromised private keys and bot tokens.</li>
@@ -863,7 +593,7 @@ enabled/paused/mode settings.</li>
 <li>Move to live only after monitoring dry-run logs and expected
 decision traces.</li>
 </ol>
-<h2 id="13-known-limitations-and-notes">13. Known Limitations and
+<h2 id="known-limitations-and-notes">13. Known Limitations and
 Notes</h2>
 <ol type="1">
 <li>Some upstream docs may lag behind code changes.</li>
@@ -874,8 +604,8 @@ risk in production.</li>
 <li>Secrets should be treated as compromised once exposed in chat/logs
 and rotated promptly.</li>
 </ol>
-<h2 id="14-recommended-next-documentation-extensions">14. Recommended
-Next Documentation Extensions</h2>
+<h2 id="recommended-next-documentation-extensions">14. Recommended Next
+Documentation Extensions</h2>
 <ol type="1">
 <li>Add sequence diagrams for TS watcher -&gt; signal -&gt; Rust
 execution path.</li>
@@ -886,8 +616,8 @@ error budgets).</li>
 <li>Add disaster recovery drill procedures with backup restore
 validation records.</li>
 </ol>
-<h2 id="15-appendix-a-telegram-command-examples">15. Appendix A:
-Telegram Command Examples</h2>
+<h2 id="appendix-a-telegram-command-examples">15. Appendix A: Telegram
+Command Examples</h2>
 <p>This appendix lists each currently registered slash command in the
 codebase and shows:</p>
 <ol type="1">
@@ -901,14 +631,15 @@ codebase and shows:</p>
 message.</li>
 <li>Admin-only commands return access denied for non-admin users.</li>
 </ol>
-<h2 id="151-user-commands">15.1 User Commands</h2>
+<h2 id="user-commands">15.1 User Commands</h2>
 <ol type="1">
 <li><code>/start</code></li>
 </ol>
 <ul>
 <li>Example input: <code>/start</code></li>
-<li>Expected response: welcome/start menu message; in group chats,
-group-specific start guidance.</li>
+<li>Expected response: welcome/start menu message plus full command
+directory in private chats; in group chats, group-specific start
+guidance.</li>
 </ul>
 <ol type="1">
 <li><code>/add</code></li>
@@ -990,7 +721,7 @@ submenu.</li>
 message.</li>
 </ul></li>
 </ul>
-<h2 id="152-admin-and-scam-intelligence-commands">15.2 Admin and
+<h2 id="admin-and-scam-intelligence-commands">15.2 Admin and
 Scam-Intelligence Commands</h2>
 <ol type="1">
 <li><code>/ban_wallet</code></li>
@@ -1079,7 +810,7 @@ risk/market data, developer wallet context, and trace findings</li>
 <li>usage message if argument omitted.</li>
 </ul></li>
 </ul>
-<h2 id="153-trading-commands-admin-only">15.3 Trading Commands (Admin
+<h2 id="trading-commands-admin-only">15.3 Trading Commands (Admin
 Only)</h2>
 <ol type="1">
 <li><code>/trading_status</code></li>
@@ -1157,7 +888,105 @@ success.</li>
 <code>/trading_target 4kAfac1KbyoT5SZhMDRUeGRfJs3Gb1gqZrGneQwxF5pd</code></li>
 <li>Expected response: <code>Target wallet set to ...</code>.</li>
 </ul>
-<h2 id="154-common-error-patterns-across-commands">15.4 Common Error
+<ol type="1">
+<li><code>/trading_execution_mode [paper|live]</code></li>
+</ol>
+<ul>
+<li>Example input (get): <code>/trading_execution_mode</code></li>
+<li>Expected response: current execution mode (<code>paper</code> or
+<code>live</code>).</li>
+<li>Example input (set): <code>/trading_execution_mode paper</code></li>
+<li>Expected response: mode update confirmation.</li>
+</ul>
+<ol type="1">
+<li><code>/trading_sources</code></li>
+</ol>
+<ul>
+<li>Example input: <code>/trading_sources</code></li>
+<li>Expected response: source-wallet watchlist with caps/profile presets
+and usage hints.</li>
+</ul>
+<ol type="1">
+<li><code>/trading_source_add &lt;wallet&gt;</code></li>
+</ol>
+<ul>
+<li>Example input:
+<code>/trading_source_add 4kAfac1KbyoT5SZhMDRUeGRfJs3Gb1gqZrGneQwxF5pd</code></li>
+<li>Expected response: source wallet added confirmation.</li>
+</ul>
+<ol type="1">
+<li><code>/trading_source_profile &lt;wallet&gt; &lt;preset&gt; [notes]</code></li>
+</ol>
+<ul>
+<li>Example input:
+<code>/trading_source_profile 4kAfac1KbyoT5SZhMDRUeGRfJs3Gb1gqZrGneQwxF5pd scalp fast copier</code></li>
+<li>Expected response: profile assignment confirmation.</li>
+</ul>
+<ol type="1">
+<li><code>/trading_alert_quality [min_score] [min_trace_alerts]</code></li>
+</ol>
+<ul>
+<li>Example input (get): <code>/trading_alert_quality</code></li>
+<li>Expected response: current quality thresholds.</li>
+<li>Example input (set): <code>/trading_alert_quality 70 3</code></li>
+<li>Expected response: threshold update confirmation.</li>
+</ul>
+<ol type="1">
+<li><code>/trading_metrics</code></li>
+</ol>
+<ul>
+<li>Example input: <code>/trading_metrics</code></li>
+<li>Expected response: receiver metrics
+(received/accepted/executed/blocked/failed/rejected/duplicate/retried/dead-letter).</li>
+</ul>
+<ol type="1">
+<li><code>/trading_journal</code></li>
+</ol>
+<ul>
+<li>Example input: <code>/trading_journal</code></li>
+<li>Expected response: recent journal entries (status, action, token,
+source, profile, reason).</li>
+</ul>
+<ol type="1">
+<li><code>/trading_failures</code></li>
+</ol>
+<ul>
+<li>Example input: <code>/trading_failures</code></li>
+<li>Expected response: recent dead-letter queue entries and retry
+hints.</li>
+</ul>
+<ol type="1">
+<li><code>/trading_retry_failed [signal_id|all]</code></li>
+</ol>
+<ul>
+<li>Example input: <code>/trading_retry_failed all</code></li>
+<li>Expected response: retried signal list with resulting status.</li>
+</ul>
+<ol type="1">
+<li><code>/trading_dashboard</code></li>
+</ol>
+<ul>
+<li>Example input: <code>/trading_dashboard</code></li>
+<li>Expected response: links for HTML dashboard and JSON/CSV
+exports.</li>
+</ul>
+<ol type="1">
+<li><code>/trading_audit_logs</code></li>
+</ol>
+<ul>
+<li>Example input: <code>/trading_audit_logs</code></li>
+<li>Expected response: event summary and recent audit events
+(blocked/rejected/executed, gate attribution).</li>
+</ul>
+<ol type="1">
+<li><code>/trading_gate_metrics</code></li>
+</ol>
+<ul>
+<li>Example input: <code>/trading_gate_metrics</code></li>
+<li>Expected response: gate-specific rejection counters and
+acceptance-rate context.</li>
+</ul>
+<h2 id="common-error-patterns-across-commands">15.4 Common Error
 Patterns Across Commands</h2>
 <ol type="1">
 <li>Non-admin execution on admin command:</li>
@@ -1189,8 +1018,8 @@ Patterns Across Commands</h2>
 <li>Expected behavior: pending listener state is reset/canceled for that
 prompt flow.</li>
 </ul>
-<h2 id="16-appendix-b-real-transcript-style-operator-training">16.
-Appendix B: Real Transcript Style Operator Training</h2>
+<h2 id="appendix-b-real-transcript-style-operator-training">16. Appendix
+B: Real Transcript Style Operator Training</h2>
 <p>The transcripts below are realistic training examples showing exact
 command flow style, including multi-step command prompts and common
 failure cases.</p>
@@ -1201,18 +1030,18 @@ failure cases.</p>
 <li>Samples are representative; exact wording can vary by
 context/data.</li>
 </ol>
-<h2 id="161-onboarding-and-wallet-add-success">16.1 Onboarding and
-Wallet Add Success</h2>
+<h2 id="onboarding-and-wallet-add-success">16.1 Onboarding and Wallet
+Add Success</h2>
 <pre class="text"><code>Operator&gt; /start
-Bot&gt; Welcome message + main menu buttons
+Bot&gt; Welcome message + main menu buttons + full command directory
 
 Operator&gt; /add
 Bot&gt; Send me the wallet address you want to track.
 
 Operator&gt; 4kAfac1KbyoT5SZhMDRUeGRfJs3Gb1gqZrGneQwxF5pd alpha_wallet
 Bot&gt; Wallet 4kAfac1KbyoT5SZhMDRUeGRfJs3Gb1gqZrGneQwxF5pd has been added.</code></pre>
-<h2 id="162-add-command-invalid-wallet-then-retry">16.2 Add Command
-Invalid Wallet Then Retry</h2>
+<h2 id="add-command-invalid-wallet-then-retry">16.2 Add Command Invalid
+Wallet Then Retry</h2>
 <pre class="text"><code>Operator&gt; /add
 Bot&gt; Send me the wallet address you want to track.
 
@@ -1221,20 +1050,20 @@ Bot&gt; Address provided is not a valid Solana wallet
 
 Operator&gt; 9xQeWvG816bUx9EPf8N7Kj2fM9pV8oW1sY3X4Z5a6b7c
 Bot&gt; Wallet 9xQeWvG816bUx9EPf8N7Kj2fM9pV8oW1sY3X4Z5a6b7c has been added.</code></pre>
-<h2 id="163-delete-command-for-untracked-wallet">16.3 Delete Command for
+<h2 id="delete-command-for-untracked-wallet">16.3 Delete Command for
 Untracked Wallet</h2>
 <pre class="text"><code>Operator&gt; /delete
 Bot&gt; Send the wallet address(es) to delete.
 
 Operator&gt; 11111111111111111111111111111111
 Bot&gt; You&#39;re not tracking the wallet: 11111111111111111111111111111111</code></pre>
-<h2 id="164-admin-ban-flow">16.4 Admin Ban Flow</h2>
+<h2 id="admin-ban-flow">16.4 Admin Ban Flow</h2>
 <pre class="text"><code>Operator&gt; /ban_wallet
 Bot&gt; Enter the wallet Public Key you want to Ban
 
 Operator&gt; 4kAfac1KbyoT5SZhMDRUeGRfJs3Gb1gqZrGneQwxF5pd
 Bot&gt; wallet with address 4kAfac1KbyoT5SZhMDRUeGRfJs3Gb1gqZrGneQwxF5pd has been banned!</code></pre>
-<h2 id="165-scam-flag-and-feed-verification">16.5 Scam Flag and Feed
+<h2 id="scam-flag-and-feed-verification">16.5 Scam Flag and Feed
 Verification</h2>
 <pre class="text"><code>Operator&gt; /flag_wallet 4kAfac1KbyoT5SZhMDRUeGRfJs3Gb1gqZrGneQwxF5pd launch_pattern
 Bot&gt; Wallet flagged as suspicious.
@@ -1246,13 +1075,13 @@ Bot&gt; Flow hops traced: 3
 Operator&gt; /scam_feed 3
 Bot&gt; Suspicious Launch Alert Feed
 Bot&gt; Wallet: ... Token: ... Risk: ... Tx: ... Type: ... Time: ...</code></pre>
-<h2 id="166-token-investigation-flow">16.6 Token Investigation Flow</h2>
+<h2 id="token-investigation-flow">16.6 Token Investigation Flow</h2>
 <pre class="text"><code>Operator&gt; /trace_token So11111111111111111111111111111111111111112
 Bot&gt; Rug Pull Investigation Report (message 1: token identity + links)
 Bot&gt; Risk &amp; Market Data (message 2: score, liquidity, holder concentration)
 Bot&gt; Developer Wallet Analysis (message 3: resolved dev wallet + related tokens)
 Bot&gt; Flow/Alert Summary (message 4: hops + notable flags)</code></pre>
-<h2 id="167-trading-status-and-controls">16.7 Trading Status and
+<h2 id="trading-status-and-controls">16.7 Trading Status and
 Controls</h2>
 <pre class="text"><code>Operator&gt; /trading_status
 Bot&gt; Trading Bot Status
@@ -1274,7 +1103,7 @@ Bot&gt; Trading resumed
 
 Operator&gt; /trading_disable
 Bot&gt; Trading bot disabled</code></pre>
-<h2 id="168-trading-config-commands">16.8 Trading Config Commands</h2>
+<h2 id="trading-config-commands">16.8 Trading Config Commands</h2>
 <pre class="text"><code>Operator&gt; /trading_slippage
 Bot&gt; Current slippage: 3%
 
@@ -1286,15 +1115,41 @@ Bot&gt; Target wallet: Not set
 
 Operator&gt; /trading_target 4kAfac1KbyoT5SZhMDRUeGRfJs3Gb1gqZrGneQwxF5pd
 Bot&gt; Target wallet set to 4kAfac1...</code></pre>
-<h2 id="169-access-denied-training-case">16.9 Access Denied Training
+<h2 id="phase-3-ops-surface-commands">16.8.1 Phase 3 Ops Surface
+Commands</h2>
+<pre class="text"><code>Operator&gt; /trading_metrics
+Bot&gt; Trading Ops Metrics
+Bot&gt; Execution mode: paper
+Bot&gt; Received: 52 | Accepted: 31 | Executed: 12 | Blocked: 14 | Failed: 3 | Rejected: 4
+
+Operator&gt; /trading_failures
+Bot&gt; Failed Signal Queue
+Bot&gt; • blocked COPY_TRADE ... retries: 1
+Bot&gt; • failed TOKEN_INVESTIGATION ... retries: 0
+
+Operator&gt; /trading_retry_failed all
+Bot&gt; Retried 2 failed signal(s)
+Bot&gt; • signal-abc -&gt; executed
+Bot&gt; • signal-def -&gt; blocked | source_wallet_profile_blocked
+
+Operator&gt; /trading_audit_logs
+Bot&gt; Phase 3 Audit Logs
+Bot&gt; Event summary: blocked=14, rejected=4, executed=12
+
+Operator&gt; /trading_gate_metrics
+Bot&gt; Phase 3 Gate Metrics
+Bot&gt; source_wallet_profile_blocked: 6
+Bot&gt; risk_score_exceeded: 4
+Bot&gt; alert_quality_low: 2</code></pre>
+<h2 id="access-denied-training-case">16.9 Access Denied Training
 Case</h2>
 <pre class="text"><code>Operator&gt; /trading_status
 Bot&gt; Access denied. Admin only command.
 
 Operator&gt; /ban_wallet
 Bot&gt; (no action or admin-denied behavior based on middleware path)</code></pre>
-<h2 id="1610-multi-step-prompt-cancellation-behavior">16.10 Multi-Step
-Prompt Cancellation Behavior</h2>
+<h2 id="multi-step-prompt-cancellation-behavior">16.10 Multi-Step Prompt
+Cancellation Behavior</h2>
 <pre class="text"><code>Operator&gt; /add
 Bot&gt; Send me the wallet address you want to track.
 
@@ -1302,8 +1157,7 @@ Operator&gt; /manage
 Bot&gt; Wallet management summary...
 
 Training Note: entering a new slash command cancels the pending add-input flow.</code></pre>
-<h2 id="1611-group-activation-training">16.11 Group Activation
-Training</h2>
+<h2 id="group-activation-training">16.11 Group Activation Training</h2>
 <pre class="text"><code>Operator (in group)&gt; /activate
 Bot&gt; Group Alpha has been activated! Remember only you can update this bot settings</code></pre>
 <p>Failure variants:</p>
@@ -1313,8 +1167,8 @@ group-not-started guidance.</li>
 <li>User is not PRO tier -&gt; upgrade-required guidance.</li>
 <li>Group already activated -&gt; already-activated message.</li>
 </ol>
-<h2 id="1612-operator-drill-checklist-for-transcript-practice">16.12
-Operator Drill Checklist for Transcript Practice</h2>
+<h2 id="operator-drill-checklist-for-transcript-practice">16.12 Operator
+Drill Checklist for Transcript Practice</h2>
 <p>Use these drills in order:</p>
 <ol type="1">
 <li><code>/start</code> then <code>/add</code> success case.</li>
@@ -1330,5 +1184,3 @@ Operator Drill Checklist for Transcript Practice</h2>
 <p>Previous: <a href="README.html">Home</a> | Next: <a
 href="SECURITY_AND_OPERATIONS_AUDIT.html">Security and Operations
 Audit</a></p>
-</body>
-</html>

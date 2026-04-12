@@ -54,6 +54,23 @@ export const TRADING_MENU: InlineKeyboardMarkup = {
       { text: '⚠️ Tighten Risk', callback_data: 'trading_tighten_risk' },
       { text: '🛑 Kill Switch', callback_data: 'trading_kill' },
     ],
+    [
+      { text: '👀 Sources', callback_data: 'trading_sources' },
+      { text: '🎚️ Quality', callback_data: 'trading_alert_quality' },
+    ],
+    [{ text: '🧪 Paper/Live', callback_data: 'trading_execution_mode' }],
+    [
+      { text: '📒 Journal', callback_data: 'trading_journal' },
+      { text: '📉 Metrics', callback_data: 'trading_metrics' },
+    ],
+    [
+      { text: '🚨 Failures', callback_data: 'trading_failures' },
+      { text: '🌐 Dashboard', callback_data: 'trading_dashboard' },
+    ],
+    [
+      { text: '📋 Audit Logs', callback_data: 'trading_audit_logs' },
+      { text: '🔐 Gate Metrics', callback_data: 'trading_gate_metrics' },
+    ],
     [{ text: '⚙️ Config', callback_data: 'trading_config' }],
     [{ text: '🔙 Back', callback_data: 'back_to_main_menu' }],
   ],

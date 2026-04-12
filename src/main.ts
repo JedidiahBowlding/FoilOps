@@ -24,6 +24,7 @@ import { PrismaScamWalletRepository } from './repositories/prisma/scam-wallet'
 import { WalletClusterService } from './lib/wallet-cluster'
 import { registerGraphRoutes } from './http/graph-routes'
 import { AiAnalyzer } from './lib/ai-analyzer'
+import { TradingOpsDashboard } from './lib/trading-ops-dashboard'
 
 dotenv.config()
 
@@ -50,6 +51,7 @@ class Main {
   private scamWalletRepository: PrismaScamWalletRepository
   private walletClusterService: WalletClusterService
   private aiAnalyzer: AiAnalyzer
+  private tradingOpsDashboard: TradingOpsDashboard
   constructor(private app: Express = express()) {
     this.setupMiddleware()
 
@@ -73,6 +75,7 @@ class Main {
     this.scamWalletRepository = new PrismaScamWalletRepository()
     this.walletClusterService = new WalletClusterService()
     this.aiAnalyzer = new AiAnalyzer()
+    this.tradingOpsDashboard = new TradingOpsDashboard()
 
     // register routes after route dependencies are initialized
     this.setupRoutes()
@@ -123,6 +126,39 @@ class Main {
       } catch (error) {
         console.error('Scam dashboard API error', error)
         res.status(500).json({ message: 'Failed to load scam wallet data' })
+      }
+    })
+
+    this.app.get('/dashboard/trading-ops', async (req, res) => {
+      try {
+        const dashboard = await this.tradingOpsDashboard.renderHtmlDashboard()
+        res.setHeader('Content-Type', 'text/html; charset=utf-8')
+        res.status(200).send(dashboard)
+      } catch (error) {
+        console.error('Trading ops dashboard error', error)
+        res.status(500).send('Failed to render trading ops dashboard')
+      }
+    })
+
+    this.app.get('/api/trading-ops', async (req, res) => {
+      try {
+        const data = await this.tradingOpsDashboard.getDashboardData()
+        res.status(200).json(data)
+      } catch (error) {
+        console.error('Trading ops API error', error)
+        res.status(500).json({ message: 'Failed to load trading ops data' })
+      }
+    })
+
+    this.app.get('/api/trading-ops/export', async (req, res) => {
+      try {
+        const format = req.query.format === 'csv' ? 'csv' : 'json'
+        const exportPayload = await this.tradingOpsDashboard.exportSnapshot(format)
+        res.setHeader('Content-Type', exportPayload.contentType)
+        res.status(200).send(exportPayload.body)
+      } catch (error) {
+        console.error('Trading ops export error', error)
+        res.status(500).json({ message: 'Failed to export trading ops snapshot' })
       }
     })
 

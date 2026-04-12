@@ -27,6 +27,22 @@ pub struct TradingConfig {
     pub denylist: Vec<String>, // blocked token mints
     pub allowlist: Vec<String>, // allowed token mints (if not empty, only these)
     pub max_risk_score: f64, // signals with riskScore above this are rejected
+    pub source_wallet_watchlist: Vec<String>,
+    pub source_wallet_caps_sol: HashMap<String, f64>,
+    pub source_wallet_profiles: HashMap<String, SourceWalletProfile>,
+    pub min_alert_quality_score: f64,
+    pub min_trace_alerts: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SourceWalletProfile {
+    pub preset: String,
+    pub enabled: bool,
+    pub allowed_actions: Vec<String>,
+    pub size_multiplier: f64,
+    pub max_position_size_sol: Option<f64>,
+    pub max_risk_score: Option<f64>,
+    pub notes: Option<String>,
 }
 
 impl Default for TradingConfig {
@@ -48,6 +64,11 @@ impl Default for TradingConfig {
             denylist: vec![],
             allowlist: vec![],
             max_risk_score: 75.0,
+            source_wallet_watchlist: vec![],
+            source_wallet_caps_sol: HashMap::new(),
+            source_wallet_profiles: HashMap::new(),
+            min_alert_quality_score: 0.0,
+            min_trace_alerts: 0,
         }
     }
 }
@@ -55,6 +76,7 @@ impl Default for TradingConfig {
 #[derive(Debug, Clone)]
 pub struct ActivePosition {
     pub token_mint: String,
+    pub source_wallet: Option<String>,
     pub entry_price: f64,
     pub amount: f64,
     pub entry_time: Instant,
@@ -67,6 +89,7 @@ pub struct TradingState {
     pub config: TradingConfig,
     pub active_positions: HashMap<String, ActivePosition>, // token_mint -> position
     pub recent_trades: Vec<TradeRecord>,
+    pub journal: Vec<TradeJournalEntry>,
     pub total_pnl: f64,
     pub win_rate: f64,
     pub total_trades: u32,
@@ -84,12 +107,27 @@ pub struct TradeRecord {
     pub reason: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct TradeJournalEntry {
+    pub timestamp: String,
+    pub request_id: String,
+    pub token_mint: Option<String>,
+    pub source_wallet: Option<String>,
+    pub action: String,
+    pub status: String,
+    pub amount_sol: f64,
+    pub pnl_sol: Option<f64>,
+    pub profile_preset: Option<String>,
+    pub reason: String,
+}
+
 impl Default for TradingState {
     fn default() -> Self {
         Self {
             config: TradingConfig::default(),
             active_positions: HashMap::new(),
             recent_trades: Vec::new(),
+            journal: Vec::new(),
             total_pnl: 0.0,
             win_rate: 0.0,
             total_trades: 0,
@@ -105,6 +143,60 @@ pub struct SignalExecutionEngine {
 }
 
 impl SignalExecutionEngine {
+    fn build_source_wallet_profile(preset: &str, notes: Option<String>) -> Option<SourceWalletProfile> {
+        let normalized = preset.trim().to_lowercase();
+        let profile = match normalized.as_str() {
+            "shadow" => SourceWalletProfile {
+                preset: normalized,
+                enabled: true,
+                allowed_actions: vec!["buy".to_string(), "sell".to_string()],
+                size_multiplier: 1.0,
+                max_position_size_sol: Some(0.10),
+                max_risk_score: Some(75.0),
+                notes,
+            },
+            "scalp" => SourceWalletProfile {
+                preset: normalized,
+                enabled: true,
+                allowed_actions: vec!["buy".to_string(), "sell".to_string()],
+                size_multiplier: 0.45,
+                max_position_size_sol: Some(0.03),
+                max_risk_score: Some(60.0),
+                notes,
+            },
+            "swing" => SourceWalletProfile {
+                preset: normalized,
+                enabled: true,
+                allowed_actions: vec!["buy".to_string()],
+                size_multiplier: 0.70,
+                max_position_size_sol: Some(0.06),
+                max_risk_score: Some(72.0),
+                notes,
+            },
+            "defensive" => SourceWalletProfile {
+                preset: normalized,
+                enabled: true,
+                allowed_actions: vec!["sell".to_string()],
+                size_multiplier: 0.25,
+                max_position_size_sol: Some(0.02),
+                max_risk_score: Some(45.0),
+                notes,
+            },
+            "blocked" => SourceWalletProfile {
+                preset: normalized,
+                enabled: false,
+                allowed_actions: vec![],
+                size_multiplier: 0.0,
+                max_position_size_sol: Some(0.0),
+                max_risk_score: Some(0.0),
+                notes,
+            },
+            _ => return None,
+        };
+
+        Some(profile)
+    }
+
     pub fn new(app_state: AppState, max_risk_score: f64) -> Self {
         let mut trading_state = TradingState::default();
         trading_state.config.max_risk_score = max_risk_score;
@@ -151,6 +243,23 @@ impl SignalExecutionEngine {
             return Err(format!("risk_score_too_high: {} > {}", signal.risk_score, state.config.max_risk_score));
         }
 
+        let quality_score = Self::extract_alert_quality_score(signal);
+        if quality_score < state.config.min_alert_quality_score {
+            return Err(format!(
+                "alert_quality_too_low: {} < {}",
+                quality_score,
+                state.config.min_alert_quality_score
+            ));
+        }
+
+        if signal.trace_alerts.len() < state.config.min_trace_alerts {
+            return Err(format!(
+                "trace_alert_count_too_low: {} < {}",
+                signal.trace_alerts.len(),
+                state.config.min_trace_alerts
+            ));
+        }
+
         // Token validation - check denylist/allowlist
         if let Some(token_mint) = &signal.token_mint {
             if state.config.denylist.contains(token_mint) {
@@ -167,6 +276,94 @@ impl SignalExecutionEngine {
             // Could add developer wallet blacklist check here
             if dev_wallet.is_empty() {
                 return Err("invalid_developer_wallet".to_string());
+            }
+        }
+
+        let source_wallet = Self::extract_source_wallet(signal);
+        let signal_direction = Self::resolve_signal_direction(signal);
+
+        if signal.signal_type == "COPY_TRADE" && source_wallet.is_none() {
+            return Err("copy_trade_missing_source_wallet".to_string());
+        }
+
+        if !state.config.source_wallet_watchlist.is_empty() {
+            let Some(ref wallet) = source_wallet else {
+                return Err("missing_source_wallet_for_watchlist".to_string());
+            };
+
+            if !state.config.source_wallet_watchlist.iter().any(|allowed| allowed == wallet) {
+                return Err(format!("source_wallet_not_watchlisted: {}", wallet));
+            }
+        }
+
+        if let Some(wallet) = source_wallet.as_ref() {
+            if let Some(profile) = state.config.source_wallet_profiles.get(wallet) {
+                if !profile.enabled {
+                    return Err(format!("source_wallet_profile_blocked: {}", wallet));
+                }
+
+                if let Some(direction) = signal_direction.as_ref() {
+                    if !profile.allowed_actions.iter().any(|allowed| allowed == direction) {
+                        return Err(format!("source_wallet_action_blocked:{}:{}", wallet, direction));
+                    }
+                }
+
+                if let Some(profile_max_risk) = profile.max_risk_score {
+                    if signal.risk_score > profile_max_risk {
+                        return Err(format!(
+                            "source_wallet_profile_risk_exceeded:{}:{}>{}",
+                            wallet,
+                            signal.risk_score,
+                            profile_max_risk
+                        ));
+                    }
+                }
+            }
+        }
+
+        if Self::signal_creates_position(signal) {
+            if let Some(wallet) = source_wallet {
+                if let Some(profile) = state.config.source_wallet_profiles.get(&wallet) {
+                    if let Some(profile_cap) = profile.max_position_size_sol {
+                        let existing_exposure: f64 = state
+                            .active_positions
+                            .values()
+                            .filter(|position| position.source_wallet.as_deref() == Some(wallet.as_str()))
+                            .map(|position| position.amount)
+                            .sum();
+
+                        let requested_amount = state.config.buy_amount_sol * profile.size_multiplier.max(0.0);
+                        if existing_exposure + requested_amount > profile_cap {
+                            return Err(format!(
+                                "source_wallet_profile_cap_exceeded: {} + {} > {} ({})",
+                                existing_exposure,
+                                requested_amount,
+                                profile_cap,
+                                wallet
+                            ));
+                        }
+                    }
+                }
+
+                if let Some(cap) = state.config.source_wallet_caps_sol.get(&wallet) {
+                    let existing_exposure: f64 = state
+                        .active_positions
+                        .values()
+                        .filter(|position| position.source_wallet.as_deref() == Some(wallet.as_str()))
+                        .map(|position| position.amount)
+                        .sum();
+
+                    let requested_amount = state.config.buy_amount_sol;
+                    if existing_exposure + requested_amount > *cap {
+                        return Err(format!(
+                            "source_wallet_cap_exceeded: {} + {} > {} ({})",
+                            existing_exposure,
+                            requested_amount,
+                            cap,
+                            wallet
+                        ));
+                    }
+                }
             }
         }
 
@@ -196,11 +393,119 @@ impl SignalExecutionEngine {
             action: action.to_string(),
             action_hint: signal.action_hint.clone(),
             target_wallet,
+            source_wallet: Self::extract_source_wallet(signal),
             token_mint: signal.token_mint.clone(),
             risk_score: signal.risk_score,
             risk_level: signal.risk_level.clone(),
             metadata: signal.metadata.clone(),
             reason: format!("Signal-based execution: {}", signal.signal_type),
+        }
+    }
+
+    fn extract_source_wallet(signal: &TradeSignalV1) -> Option<String> {
+        signal
+            .metadata
+            .as_ref()
+            .and_then(|metadata| metadata.get("copiedWallet").and_then(|value| value.as_str()))
+            .or_else(|| {
+                signal
+                    .metadata
+                    .as_ref()
+                    .and_then(|metadata| metadata.get("sourceWallet").and_then(|value| value.as_str()))
+            })
+            .or_else(|| {
+                signal
+                    .metadata
+                    .as_ref()
+                    .and_then(|metadata| metadata.get("source_wallet").and_then(|value| value.as_str()))
+            })
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .or_else(|| signal.tracked_wallet.clone())
+    }
+
+    fn extract_alert_quality_score(signal: &TradeSignalV1) -> f64 {
+        let metadata_score = signal
+            .metadata
+            .as_ref()
+            .and_then(|metadata| metadata.get("alertQualityScore").and_then(|value| value.as_f64()))
+            .or_else(|| {
+                signal
+                    .metadata
+                    .as_ref()
+                    .and_then(|metadata| metadata.get("qualityScore").and_then(|value| value.as_f64()))
+            })
+            .or_else(|| {
+                signal
+                    .metadata
+                    .as_ref()
+                    .and_then(|metadata| metadata.get("confidenceScore").and_then(|value| value.as_f64()))
+            })
+            .or_else(|| {
+                signal
+                    .metadata
+                    .as_ref()
+                    .and_then(|metadata| metadata.get("confidence").and_then(|value| value.as_f64()))
+            });
+
+        if let Some(score) = metadata_score {
+            return if score <= 1.0 { score * 100.0 } else { score }.clamp(0.0, 100.0);
+        }
+
+        let mut derived_score = signal.risk_score * 0.35;
+        derived_score += (signal.trace_alerts.len().min(4) as f64) * 12.5;
+        if signal.token_mint.is_some() {
+            derived_score += 10.0;
+        }
+        if Self::extract_source_wallet(signal).is_some() {
+            derived_score += 10.0;
+        }
+        derived_score.clamp(0.0, 100.0)
+    }
+
+    fn resolve_signal_direction(signal: &TradeSignalV1) -> Option<String> {
+        signal
+            .metadata
+            .as_ref()
+            .and_then(|metadata| metadata.get("direction").and_then(|value| value.as_str()))
+            .or_else(|| {
+                signal
+                    .metadata
+                    .as_ref()
+                    .and_then(|metadata| metadata.get("action").and_then(|value| value.as_str()))
+            })
+            .or_else(|| {
+                signal
+                    .metadata
+                    .as_ref()
+                    .and_then(|metadata| metadata.get("side").and_then(|value| value.as_str()))
+            })
+            .map(|value| value.trim().to_lowercase())
+            .or_else(|| match signal.action_hint.as_str() {
+                "BUY" => Some("buy".to_string()),
+                "SELL" | "AUTO_SELL" => Some("sell".to_string()),
+                _ => None,
+            })
+    }
+
+    fn signal_creates_position(signal: &TradeSignalV1) -> bool {
+        match signal.signal_type.as_str() {
+            "TOKEN_INVESTIGATION" => true,
+            "COPY_TRADE" => signal
+                .metadata
+                .as_ref()
+                .and_then(|metadata| metadata.get("direction").and_then(|value| value.as_str()))
+                .map(|direction| matches!(direction.trim().to_lowercase().as_str(), "buy" | "long"))
+                .unwrap_or(matches!(signal.action_hint.as_str(), "BUY")),
+            _ => false,
+        }
+    }
+
+    fn record_journal_entry(state: &mut TradingState, entry: TradeJournalEntry) {
+        state.journal.push(entry);
+        if state.journal.len() > 500 {
+            let overflow = state.journal.len() - 500;
+            state.journal.drain(0..overflow);
         }
     }
 
@@ -210,22 +515,30 @@ impl SignalExecutionEngine {
             None => return Ok("NO_TOKEN_MINT_SPECIFIED".to_string()),
         };
 
-        let (slippage, mev_service, actual_amount, allowed_dexes) = {
+        let (slippage, mev_service, actual_amount, allowed_dexes, profile_preset) = {
             let state = self.state.lock().await;
             if state.active_positions.contains_key(&token_mint) {
                 return Ok("POSITION_ALREADY_EXISTS".to_string());
             }
+            let source_profile = request
+                .source_wallet
+                .as_ref()
+                .and_then(|wallet| state.config.source_wallet_profiles.get(wallet));
             let amount_sol = state.config.buy_amount_sol;
-            let actual_amount = if state.config.mode == "conservative" {
+            let mut actual_amount = if state.config.mode == "conservative" {
                 (amount_sol * 0.1).max(0.001)
             } else {
                 amount_sol
             };
+            if let Some(profile) = source_profile {
+                actual_amount = (actual_amount * profile.size_multiplier.max(0.0)).max(0.001);
+            }
             (
                 state.config.slippage as u64,
                 state.config.mev_service.clone(),
                 actual_amount,
                 state.config.allowed_dexes.clone(),
+                source_profile.map(|profile| profile.preset.clone()),
             )
         };
 
@@ -269,6 +582,7 @@ impl SignalExecutionEngine {
                 // Record the position
                 let position = ActivePosition {
                     token_mint: token_mint.clone(),
+                    source_wallet: request.source_wallet.clone(),
                     entry_price: 0.0, // Would need price oracle integration
                     amount: actual_amount,
                     entry_time: Instant::now(),
@@ -291,10 +605,43 @@ impl SignalExecutionEngine {
 
                 state.recent_trades.push(trade);
                 state.total_trades += 1;
+                Self::record_journal_entry(
+                    &mut state,
+                    TradeJournalEntry {
+                        timestamp: chrono::Utc::now().to_rfc3339(),
+                        request_id: request.request_id.clone(),
+                        token_mint: Some(token_mint.clone()),
+                        source_wallet: request.source_wallet.clone(),
+                        action: "buy".to_string(),
+                        status: "executed".to_string(),
+                        amount_sol: actual_amount,
+                        pnl_sol: None,
+                        profile_preset,
+                        reason: request.reason.clone(),
+                    },
+                );
 
                 Ok(format!("BUY_EXECUTED: {} tx(s), amount: {} SOL", tx_sigs.len(), actual_amount))
             }
-            Err(e) => Ok(format!("BUY_FAILED: {}", e)),
+            Err(e) => {
+                let mut state = self.state.lock().await;
+                Self::record_journal_entry(
+                    &mut state,
+                    TradeJournalEntry {
+                        timestamp: chrono::Utc::now().to_rfc3339(),
+                        request_id: request.request_id.clone(),
+                        token_mint: Some(token_mint.clone()),
+                        source_wallet: request.source_wallet.clone(),
+                        action: "buy".to_string(),
+                        status: "failed".to_string(),
+                        amount_sol: actual_amount,
+                        pnl_sol: None,
+                        profile_preset,
+                        reason: format!("{} | {}", request.reason, e),
+                    },
+                );
+                Ok(format!("BUY_FAILED: {}", e))
+            }
         }
     }
 
@@ -346,6 +693,11 @@ impl SignalExecutionEngine {
         match result {
             Ok(tx_sigs) => {
                 let mut state = self.state.lock().await;
+                let journal_profile_preset = request
+                    .source_wallet
+                    .as_ref()
+                    .and_then(|wallet| state.config.source_wallet_profiles.get(wallet))
+                    .map(|profile| profile.preset.clone());
                 // Calculate PnL (simplified - would need actual price data)
                 let pnl = 0.0; // Placeholder
                 if pnl > 0.0 {
@@ -370,14 +722,51 @@ impl SignalExecutionEngine {
                 };
 
                 state.recent_trades.push(trade);
+                Self::record_journal_entry(
+                    &mut state,
+                    TradeJournalEntry {
+                        timestamp: chrono::Utc::now().to_rfc3339(),
+                        request_id: request.request_id.clone(),
+                        token_mint: Some(token_mint.clone()),
+                        source_wallet: position.source_wallet.clone(),
+                        action: "sell".to_string(),
+                        status: "executed".to_string(),
+                        amount_sol: position.amount,
+                        pnl_sol: Some(pnl),
+                        profile_preset: journal_profile_preset,
+                        reason: request.reason.clone(),
+                    },
+                );
 
                 Ok(format!("SELL_EXECUTED: {} tx(s), amount: {} SOL, PnL: {} SOL",
                           tx_sigs.len(), position.amount, pnl))
             }
             Err(e) => {
                 let mut state = self.state.lock().await;
+                let journal_profile_preset = request
+                    .source_wallet
+                    .as_ref()
+                    .and_then(|wallet| state.config.source_wallet_profiles.get(wallet))
+                    .map(|profile| profile.preset.clone());
                 // Put position back if sell failed
+                let journal_source_wallet = position.source_wallet.clone();
+                let journal_amount = position.amount;
                 state.active_positions.insert(token_mint, position);
+                Self::record_journal_entry(
+                    &mut state,
+                    TradeJournalEntry {
+                        timestamp: chrono::Utc::now().to_rfc3339(),
+                        request_id: request.request_id.clone(),
+                        token_mint: request.token_mint.clone(),
+                        source_wallet: journal_source_wallet,
+                        action: "sell".to_string(),
+                        status: "failed".to_string(),
+                        amount_sol: journal_amount,
+                        pnl_sol: None,
+                        profile_preset: journal_profile_preset,
+                        reason: format!("{} | {}", request.reason, e),
+                    },
+                );
                 Ok(format!("SELL_FAILED: {}", e))
             }
         }
@@ -522,8 +911,13 @@ impl SignalExecutionEngine {
         serde_json::json!({
             "maxRiskScore": state.config.max_risk_score,
             "minLiquidityUsd": state.config.min_liquidity_usd,
+            "minAlertQualityScore": state.config.min_alert_quality_score,
+            "minTraceAlerts": state.config.min_trace_alerts,
             "maxPositionSizeSol": state.config.max_position_size_sol,
             "maxConcurrentTrades": state.config.max_concurrent_trades,
+            "sourceWalletWatchlistCount": state.config.source_wallet_watchlist.len(),
+            "sourceWalletCapsCount": state.config.source_wallet_caps_sol.len(),
+            "sourceWalletProfileCount": state.config.source_wallet_profiles.len(),
             "slippage": state.config.slippage,
             "buyAmountSol": state.config.buy_amount_sol,
             "activePositions": state.active_positions.len(),
@@ -554,6 +948,136 @@ impl SignalExecutionEngine {
         let mut state = self.state.lock().await;
         state.config.buy_amount_sol = amount.max(0.001);
         format!("BUY_AMOUNT_SOL_SET: {}", state.config.buy_amount_sol)
+    }
+
+    pub async fn get_source_wallet_controls_async(&self) -> serde_json::Value {
+        let state = self.state.lock().await;
+        serde_json::json!({
+            "watchlist": state.config.source_wallet_watchlist,
+            "caps": state.config.source_wallet_caps_sol,
+            "profiles": state.config.source_wallet_profiles,
+        })
+    }
+
+    pub async fn add_source_wallet_async(&self, wallet: String) -> String {
+        let normalized = wallet.trim().to_string();
+        if normalized.is_empty() {
+            return "SOURCE_WALLET_INVALID".to_string();
+        }
+
+        let mut state = self.state.lock().await;
+        if !state.config.source_wallet_watchlist.iter().any(|entry| entry == &normalized) {
+            state.config.source_wallet_watchlist.push(normalized.clone());
+            state.config.source_wallet_watchlist.sort();
+        }
+
+        format!("SOURCE_WALLET_ADDED: {}", normalized)
+    }
+
+    pub async fn remove_source_wallet_async(&self, wallet: String) -> String {
+        let normalized = wallet.trim().to_string();
+        let mut state = self.state.lock().await;
+        state.config.source_wallet_watchlist.retain(|entry| entry != &normalized);
+        state.config.source_wallet_caps_sol.remove(&normalized);
+        format!("SOURCE_WALLET_REMOVED: {}", normalized)
+    }
+
+    pub async fn set_source_wallet_cap_async(&self, wallet: String, cap_sol: Option<f64>) -> String {
+        let normalized = wallet.trim().to_string();
+        if normalized.is_empty() {
+            return "SOURCE_WALLET_INVALID".to_string();
+        }
+
+        let mut state = self.state.lock().await;
+        if !state.config.source_wallet_watchlist.iter().any(|entry| entry == &normalized) {
+            state.config.source_wallet_watchlist.push(normalized.clone());
+            state.config.source_wallet_watchlist.sort();
+        }
+
+        match cap_sol {
+            Some(cap) => {
+                let clamped = cap.max(0.001);
+                state.config.source_wallet_caps_sol.insert(normalized.clone(), clamped);
+                format!("SOURCE_WALLET_CAP_SET: {} => {} SOL", normalized, clamped)
+            }
+            None => {
+                state.config.source_wallet_caps_sol.remove(&normalized);
+                format!("SOURCE_WALLET_CAP_REMOVED: {}", normalized)
+            }
+        }
+    }
+
+    pub async fn set_source_wallet_profile_async(&self, wallet: String, preset: String, notes: Option<String>) -> String {
+        let normalized_wallet = wallet.trim().to_string();
+        if normalized_wallet.is_empty() {
+            return "SOURCE_WALLET_INVALID".to_string();
+        }
+
+        let Some(profile) = Self::build_source_wallet_profile(&preset, notes) else {
+            return "SOURCE_WALLET_PROFILE_INVALID".to_string();
+        };
+
+        let mut state = self.state.lock().await;
+        if !state.config.source_wallet_watchlist.iter().any(|entry| entry == &normalized_wallet) {
+            state.config.source_wallet_watchlist.push(normalized_wallet.clone());
+            state.config.source_wallet_watchlist.sort();
+        }
+        if let Some(cap) = profile.max_position_size_sol {
+            state.config.source_wallet_caps_sol.insert(normalized_wallet.clone(), cap.max(0.0));
+        }
+        state.config.source_wallet_profiles.insert(normalized_wallet.clone(), profile.clone());
+
+        format!("SOURCE_WALLET_PROFILE_SET: {} => {}", normalized_wallet, profile.preset)
+    }
+
+    pub async fn get_alert_quality_async(&self) -> serde_json::Value {
+        let state = self.state.lock().await;
+        serde_json::json!({
+            "minAlertQualityScore": state.config.min_alert_quality_score,
+            "minTraceAlerts": state.config.min_trace_alerts,
+        })
+    }
+
+    pub async fn set_alert_quality_async(&self, min_score: Option<f64>, min_trace_alerts: Option<usize>) -> String {
+        let mut state = self.state.lock().await;
+
+        if let Some(score) = min_score {
+            state.config.min_alert_quality_score = score.clamp(0.0, 100.0);
+        }
+
+        if let Some(alert_count) = min_trace_alerts {
+            state.config.min_trace_alerts = alert_count.min(10);
+        }
+
+        format!(
+            "ALERT_QUALITY_UPDATED: min_score={}, min_trace_alerts={}",
+            state.config.min_alert_quality_score,
+            state.config.min_trace_alerts
+        )
+    }
+
+    pub async fn assess_signal_async(&self, signal: &TradeSignalV1) -> (bool, Vec<String>) {
+        let state = self.state.lock().await;
+        let mut reasons = Vec::new();
+
+        if !state.config.enabled {
+            reasons.push("trading_disabled".to_string());
+        }
+
+        if state.config.paused {
+            reasons.push("trading_paused".to_string());
+        }
+
+        if let Err(reason) = self.validate_signal_risk_gates(signal, &state) {
+            reasons.push(reason);
+        }
+
+        if reasons.is_empty() {
+            reasons.push("passes_current_safety_gates".to_string());
+            (true, reasons)
+        } else {
+            (false, reasons)
+        }
     }
 
     pub async fn apply_profile_async(&self, profile: String) -> String {
@@ -615,8 +1139,15 @@ impl SignalExecutionEngine {
             "winRate": state.win_rate,
             "totalTrades": state.total_trades,
             "winningTrades": state.winning_trades,
-            "activePositions": state.active_positions.len()
+            "activePositions": state.active_positions.len(),
+            "journalEntries": state.journal.len()
         })
+    }
+
+    pub async fn get_trade_journal_async(&self) -> serde_json::Value {
+        let state = self.state.lock().await;
+        let recent: Vec<TradeJournalEntry> = state.journal.iter().rev().take(100).cloned().collect();
+        serde_json::json!({ "entries": recent })
     }
 
     pub async fn get_config_async(&self) -> serde_json::Value {

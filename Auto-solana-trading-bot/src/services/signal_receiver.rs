@@ -23,8 +23,12 @@ type HmacSha256 = Hmac<Sha256>;
 
 struct SignalReceiverState {
     config: SignalReceiverConfig,
+    runtime_dry_run: Arc<Mutex<bool>>,
     seen_signals: Arc<Mutex<HashMap<String, Instant>>>,
     recent_decisions: Arc<Mutex<Vec<DecisionRecord>>>,
+    failed_signals: Arc<Mutex<Vec<FailedSignalRecord>>>,
+    audit_logs: Arc<Mutex<Vec<AuditLogEntry>>>,
+    metrics: Arc<Mutex<ReceiverMetrics>>,
     execution_engine: Option<Arc<SignalExecutionEngine>>,
 }
 
@@ -32,8 +36,12 @@ impl Clone for SignalReceiverState {
     fn clone(&self) -> Self {
         Self {
             config: self.config.clone(),
+            runtime_dry_run: Arc::clone(&self.runtime_dry_run),
             seen_signals: Arc::clone(&self.seen_signals),
             recent_decisions: Arc::clone(&self.recent_decisions),
+            failed_signals: Arc::clone(&self.failed_signals),
+            audit_logs: Arc::clone(&self.audit_logs),
+            metrics: Arc::clone(&self.metrics),
             execution_engine: self.execution_engine.as_ref().map(Arc::clone),
         }
     }
@@ -52,6 +60,80 @@ struct DecisionRecord {
     safety_pass: Option<bool>,
     safety_reasons: Vec<String>,
     reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AuditLogEntry {
+    timestamp: String,
+    signal_id: String,
+    event_type: String,  // "received" | "rejected" | "accepted" | "blocked" | "executed" | "failed"
+    reason: String,
+    gate_name: Option<String>,
+    details: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FailedSignalRecord {
+    signal_id: String,
+    signal_type: String,
+    token_mint: Option<String>,
+    source_wallet: Option<String>,
+    status: String,
+    reason: String,
+    retry_count: u32,
+    last_failed_at: String,
+    signal: TradeSignalV1,
+}
+
+#[derive(Debug, Default, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ReceiverMetrics {
+    // Core metrics
+    received_total: u64,
+    accepted_total: u64,
+    executed_total: u64,
+    blocked_total: u64,
+    failed_total: u64,
+    rejected_total: u64,
+    duplicate_total: u64,
+    retried_total: u64,
+    dead_letter_total: u64,
+
+    // Phase 3: Gate-based rejection tracking
+    #[serde(default)]
+    gate_risk_score_exceeded: u64,
+    #[serde(default)]
+    gate_alert_quality_low: u64,
+    #[serde(default)]
+    gate_trace_alerts_low: u64,
+    #[serde(default)]
+    gate_token_denylist: u64,
+    #[serde(default)]
+    gate_token_not_allowlisted: u64,
+    #[serde(default)]
+    gate_missing_source_wallet: u64,
+    #[serde(default)]
+    gate_source_wallet_not_watchlisted: u64,
+    #[serde(default)]
+    gate_source_wallet_profile_blocked: u64,
+    #[serde(default)]
+    gate_source_wallet_action_blocked: u64,
+    #[serde(default)]
+    gate_source_wallet_profile_risk_exceeded: u64,
+    #[serde(default)]
+    gate_source_wallet_profile_cap_exceeded: u64,
+    #[serde(default)]
+    gate_source_wallet_cap_exceeded: u64,
+    #[serde(default)]
+    gate_max_concurrent_positions: u64,
+    #[serde(default)]
+    gate_min_liquidity_failed: u64,
+    #[serde(default)]
+    gate_invalid_timestamp: u64,
+    #[serde(default)]
+    gate_auth_failed: u64,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -90,6 +172,7 @@ pub struct ExecutionRequest {
     pub action: String,
     pub action_hint: String,
     pub target_wallet: String,
+    pub source_wallet: Option<String>,
     pub token_mint: Option<String>,
     pub risk_score: f64,
     pub risk_level: String,
@@ -128,8 +211,12 @@ pub async fn start_signal_receiver(
             dedup_window_seconds,
             max_timestamp_skew_seconds,
         },
+        runtime_dry_run: Arc::new(Mutex::new(dry_run)),
         seen_signals: Arc::new(Mutex::new(HashMap::new())),
         recent_decisions: Arc::new(Mutex::new(Vec::new())),
+        failed_signals: Arc::new(Mutex::new(Vec::new())),
+        audit_logs: Arc::new(Mutex::new(Vec::new())),
+        metrics: Arc::new(Mutex::new(ReceiverMetrics::default())),
         execution_engine,
     });
 
@@ -154,6 +241,14 @@ pub async fn start_signal_receiver(
         .route("/trading/mode", post(set_mode))
         .route("/trading/size", post(set_size))
         .route("/trading/tighten-risk", post(tighten_risk))
+        .route("/trading/execution-mode", get(get_execution_mode).post(set_execution_mode))
+        .route("/trading/source-wallets", get(get_source_wallets).post(update_source_wallets))
+        .route("/trading/alert-quality", get(get_alert_quality).post(set_alert_quality))
+        .route("/trading/journal", get(get_trade_journal))
+        .route("/trading/metrics", get(get_metrics))
+        .route("/trading/dead-letters", get(get_dead_letters))
+        .route("/trading/audit-logs", get(get_audit_logs))
+        .route("/trading/retry-failed", post(retry_failed_signals))
         .route("/trading/safety", get(get_safety))
         .route("/trading/decisions", get(get_decisions))
         .with_state(state);
@@ -178,11 +273,12 @@ pub async fn start_signal_receiver(
 async fn health_check(
     State(state): State<Arc<SignalReceiverState>>,
 ) -> (StatusCode, Json<HealthResponse>) {
+    let is_dry_run = *state.runtime_dry_run.lock().await;
     (
         StatusCode::OK,
         Json(HealthResponse {
             status: "ok".to_string(),
-            mode: if state.config.dry_run { "dry-run".to_string() } else { "live".to_string() },
+            mode: if is_dry_run { "paper".to_string() } else { "live".to_string() },
             auth_required: state.config.require_auth,
             dedup_window_seconds: state.config.dedup_window_seconds,
             max_timestamp_skew_seconds: state.config.max_timestamp_skew_seconds,
@@ -196,7 +292,23 @@ async fn receive_signal(
     headers: HeaderMap,
     body: Bytes,
 ) -> Result<Json<SignalReceiverResponse>, StatusCode> {
+    increment_metric(&state, "received_total").await;
+
     if let Err(reason) = verify_headers_and_signature(&state.config, &headers, body.as_ref()) {
+        let mode = current_mode_label(&state).await;
+        increment_metric(&state, "rejected_total").await;
+        increment_metric(&state, "gate_auth_failed").await;
+        
+        // Phase 3: Audit log for auth failure
+        record_audit_log(
+            &state,
+            "unknown".to_string(),
+            "rejected".to_string(),
+            reason.clone(),
+            Some("auth_gate".to_string()),
+            None,
+        ).await;
+        
         record_decision(
             &state,
             "unknown".to_string(),
@@ -209,13 +321,15 @@ async fn receive_signal(
             vec![],
             Some(reason.clone()),
         ).await;
-        return Ok(reject_signal(reason, "unknown".to_string()).1);
+        return Ok(reject_signal(reason, "unknown".to_string(), mode).1);
     }
 
     let signal: TradeSignalV1 = match serde_json::from_slice(&body) {
         Ok(parsed) => parsed,
         Err(_) => {
             let reason = "invalid_json_payload".to_string();
+            let mode = current_mode_label(&state).await;
+            increment_metric(&state, "rejected_total").await;
             record_decision(
                 &state,
                 "unknown".to_string(),
@@ -228,12 +342,14 @@ async fn receive_signal(
                 vec![],
                 Some(reason.clone()),
             ).await;
-            return Ok(reject_signal(reason, "unknown".to_string()).1)
+            return Ok(reject_signal(reason, "unknown".to_string(), mode).1)
         }
     };
 
     if signal.schema_version != "1.0" {
         let reason = "unsupported_schema_version".to_string();
+        let mode = current_mode_label(&state).await;
+        increment_metric(&state, "rejected_total").await;
         record_decision(
             &state,
             signal.signal_id.clone(),
@@ -246,10 +362,14 @@ async fn receive_signal(
             vec![],
             Some(reason.clone()),
         ).await;
-        return Ok(reject_signal(reason, signal.signal_id).1);
+        enqueue_dead_letter(&state, &signal, "rejected".to_string(), reason.clone()).await;
+        return Ok(reject_signal(reason, signal.signal_id, mode).1);
     }
 
+    let is_dry_run = *state.runtime_dry_run.lock().await;
+
     if is_duplicate_signal(&state, &signal, &headers).await {
+        increment_metric(&state, "duplicate_total").await;
         record_decision(
             &state,
             signal.signal_id.clone(),
@@ -264,7 +384,7 @@ async fn receive_signal(
         ).await;
         return Ok(Json(SignalReceiverResponse {
             status: "duplicate".to_string(),
-            mode: if state.config.dry_run { "dry-run".to_string() } else { "live".to_string() },
+            mode: if is_dry_run { "paper".to_string() } else { "live".to_string() },
             signal_id: signal.signal_id.clone(),
             reason: Some("duplicate_idempotency_key".to_string()),
         }));
@@ -272,8 +392,80 @@ async fn receive_signal(
 
     let (safety_pass, safety_reasons) = evaluate_signal_safety(&state, &signal).await;
 
+    // Phase 3: Track gate failures in metrics & audit logs
+    if !safety_pass {
+        for reason in &safety_reasons {
+            let gate_name = match reason.as_str() {
+                r if r.contains("risk_score_too_high") => {
+                    increment_metric(&state, "gate_risk_score_exceeded").await;
+                    Some("risk_score_gate".to_string())
+                }
+                r if r.contains("alert_quality_too_low") => {
+                    increment_metric(&state, "gate_alert_quality_low").await;
+                    Some("alert_quality_gate".to_string())
+                }
+                r if r.contains("trace_alert_count_too_low") => {
+                    increment_metric(&state, "gate_trace_alerts_low").await;
+                    Some("trace_alerts_gate".to_string())
+                }
+                r if r.contains("token_in_denylist") => {
+                    increment_metric(&state, "gate_token_denylist").await;
+                    Some("token_denylist_gate".to_string())
+                }
+                r if r.contains("token_not_in_allowlist") => {
+                    increment_metric(&state, "gate_token_not_allowlisted").await;
+                    Some("token_allowlist_gate".to_string())
+                }
+                r if r.contains("copy_trade_missing_source_wallet") => {
+                    increment_metric(&state, "gate_missing_source_wallet").await;
+                    Some("source_wallet_required_gate".to_string())
+                }
+                r if r.contains("missing_source_wallet_for_watchlist") => {
+                    increment_metric(&state, "gate_missing_source_wallet").await;
+                    Some("source_wallet_watchlist_gate".to_string())
+                }
+                r if r.contains("source_wallet_not_watchlisted") => {
+                    increment_metric(&state, "gate_source_wallet_not_watchlisted").await;
+                    Some("source_wallet_watchlist_gate".to_string())
+                }
+                r if r.contains("source_wallet_profile_blocked") => {
+                    increment_metric(&state, "gate_source_wallet_profile_blocked").await;
+                    Some("source_wallet_profile_gate".to_string())
+                }
+                r if r.contains("source_wallet_action_blocked") => {
+                    increment_metric(&state, "gate_source_wallet_action_blocked").await;
+                    Some("source_wallet_action_gate".to_string())
+                }
+                r if r.contains("source_wallet_profile_risk_exceeded") => {
+                    increment_metric(&state, "gate_source_wallet_profile_risk_exceeded").await;
+                    Some("source_wallet_profile_risk_gate".to_string())
+                }
+                r if r.contains("source_wallet_profile_cap_exceeded") => {
+                    increment_metric(&state, "gate_source_wallet_profile_cap_exceeded").await;
+                    Some("source_wallet_profile_cap_gate".to_string())
+                }
+                r if r.contains("source_wallet_cap_exceeded") => {
+                    increment_metric(&state, "gate_source_wallet_cap_exceeded").await;
+                    Some("source_wallet_cap_gate".to_string())
+                }
+                _ => None
+            };
+            
+            if let Some(gate) = gate_name {
+                record_audit_log(
+                    &state,
+                    signal.signal_id.clone(),
+                    "blocked".to_string(),
+                    reason.clone(),
+                    Some(gate),
+                    None,
+                ).await;
+            }
+        }
+    }
+
     // Phase 2 & 4: Execute trade if not in dry-run mode and execution engine is available
-    let execution_result = if !state.config.dry_run {
+    let execution_result = if !is_dry_run {
         if let Some(engine) = &state.execution_engine {
             match engine.execute_signal(&signal).await {
                 Ok(result) => {
@@ -307,24 +499,42 @@ async fn receive_signal(
     };
 
     let response = SignalReceiverResponse {
-        status: if execution_result.is_some() { "executed".to_string() } else { "accepted".to_string() },
-        mode: if state.config.dry_run { "dry-run".to_string() } else { "live".to_string() },
+        status: classify_execution_status(&execution_result),
+        mode: if is_dry_run { "paper".to_string() } else { "live".to_string() },
         signal_id: signal.signal_id.clone(),
         reason: execution_result.clone(),
     };
 
+    match response.status.as_str() {
+        "accepted" => increment_metric(&state, "accepted_total").await,
+        "executed" => increment_metric(&state, "executed_total").await,
+        "blocked" => increment_metric(&state, "blocked_total").await,
+        "failed" => increment_metric(&state, "failed_total").await,
+        _ => {}
+    }
+
     record_decision(
         &state,
-        signal.signal_id,
-        signal.signal_type,
-        signal.action_hint,
+        signal.signal_id.clone(),
+        signal.signal_type.clone(),
+        signal.action_hint.clone(),
         Some(signal.risk_score),
-        signal.token_mint,
+        signal.token_mint.clone(),
         response.status.clone(),
         Some(safety_pass),
         safety_reasons,
         response.reason.clone(),
     ).await;
+
+    if matches!(response.status.as_str(), "blocked" | "failed") {
+        enqueue_dead_letter(
+            &state,
+            &signal,
+            response.status.clone(),
+            response.reason.clone().unwrap_or_else(|| "unknown_failure".to_string()),
+        )
+        .await;
+    }
 
     Ok(Json(response))
 }
@@ -364,45 +574,148 @@ async fn record_decision(
     }
 }
 
-async fn evaluate_signal_safety(state: &Arc<SignalReceiverState>, signal: &TradeSignalV1) -> (bool, Vec<String>) {
-    let mut pass = true;
-    let mut reasons: Vec<String> = Vec::new();
+/// Phase 3: Record audit log entry with event type and gate name for observability
+async fn record_audit_log(
+    state: &Arc<SignalReceiverState>,
+    signal_id: String,
+    event_type: String,
+    reason: String,
+    gate_name: Option<String>,
+    details: Option<Value>,
+) {
+    let mut logs = state.audit_logs.lock().await;
+    logs.push(AuditLogEntry {
+        timestamp: chrono::Utc::now().to_rfc3339(),
+        signal_id,
+        event_type,
+        reason,
+        gate_name,
+        details,
+    });
 
-    if let Some(engine) = &state.execution_engine {
-        let safety = engine.get_safety_summary_async().await;
-        let max_risk = safety["maxRiskScore"].as_f64().unwrap_or(75.0);
-        let enabled = safety["enabled"].as_bool().unwrap_or(false);
-        let paused = safety["paused"].as_bool().unwrap_or(false);
+    // Keep audit logs rolling buffer at 500 entries
+    if logs.len() > 500 {
+        let overflow = logs.len() - 500;
+        logs.drain(0..overflow);
+    }
+}
 
-        if signal.risk_score > max_risk {
-            pass = false;
-            reasons.push(format!("risk_score_too_high:{}>{}", signal.risk_score, max_risk));
+async fn increment_metric(state: &Arc<SignalReceiverState>, field: &str) {
+    let mut metrics = state.metrics.lock().await;
+    match field {
+        "received_total" => metrics.received_total += 1,
+        "accepted_total" => metrics.accepted_total += 1,
+        "executed_total" => metrics.executed_total += 1,
+        "blocked_total" => metrics.blocked_total += 1,
+        "failed_total" => metrics.failed_total += 1,
+        "rejected_total" => metrics.rejected_total += 1,
+        "duplicate_total" => metrics.duplicate_total += 1,
+        "retried_total" => metrics.retried_total += 1,
+        "dead_letter_total" => metrics.dead_letter_total += 1,
+        // Phase 3: Gate-based metrics
+        "gate_risk_score_exceeded" => metrics.gate_risk_score_exceeded += 1,
+        "gate_alert_quality_low" => metrics.gate_alert_quality_low += 1,
+        "gate_trace_alerts_low" => metrics.gate_trace_alerts_low += 1,
+        "gate_token_denylist" => metrics.gate_token_denylist += 1,
+        "gate_token_not_allowlisted" => metrics.gate_token_not_allowlisted += 1,
+        "gate_missing_source_wallet" => metrics.gate_missing_source_wallet += 1,
+        "gate_source_wallet_not_watchlisted" => metrics.gate_source_wallet_not_watchlisted += 1,
+        "gate_source_wallet_profile_blocked" => metrics.gate_source_wallet_profile_blocked += 1,
+        "gate_source_wallet_action_blocked" => metrics.gate_source_wallet_action_blocked += 1,
+        "gate_source_wallet_profile_risk_exceeded" => metrics.gate_source_wallet_profile_risk_exceeded += 1,
+        "gate_source_wallet_profile_cap_exceeded" => metrics.gate_source_wallet_profile_cap_exceeded += 1,
+        "gate_source_wallet_cap_exceeded" => metrics.gate_source_wallet_cap_exceeded += 1,
+        "gate_max_concurrent_positions" => metrics.gate_max_concurrent_positions += 1,
+        "gate_min_liquidity_failed" => metrics.gate_min_liquidity_failed += 1,
+        "gate_invalid_timestamp" => metrics.gate_invalid_timestamp += 1,
+        "gate_auth_failed" => metrics.gate_auth_failed += 1,
+        _ => {}
+    }
+}
+
+fn classify_execution_status(execution_result: &Option<String>) -> String {
+    match execution_result.as_deref() {
+        Some(result) if result.starts_with("BUY_EXECUTED") || result.starts_with("SELL_EXECUTED") => "executed".to_string(),
+        Some(result)
+            if result.starts_with("BUY_FAILED")
+                || result.starts_with("SELL_FAILED")
+                || result.starts_with("EXECUTION_ERROR") =>
+        {
+            "failed".to_string()
         }
-        if !enabled {
-            pass = false;
-            reasons.push("trading_disabled".to_string());
-        }
-        if paused {
-            pass = false;
-            reasons.push("trading_paused".to_string());
-        }
+        Some(_) => "blocked".to_string(),
+        None => "accepted".to_string(),
+    }
+}
+
+async fn enqueue_dead_letter(
+    state: &Arc<SignalReceiverState>,
+    signal: &TradeSignalV1,
+    status: String,
+    reason: String,
+) {
+    let mut failed = state.failed_signals.lock().await;
+    if let Some(existing) = failed.iter_mut().find(|entry| entry.signal_id == signal.signal_id) {
+        existing.status = status;
+        existing.reason = reason;
+        existing.retry_count += 1;
+        existing.last_failed_at = chrono::Utc::now().to_rfc3339();
+        existing.signal = signal.clone();
+        return;
     }
 
+    failed.push(FailedSignalRecord {
+        signal_id: signal.signal_id.clone(),
+        signal_type: signal.signal_type.clone(),
+        token_mint: signal.token_mint.clone(),
+        source_wallet: signal
+            .metadata
+            .as_ref()
+            .and_then(|metadata| metadata.get("copiedWallet").and_then(|value| value.as_str()))
+            .map(|value| value.to_string())
+            .or_else(|| signal.tracked_wallet.clone()),
+        status,
+        reason,
+        retry_count: 0,
+        last_failed_at: chrono::Utc::now().to_rfc3339(),
+        signal: signal.clone(),
+    });
+
+    if failed.len() > 200 {
+        let overflow = failed.len() - 200;
+        failed.drain(0..overflow);
+    }
+
+    drop(failed);
+    increment_metric(state, "dead_letter_total").await;
+}
+
+async fn evaluate_signal_safety(state: &Arc<SignalReceiverState>, signal: &TradeSignalV1) -> (bool, Vec<String>) {
+    if let Some(engine) = &state.execution_engine {
+        let (pass, mut reasons) = engine.assess_signal_async(signal).await;
+        let is_dry_run = *state.runtime_dry_run.lock().await;
+        if is_dry_run {
+            reasons.push("paper_mode_enabled".to_string());
+        }
+        return (pass, reasons);
+    }
+
+    let mut reasons = Vec::new();
     let needs_token = matches!(
         signal.signal_type.as_str(),
         "TOKEN_INVESTIGATION" | "SUSPICIOUS_TOKEN_LAUNCH" | "AUTO_SELL" | "COPY_TRADE"
     );
 
     if needs_token && signal.token_mint.is_none() {
-        pass = false;
         reasons.push("missing_token_mint".to_string());
     }
 
     if reasons.is_empty() {
         reasons.push("passes_current_safety_gates".to_string());
+        (true, reasons)
+    } else {
+        (false, reasons)
     }
-
-    (pass, reasons)
 }
 
 fn verify_headers_and_signature(
@@ -479,12 +792,20 @@ async fn is_duplicate_signal(state: &SignalReceiverState, signal: &TradeSignalV1
     false
 }
 
-fn reject_signal(reason: String, signal_id: String) -> (StatusCode, Json<SignalReceiverResponse>) {
+async fn current_mode_label(state: &Arc<SignalReceiverState>) -> String {
+    if *state.runtime_dry_run.lock().await {
+        "paper".to_string()
+    } else {
+        "live".to_string()
+    }
+}
+
+fn reject_signal(reason: String, signal_id: String, mode: String) -> (StatusCode, Json<SignalReceiverResponse>) {
     (
         StatusCode::BAD_REQUEST,
         Json(SignalReceiverResponse {
             status: "rejected".to_string(),
-            mode: "dry-run".to_string(),
+            mode,
             signal_id,
             reason: Some(reason),
         }),
@@ -504,13 +825,19 @@ fn to_hex(bytes: &[u8]) -> String {
 async fn get_trading_status(
     State(state): State<Arc<SignalReceiverState>>,
 ) -> Json<Value> {
+    let execution_mode = current_mode_label(&state).await;
     if let Some(engine) = &state.execution_engine {
-        Json(engine.get_trading_status_async().await)
+        let mut payload = engine.get_trading_status_async().await;
+        if let Some(object) = payload.as_object_mut() {
+            object.insert("executionMode".to_string(), serde_json::json!(execution_mode));
+        }
+        Json(payload)
     } else {
         Json(serde_json::json!({
             "enabled": false,
             "paused": false,
             "mode": "no_execution_engine",
+            "executionMode": execution_mode,
             "targetWallet": null,
             "mevService": "none",
             "slippage": 3.0
@@ -827,4 +1154,286 @@ async fn get_decisions(
     let decisions = state.recent_decisions.lock().await;
     let recent: Vec<DecisionRecord> = decisions.iter().rev().take(20).cloned().collect();
     Json(serde_json::json!({ "decisions": recent }))
+}
+
+async fn get_execution_mode(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> Json<Value> {
+    Json(serde_json::json!({ "mode": current_mode_label(&state).await }))
+}
+
+async fn set_execution_mode(
+    State(state): State<Arc<SignalReceiverState>>,
+    Json(payload): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let Some(mode) = payload["mode"].as_str() else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "status": "error", "message": "Invalid mode value" })),
+        );
+    };
+
+    let normalized = mode.trim().to_lowercase();
+    let next_dry_run = match normalized.as_str() {
+        "paper" | "dry-run" | "dry_run" => true,
+        "live" => false,
+        _ => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({ "status": "error", "message": "Mode must be paper or live" })),
+            )
+        }
+    };
+
+    if !next_dry_run && state.execution_engine.is_none() {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({ "status": "error", "message": "No execution engine available for live mode" })),
+        );
+    }
+
+    let mut runtime_dry_run = state.runtime_dry_run.lock().await;
+    *runtime_dry_run = next_dry_run;
+
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "status": "updated",
+            "message": format!("EXECUTION_MODE_SET: {}", if next_dry_run { "paper" } else { "live" }),
+            "mode": if next_dry_run { "paper" } else { "live" },
+        })),
+    )
+}
+
+async fn get_source_wallets(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> Json<Value> {
+    if let Some(engine) = &state.execution_engine {
+        Json(engine.get_source_wallet_controls_async().await)
+    } else {
+        Json(serde_json::json!({ "watchlist": [], "caps": {}, "profiles": {} }))
+    }
+}
+
+async fn update_source_wallets(
+    State(state): State<Arc<SignalReceiverState>>,
+    Json(payload): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let Some(engine) = &state.execution_engine else {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })),
+        );
+    };
+
+    let Some(action) = payload["action"].as_str() else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "status": "error", "message": "Missing source-wallet action" })),
+        );
+    };
+
+    let wallet = payload["wallet"].as_str().unwrap_or_default().trim().to_string();
+    let message = match action {
+        "add" => engine.add_source_wallet_async(wallet).await,
+        "remove" => engine.remove_source_wallet_async(wallet).await,
+        "cap" => engine.set_source_wallet_cap_async(wallet, payload["max_position_size_sol"].as_f64()).await,
+        "uncap" => engine.set_source_wallet_cap_async(wallet, None).await,
+        "profile" => engine
+            .set_source_wallet_profile_async(
+                wallet,
+                payload["preset"].as_str().unwrap_or_default().to_string(),
+                payload["notes"].as_str().map(|value| value.to_string()),
+            )
+            .await,
+        _ => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({ "status": "error", "message": "Unsupported source-wallet action" })),
+            )
+        }
+    };
+
+    (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "message": message })))
+}
+
+async fn get_alert_quality(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> Json<Value> {
+    if let Some(engine) = &state.execution_engine {
+        Json(engine.get_alert_quality_async().await)
+    } else {
+        Json(serde_json::json!({ "minAlertQualityScore": 0.0, "minTraceAlerts": 0 }))
+    }
+}
+
+async fn set_alert_quality(
+    State(state): State<Arc<SignalReceiverState>>,
+    Json(payload): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Some(engine) = &state.execution_engine {
+        let min_score = payload["min_alert_quality_score"].as_f64();
+        let min_trace_alerts = payload["min_trace_alerts"].as_u64().map(|value| value as usize);
+        let result = engine.set_alert_quality_async(min_score, min_trace_alerts).await;
+        (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "message": result })))
+    } else {
+        (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
+    }
+}
+
+async fn get_trade_journal(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> Json<Value> {
+    if let Some(engine) = &state.execution_engine {
+        Json(engine.get_trade_journal_async().await)
+    } else {
+        Json(serde_json::json!({ "entries": [] }))
+    }
+}
+
+async fn get_metrics(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> Json<Value> {
+    let execution_mode = current_mode_label(&state).await;
+    let metrics = state.metrics.lock().await.clone();
+    let dead_letter_count = state.failed_signals.lock().await.len();
+    Json(serde_json::json!({
+        "executionMode": execution_mode,
+        "deadLetterCount": dead_letter_count,
+        "metrics": metrics,
+    }))
+}
+
+async fn get_dead_letters(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> Json<Value> {
+    let failed = state.failed_signals.lock().await;
+    let entries: Vec<FailedSignalRecord> = failed.iter().rev().take(50).cloned().collect();
+    Json(serde_json::json!({ "entries": entries }))
+}
+
+/// Phase 3: Audit logs endpoint for observability
+async fn get_audit_logs(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> Json<Value> {
+    let logs = state.audit_logs.lock().await;
+    let entries: Vec<AuditLogEntry> = logs.iter().rev().take(100).cloned().collect();
+    
+    // Group by event type for summary
+    let mut summary = std::collections::HashMap::new();
+    for entry in logs.iter() {
+        let count = summary.entry(entry.event_type.clone()).or_insert(0u64);
+        *count += 1;
+    }
+    
+    Json(serde_json::json!({
+        "entries": entries,
+        "summary": summary,
+        "total_entries": logs.len()
+    }))
+}
+
+async fn retry_failed_signals(
+    State(state): State<Arc<SignalReceiverState>>,
+    Json(payload): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let target_signal_id = payload["signal_id"].as_str().map(|value| value.to_string());
+    let limit = payload["limit"].as_u64().map(|value| value as usize).unwrap_or(10).max(1);
+
+    let candidates: Vec<FailedSignalRecord> = {
+        let failed = state.failed_signals.lock().await;
+        failed
+            .iter()
+            .filter(|entry| {
+                target_signal_id
+                    .as_ref()
+                    .map(|signal_id| signal_id == &entry.signal_id)
+                    .unwrap_or(true)
+            })
+            .take(limit)
+            .cloned()
+            .collect()
+    };
+
+    if candidates.is_empty() {
+        return (
+            StatusCode::OK,
+            Json(serde_json::json!({ "status": "ok", "message": "No failed signals matched retry criteria", "retried": [] })),
+        );
+    }
+
+    let is_dry_run = *state.runtime_dry_run.lock().await;
+    let mut results = Vec::new();
+
+    for candidate in candidates {
+        increment_metric(&state, "retried_total").await;
+        let (safety_pass, safety_reasons) = evaluate_signal_safety(&state, &candidate.signal).await;
+
+        let execution_result = if is_dry_run {
+            None
+        } else if let Some(engine) = &state.execution_engine {
+            match engine.execute_signal(&candidate.signal).await {
+                Ok(result) => Some(result),
+                Err(error) => Some(format!("EXECUTION_ERROR: {}", error)),
+            }
+        } else {
+            Some("NO_EXECUTION_ENGINE".to_string())
+        };
+
+        let status = if is_dry_run {
+            "accepted".to_string()
+        } else {
+            classify_execution_status(&execution_result)
+        };
+
+        match status.as_str() {
+            "accepted" => increment_metric(&state, "accepted_total").await,
+            "executed" => increment_metric(&state, "executed_total").await,
+            "blocked" => increment_metric(&state, "blocked_total").await,
+            "failed" => increment_metric(&state, "failed_total").await,
+            _ => {}
+        }
+
+        record_decision(
+            &state,
+            candidate.signal.signal_id.clone(),
+            candidate.signal.signal_type.clone(),
+            candidate.signal.action_hint.clone(),
+            Some(candidate.signal.risk_score),
+            candidate.signal.token_mint.clone(),
+            format!("retried_{}", status),
+            Some(safety_pass),
+            safety_reasons,
+            execution_result.clone(),
+        )
+        .await;
+
+        {
+            let mut failed = state.failed_signals.lock().await;
+            if matches!(status.as_str(), "executed" | "accepted") {
+                failed.retain(|entry| entry.signal_id != candidate.signal_id);
+            } else if let Some(existing) = failed.iter_mut().find(|entry| entry.signal_id == candidate.signal_id) {
+                existing.retry_count += 1;
+                existing.status = status.clone();
+                existing.reason = execution_result.clone().unwrap_or_else(|| "retry_failed".to_string());
+                existing.last_failed_at = chrono::Utc::now().to_rfc3339();
+                existing.signal = candidate.signal.clone();
+            }
+        }
+
+        results.push(serde_json::json!({
+            "signalId": candidate.signal_id,
+            "status": status,
+            "reason": execution_result,
+        }));
+    }
+
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "status": "ok",
+            "message": format!("Retried {} failed signal(s)", results.len()),
+            "retried": results,
+        })),
+    )
 }

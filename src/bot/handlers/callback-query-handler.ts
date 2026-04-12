@@ -327,10 +327,49 @@ export class CallbackQueryHandler {
         case 'trading_kill':
           this.bot.sendMessage(chatId, 'Send: <code>/trading_kill</code>', { parse_mode: 'HTML' })
           break
+        case 'trading_sources':
+          this.bot.sendMessage(chatId, 'Send: <code>/trading_sources</code>', { parse_mode: 'HTML' })
+          break
+        case 'trading_alert_quality':
+          this.bot.sendMessage(
+            chatId,
+            'Send: <code>/trading_alert_quality</code> or <code>/trading_alert_quality 60 2</code>',
+            { parse_mode: 'HTML' },
+          )
+          break
+        case 'trading_execution_mode':
+          this.bot.sendMessage(
+            chatId,
+            'Send: <code>/trading_execution_mode</code> or <code>/trading_execution_mode live</code>',
+            { parse_mode: 'HTML' },
+          )
+          break
+        case 'trading_journal':
+          this.bot.sendMessage(chatId, 'Send: <code>/trading_journal</code>', { parse_mode: 'HTML' })
+          break
+        case 'trading_metrics':
+          this.bot.sendMessage(chatId, 'Send: <code>/trading_metrics</code>', { parse_mode: 'HTML' })
+          break
+        case 'trading_failures':
+          this.bot.sendMessage(
+            chatId,
+            'Send: <code>/trading_failures</code> or <code>/trading_retry_failed all</code>',
+            { parse_mode: 'HTML' },
+          )
+          break
+        case 'trading_dashboard':
+          this.bot.sendMessage(chatId, 'Send: <code>/trading_dashboard</code>', { parse_mode: 'HTML' })
+          break
+        case 'trading_audit_logs':
+          this.bot.sendMessage(chatId, 'Send: <code>/trading_audit_logs</code>', { parse_mode: 'HTML' })
+          break
+        case 'trading_gate_metrics':
+          this.bot.sendMessage(chatId, 'Send: <code>/trading_gate_metrics</code>', { parse_mode: 'HTML' })
+          break
         case 'trading_config':
           this.bot.sendMessage(
             chatId,
-            'Commands: <code>/trading_slippage</code>, <code>/trading_target</code>, <code>/trading_profile</code>, <code>/trading_mode</code>, <code>/trading_size</code>',
+            'Commands: <code>/trading_slippage</code>, <code>/trading_target</code>, <code>/trading_profile</code>, <code>/trading_mode</code>, <code>/trading_size</code>, <code>/trading_sources</code>, <code>/trading_source_profile</code>, <code>/trading_alert_quality</code>, <code>/trading_execution_mode</code>, <code>/trading_metrics</code>, <code>/trading_journal</code>, <code>/trading_failures</code>, <code>/trading_retry_failed</code>, <code>/trading_audit_logs</code>, <code>/trading_gate_metrics</code>',
             {
               parse_mode: 'HTML',
             },

@@ -2,6 +2,7 @@ import TelegramBot from 'node-telegram-bot-api'
 import { START_MENU } from '../../config/bot-menus'
 import { PrismaUserRepository } from '../../repositories/prisma/user'
 import { GeneralMessages } from '../messages/general-messages'
+import { CommandsDirectory } from '../messages/commands-directory'
 import { BotMiddleware } from '../../config/bot-middleware'
 
 export class StartCommand {
@@ -32,7 +33,15 @@ export class StartCommand {
       if (BotMiddleware.isGroup(chatId)) {
         this.bot.sendMessage(chatId, GeneralMessages.startMessageGroup, { parse_mode: 'HTML' })
       } else {
+        // Send main welcome message with menu
         this.bot.sendMessage(chatId, messageText, { reply_markup: START_MENU, parse_mode: 'HTML' })
+
+        // Send comprehensive command directory after a short delay
+        setTimeout(() => {
+          this.bot.sendMessage(chatId, CommandsDirectory.getFullCommandDirectory(), {
+            parse_mode: 'HTML',
+          })
+        }, 500)
       }
 
       // Create new user
