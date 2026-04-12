@@ -61,7 +61,7 @@ echo ""
 echo "Press Ctrl+C to stop both services"
 
 # Verify both services are actually healthy so PM2 doesn't keep a half-dead stack.
-if ! ./scripts/start-both-health-check.sh; then
+if ! bash ./scripts/start-both-health-check.sh; then
     echo "❌ Health check failed. Stopping services..."
     kill "$TRADING_PID" "$FAILOPS_PID" 2>/dev/null || true
     wait "$TRADING_PID" "$FAILOPS_PID" 2>/dev/null || true
