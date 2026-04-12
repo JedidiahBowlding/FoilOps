@@ -8,7 +8,27 @@ export class TradingCommand {
 
   constructor(private bot: TelegramBot) {
     this.bot = bot
-    this.tradingBotUrl = process.env.TRADING_BOT_URL || 'http://127.0.0.1:8787'
+    this.tradingBotUrl = this.resolveTradingBotUrl()
+  }
+
+  private resolveTradingBotUrl(): string {
+    const explicitUrl = process.env.TRADING_BOT_URL?.trim()
+    if (explicitUrl) {
+      return explicitUrl.replace(/\/$/, '')
+    }
+
+    const bind = process.env.SIGNAL_RECEIVER_BIND?.trim()
+    if (bind) {
+      if (bind.startsWith('http://') || bind.startsWith('https://')) {
+        return bind.replace(/\/$/, '')
+      }
+
+      // A server bind like 0.0.0.0 is not directly connectable from a client.
+      const hostPort = bind.replace(/^0\.0\.0\.0:/, '127.0.0.1:').replace(/^\[::\]:/, '127.0.0.1:')
+      return `http://${hostPort}`
+    }
+
+    return 'http://127.0.0.1:8787'
   }
 
   public start() {
