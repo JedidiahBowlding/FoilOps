@@ -49,6 +49,8 @@ struct DecisionRecord {
     risk_score: Option<f64>,
     token_mint: Option<String>,
     status: String,
+    safety_pass: Option<bool>,
+    safety_reasons: Vec<String>,
     reason: Option<String>,
 }
 
@@ -151,6 +153,7 @@ pub async fn start_signal_receiver(
         .route("/trading/profile", post(set_profile))
         .route("/trading/mode", post(set_mode))
         .route("/trading/size", post(set_size))
+        .route("/trading/tighten-risk", post(tighten_risk))
         .route("/trading/safety", get(get_safety))
         .route("/trading/decisions", get(get_decisions))
         .with_state(state);
@@ -202,6 +205,8 @@ async fn receive_signal(
             None,
             None,
             "rejected".to_string(),
+            None,
+            vec![],
             Some(reason.clone()),
         ).await;
         return Ok(reject_signal(reason, "unknown".to_string()).1);
@@ -219,6 +224,8 @@ async fn receive_signal(
                 None,
                 None,
                 "rejected".to_string(),
+                None,
+                vec![],
                 Some(reason.clone()),
             ).await;
             return Ok(reject_signal(reason, "unknown".to_string()).1)
@@ -235,6 +242,8 @@ async fn receive_signal(
             Some(signal.risk_score),
             signal.token_mint.clone(),
             "rejected".to_string(),
+            None,
+            vec![],
             Some(reason.clone()),
         ).await;
         return Ok(reject_signal(reason, signal.signal_id).1);
@@ -249,6 +258,8 @@ async fn receive_signal(
             Some(signal.risk_score),
             signal.token_mint.clone(),
             "duplicate".to_string(),
+            None,
+            vec![],
             Some("duplicate_idempotency_key".to_string()),
         ).await;
         return Ok(Json(SignalReceiverResponse {
@@ -258,6 +269,8 @@ async fn receive_signal(
             reason: Some("duplicate_idempotency_key".to_string()),
         }));
     }
+
+    let (safety_pass, safety_reasons) = evaluate_signal_safety(&state, &signal).await;
 
     // Phase 2 & 4: Execute trade if not in dry-run mode and execution engine is available
     let execution_result = if !state.config.dry_run {
@@ -308,6 +321,8 @@ async fn receive_signal(
         Some(signal.risk_score),
         signal.token_mint,
         response.status.clone(),
+        Some(safety_pass),
+        safety_reasons,
         response.reason.clone(),
     ).await;
 
@@ -322,6 +337,8 @@ async fn record_decision(
     risk_score: Option<f64>,
     token_mint: Option<String>,
     status: String,
+    safety_pass: Option<bool>,
+    safety_reasons: Vec<String>,
     reason: Option<String>,
 ) {
     let mut decisions = state.recent_decisions.lock().await;
@@ -336,6 +353,8 @@ async fn record_decision(
         risk_score,
         token_mint,
         status,
+        safety_pass,
+        safety_reasons,
         reason,
     });
 
@@ -343,6 +362,47 @@ async fn record_decision(
         let overflow = decisions.len() - 200;
         decisions.drain(0..overflow);
     }
+}
+
+async fn evaluate_signal_safety(state: &Arc<SignalReceiverState>, signal: &TradeSignalV1) -> (bool, Vec<String>) {
+    let mut pass = true;
+    let mut reasons: Vec<String> = Vec::new();
+
+    if let Some(engine) = &state.execution_engine {
+        let safety = engine.get_safety_summary_async().await;
+        let max_risk = safety["maxRiskScore"].as_f64().unwrap_or(75.0);
+        let enabled = safety["enabled"].as_bool().unwrap_or(false);
+        let paused = safety["paused"].as_bool().unwrap_or(false);
+
+        if signal.risk_score > max_risk {
+            pass = false;
+            reasons.push(format!("risk_score_too_high:{}>{}", signal.risk_score, max_risk));
+        }
+        if !enabled {
+            pass = false;
+            reasons.push("trading_disabled".to_string());
+        }
+        if paused {
+            pass = false;
+            reasons.push("trading_paused".to_string());
+        }
+    }
+
+    let needs_token = matches!(
+        signal.signal_type.as_str(),
+        "TOKEN_INVESTIGATION" | "SUSPICIOUS_TOKEN_LAUNCH" | "AUTO_SELL" | "COPY_TRADE"
+    );
+
+    if needs_token && signal.token_mint.is_none() {
+        pass = false;
+        reasons.push("missing_token_mint".to_string());
+    }
+
+    if reasons.is_empty() {
+        reasons.push("passes_current_safety_gates".to_string());
+    }
+
+    (pass, reasons)
 }
 
 fn verify_headers_and_signature(
@@ -735,6 +795,17 @@ async fn set_size(
         } else {
             (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "status": "error", "message": "Invalid buy_amount_sol" })))
         }
+    } else {
+        (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
+    }
+}
+
+async fn tighten_risk(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> (StatusCode, Json<Value>) {
+    if let Some(engine) = &state.execution_engine {
+        let result = engine.tighten_risk_async().await;
+        (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "message": result })))
     } else {
         (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
     }

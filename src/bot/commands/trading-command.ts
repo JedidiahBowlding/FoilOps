@@ -353,18 +353,34 @@ ${tradeMessages}
 
         const lines = ['🧠 <b>Recent Signal Decisions</b>', '']
         for (const decision of decisions.slice(0, 12)) {
+          const safetyTag =
+            decision.safetyPass === true ? '✅ safety-pass' : decision.safetyPass === false ? '❌ safety-fail' : '➖ safety-n/a'
           lines.push(
             `• <b>${decision.status || 'unknown'}</b> | ${decision.signalType || 'unknown'} | risk ${decision.riskScore ?? 'n/a'}`,
           )
-          lines.push(`  action: ${decision.actionHint || 'n/a'} | token: ${decision.tokenMint || 'n/a'}`)
+          lines.push(`  ${safetyTag} | action: ${decision.actionHint || 'n/a'} | token: ${decision.tokenMint || 'n/a'}`)
           lines.push(`  id: <code>${decision.signalId || 'unknown'}</code>`)
+          if (Array.isArray(decision.safetyReasons) && decision.safetyReasons.length > 0) {
+            lines.push(`  safety: ${decision.safetyReasons.slice(0, 2).join(', ')}`)
+          }
           if (decision.reason) {
             lines.push(`  reason: ${String(decision.reason).slice(0, 120)}`)
           }
           lines.push('')
         }
 
-        await this.bot.sendMessage(chatId, lines.join('\n'), { parse_mode: 'HTML' })
+        await this.bot.sendMessage(chatId, lines.join('\n'), {
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '⏸️ Pause', callback_data: 'trading_pause' },
+                { text: '⚠️ Tighten Risk', callback_data: 'trading_tighten_risk' },
+                { text: '🛑 Kill', callback_data: 'trading_kill' },
+              ],
+            ],
+          },
+        })
       } catch (error) {
         console.error('Trading decisions error:', error)
         this.bot.sendMessage(chatId, '❌ Failed to fetch decision cards')
@@ -446,11 +462,8 @@ ${tradeMessages}
       }
 
       try {
-        const safety = await axios.get(`${this.tradingBotUrl}/trading/safety`)
-        const current = Number(safety.data?.maxRiskScore || 75)
-        const next = Math.max(25, current - 10)
-        const response = await axios.post(`${this.tradingBotUrl}/trading/risk`, { max_risk_score: next })
-        this.bot.sendMessage(chatId, `✅ ${response.data?.message || `Risk tightened to ${next}`}`)
+        const response = await axios.post(`${this.tradingBotUrl}/trading/tighten-risk`)
+        this.bot.sendMessage(chatId, `✅ ${response.data?.message || 'Risk tightened'}`)
       } catch (error) {
         console.error('Trading tighten risk error:', error)
         this.bot.sendMessage(chatId, '❌ Failed to tighten risk controls')
