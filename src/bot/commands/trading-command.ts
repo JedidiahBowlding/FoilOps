@@ -4,6 +4,7 @@ import axios from 'axios'
 
 export class TradingCommand {
   private tradingBotUrl: string
+  private static readonly REQUEST_TIMEOUT_MS = 10_000
 
   constructor(private bot: TelegramBot) {
     this.bot = bot
@@ -133,11 +134,47 @@ ${tradeMessages}
       }
 
       try {
-        await axios.post(`${this.tradingBotUrl}/trading/enable`)
-        this.bot.sendMessage(chatId, '✅ Trading bot enabled')
+        const response = await axios.post(
+          `${this.tradingBotUrl}/trading/enable`,
+          {},
+          { timeout: TradingCommand.REQUEST_TIMEOUT_MS },
+        )
+
+        const status = response.data?.status
+        const message = response.data?.message
+
+        if (status === 'enabled') {
+          this.bot.sendMessage(chatId, `✅ Trading bot enabled${message ? `\n${message}` : ''}`)
+          return
+        }
+
+        this.bot.sendMessage(chatId, `⚠️ Trading enable returned unexpected response${message ? `\n${message}` : ''}`)
       } catch (error) {
+        if (axios.isAxiosError(error)) {
+          const status = error.response?.status
+          const detail =
+            (typeof error.response?.data === 'string' && error.response.data) ||
+            error.response?.data?.message ||
+            error.response?.data?.error ||
+            error.message
+
+          console.error('Trading enable error:', {
+            message: error.message,
+            url: `${this.tradingBotUrl}/trading/enable`,
+            code: error.code,
+            status,
+            data: error.response?.data,
+          })
+
+          this.bot.sendMessage(
+            chatId,
+            `❌ Failed to enable trading\nStatus: ${status ?? 'n/a'}\nDetail: ${detail || 'unknown error'}`,
+          )
+          return
+        }
+
         console.error('Trading enable error:', error)
-        this.bot.sendMessage(chatId, '❌ Failed to enable trading')
+        this.bot.sendMessage(chatId, '❌ Failed to enable trading\nDetail: unknown error')
       }
     })
 

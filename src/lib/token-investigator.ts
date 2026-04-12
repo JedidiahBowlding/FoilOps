@@ -17,6 +17,16 @@ import { PumpDetail } from '../types/gmgn-ai-types'
 import { ChainRegistry } from './chains'
 import { SupportedChain } from './chains/types'
 
+type DexScreenerPair = {
+  chainId?: string
+  dexId?: string
+  pairCreatedAt?: number
+}
+
+type DexScreenerResponse = {
+  pairs?: DexScreenerPair[]
+}
+
 export type DeveloperResolutionSource =
   | 'enrichmentCreator'
   | 'mintAuthority'
@@ -165,10 +175,26 @@ export class TokenInvestigator {
   }
 
   async fetchTokenEnrichment(tokenMint: string): Promise<TokenEnrichmentData> {
-    const [pump, gmgn] = await Promise.allSettled([this.fetchPumpFunData(tokenMint), this.fetchGmgnData(tokenMint)])
+    const [pump, gmgn, dex] = await Promise.allSettled([
+      this.fetchPumpFunData(tokenMint),
+      this.fetchGmgnData(tokenMint),
+      this.fetchDexScreenerData(tokenMint),
+    ])
 
     const pumpData = pump.status === 'fulfilled' ? pump.value : null
     const gmgnData = gmgn.status === 'fulfilled' ? gmgn.value : null
+    const dexData = dex.status === 'fulfilled' ? dex.value : null
+
+    const createdTimestamp =
+      gmgnData?.creation_timestamp ||
+      gmgnData?.open_timestamp ||
+      pumpData?.created_timestamp ||
+      (dexData?.pairCreatedAt ? Math.floor(dexData.pairCreatedAt / 1000) : undefined)
+
+    const launchpad =
+      gmgnData?.launchpad ||
+      (pumpData ? 'Pump.fun' : undefined) ||
+      (dexData?.dexId ? `${dexData.dexId}${dexData.chainId ? ` (${dexData.chainId})` : ''}` : undefined)
 
     return {
       name: pumpData?.name,
@@ -177,7 +203,7 @@ export class TokenInvestigator {
       twitter: pumpData?.twitter || undefined,
       telegram: pumpData?.telegram || undefined,
       website: pumpData?.website || undefined,
-      createdTimestamp: pumpData?.created_timestamp,
+      createdTimestamp,
       bondingCurve: pumpData?.bonding_curve,
       raydiumPool: pumpData?.raydium_pool || undefined,
       graduated: pumpData?.complete,
@@ -194,7 +220,7 @@ export class TokenInvestigator {
       burnStatus: gmgnData?.burn_status,
       isHoneypot: gmgnData?.is_honeypot,
       renounced: gmgnData?.renounced,
-      launchpad: gmgnData?.launchpad || (pumpData ? 'Pump.fun' : undefined),
+      launchpad,
       creatorAddress: gmgnData?.creator_address || pumpData?.creator || undefined,
     }
   }
@@ -223,6 +249,27 @@ export class TokenInvestigator {
       })
       const data = await res.json()
       return data?.code === 0 ? (data.data.token as PumpDetail) : null
+    } catch {
+      return null
+    }
+  }
+
+  private async fetchDexScreenerData(tokenMint: string): Promise<DexScreenerPair | null> {
+    try {
+      const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${tokenMint}`, {
+        signal: AbortSignal.timeout(8000),
+      })
+      if (!res.ok) return null
+
+      const data = (await res.json()) as DexScreenerResponse
+      if (!Array.isArray(data.pairs) || data.pairs.length === 0) return null
+
+      const pairsWithCreatedAt = data.pairs.filter((pair) => typeof pair.pairCreatedAt === 'number')
+      if (pairsWithCreatedAt.length > 0) {
+        return pairsWithCreatedAt.sort((a, b) => (a.pairCreatedAt || 0) - (b.pairCreatedAt || 0))[0]
+      }
+
+      return data.pairs[0]
     } catch {
       return null
     }
@@ -584,7 +631,16 @@ export class TokenInvestigator {
       const info = (parsedInstruction.parsed as { info?: Record<string, unknown> })?.info
       if (!info || typeof info !== 'object') continue
 
-      const likelyFields = ['authority', 'owner', 'wallet', 'user', 'payer', 'source', 'mintAuthority', 'freezeAuthority']
+      const likelyFields = [
+        'authority',
+        'owner',
+        'wallet',
+        'user',
+        'payer',
+        'source',
+        'mintAuthority',
+        'freezeAuthority',
+      ]
       for (const field of likelyFields) {
         const value = info[field]
         if (typeof value === 'string') {
