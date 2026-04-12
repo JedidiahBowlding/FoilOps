@@ -303,6 +303,9 @@ export class CallbackQueryHandler {
         case 'trading_safety':
           this.bot.sendMessage(chatId, 'Send: <code>/trading_safety</code>', { parse_mode: 'HTML' })
           break
+        case 'trading_decisions':
+          this.bot.sendMessage(chatId, 'Send: <code>/trading_decisions</code>', { parse_mode: 'HTML' })
+          break
         case 'trading_trades':
           this.bot.sendMessage(chatId, 'Send: <code>/trading_trades</code>', { parse_mode: 'HTML' })
           break
@@ -329,7 +332,7 @@ export class CallbackQueryHandler {
             chatId,
             'Commands: <code>/trading_slippage</code>, <code>/trading_target</code>, <code>/trading_profile</code>, <code>/trading_mode</code>, <code>/trading_size</code>',
             {
-            parse_mode: 'HTML',
+              parse_mode: 'HTML',
             },
           )
           break

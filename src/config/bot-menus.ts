@@ -39,6 +39,7 @@ export const TRADING_MENU: InlineKeyboardMarkup = {
   inline_keyboard: [
     [{ text: '📊 Status', callback_data: 'trading_status' }],
     [{ text: '🛡️ Safety', callback_data: 'trading_safety' }],
+    [{ text: '🧠 Decisions', callback_data: 'trading_decisions' }],
     [{ text: '💰 Balance', callback_data: 'trading_balance' }],
     [{ text: '📈 Recent Trades', callback_data: 'trading_trades' }],
     [

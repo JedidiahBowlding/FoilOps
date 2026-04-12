@@ -24,6 +24,7 @@ type HmacSha256 = Hmac<Sha256>;
 struct SignalReceiverState {
     config: SignalReceiverConfig,
     seen_signals: Arc<Mutex<HashMap<String, Instant>>>,
+    recent_decisions: Arc<Mutex<Vec<DecisionRecord>>>,
     execution_engine: Option<Arc<SignalExecutionEngine>>,
 }
 
@@ -32,9 +33,23 @@ impl Clone for SignalReceiverState {
         Self {
             config: self.config.clone(),
             seen_signals: Arc::clone(&self.seen_signals),
+            recent_decisions: Arc::clone(&self.recent_decisions),
             execution_engine: self.execution_engine.as_ref().map(Arc::clone),
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DecisionRecord {
+    recorded_at: String,
+    signal_id: String,
+    signal_type: String,
+    action_hint: String,
+    risk_score: Option<f64>,
+    token_mint: Option<String>,
+    status: String,
+    reason: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -112,6 +127,7 @@ pub async fn start_signal_receiver(
             max_timestamp_skew_seconds,
         },
         seen_signals: Arc::new(Mutex::new(HashMap::new())),
+        recent_decisions: Arc::new(Mutex::new(Vec::new())),
         execution_engine,
     });
 
@@ -136,6 +152,7 @@ pub async fn start_signal_receiver(
         .route("/trading/mode", post(set_mode))
         .route("/trading/size", post(set_size))
         .route("/trading/safety", get(get_safety))
+        .route("/trading/decisions", get(get_decisions))
         .with_state(state);
 
     println!(
@@ -177,23 +194,67 @@ async fn receive_signal(
     body: Bytes,
 ) -> Result<Json<SignalReceiverResponse>, StatusCode> {
     if let Err(reason) = verify_headers_and_signature(&state.config, &headers, body.as_ref()) {
+        record_decision(
+            &state,
+            "unknown".to_string(),
+            "unknown".to_string(),
+            "unknown".to_string(),
+            None,
+            None,
+            "rejected".to_string(),
+            Some(reason.clone()),
+        ).await;
         return Ok(reject_signal(reason, "unknown".to_string()).1);
     }
 
     let signal: TradeSignalV1 = match serde_json::from_slice(&body) {
         Ok(parsed) => parsed,
-        Err(_) => return Ok(reject_signal("invalid_json_payload".to_string(), "unknown".to_string()).1),
+        Err(_) => {
+            let reason = "invalid_json_payload".to_string();
+            record_decision(
+                &state,
+                "unknown".to_string(),
+                "unknown".to_string(),
+                "unknown".to_string(),
+                None,
+                None,
+                "rejected".to_string(),
+                Some(reason.clone()),
+            ).await;
+            return Ok(reject_signal(reason, "unknown".to_string()).1)
+        }
     };
 
     if signal.schema_version != "1.0" {
-        return Ok(reject_signal("unsupported_schema_version".to_string(), signal.signal_id).1);
+        let reason = "unsupported_schema_version".to_string();
+        record_decision(
+            &state,
+            signal.signal_id.clone(),
+            signal.signal_type.clone(),
+            signal.action_hint.clone(),
+            Some(signal.risk_score),
+            signal.token_mint.clone(),
+            "rejected".to_string(),
+            Some(reason.clone()),
+        ).await;
+        return Ok(reject_signal(reason, signal.signal_id).1);
     }
 
     if is_duplicate_signal(&state, &signal, &headers).await {
+        record_decision(
+            &state,
+            signal.signal_id.clone(),
+            signal.signal_type.clone(),
+            signal.action_hint.clone(),
+            Some(signal.risk_score),
+            signal.token_mint.clone(),
+            "duplicate".to_string(),
+            Some("duplicate_idempotency_key".to_string()),
+        ).await;
         return Ok(Json(SignalReceiverResponse {
             status: "duplicate".to_string(),
             mode: if state.config.dry_run { "dry-run".to_string() } else { "live".to_string() },
-            signal_id: signal.signal_id,
+            signal_id: signal.signal_id.clone(),
             reason: Some("duplicate_idempotency_key".to_string()),
         }));
     }
@@ -235,11 +296,53 @@ async fn receive_signal(
     let response = SignalReceiverResponse {
         status: if execution_result.is_some() { "executed".to_string() } else { "accepted".to_string() },
         mode: if state.config.dry_run { "dry-run".to_string() } else { "live".to_string() },
-        signal_id: signal.signal_id,
-        reason: execution_result,
+        signal_id: signal.signal_id.clone(),
+        reason: execution_result.clone(),
     };
 
+    record_decision(
+        &state,
+        signal.signal_id,
+        signal.signal_type,
+        signal.action_hint,
+        Some(signal.risk_score),
+        signal.token_mint,
+        response.status.clone(),
+        response.reason.clone(),
+    ).await;
+
     Ok(Json(response))
+}
+
+async fn record_decision(
+    state: &Arc<SignalReceiverState>,
+    signal_id: String,
+    signal_type: String,
+    action_hint: String,
+    risk_score: Option<f64>,
+    token_mint: Option<String>,
+    status: String,
+    reason: Option<String>,
+) {
+    let mut decisions = state.recent_decisions.lock().await;
+    decisions.push(DecisionRecord {
+        recorded_at: SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs().to_string())
+            .unwrap_or_else(|_| "0".to_string()),
+        signal_id,
+        signal_type,
+        action_hint,
+        risk_score,
+        token_mint,
+        status,
+        reason,
+    });
+
+    if decisions.len() > 200 {
+        let overflow = decisions.len() - 200;
+        decisions.drain(0..overflow);
+    }
 }
 
 fn verify_headers_and_signature(
@@ -645,4 +748,12 @@ async fn get_safety(
     } else {
         Json(serde_json::json!({ "error": "No execution engine available" }))
     }
+}
+
+async fn get_decisions(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> Json<Value> {
+    let decisions = state.recent_decisions.lock().await;
+    let recent: Vec<DecisionRecord> = decisions.iter().rev().take(20).cloned().collect();
+    Json(serde_json::json!({ "decisions": recent }))
 }

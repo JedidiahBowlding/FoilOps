@@ -335,6 +335,42 @@ ${tradeMessages}
       }
     })
 
+    this.bot.onText(/\/trading_decisions/, async (msg) => {
+      const chatId = msg.chat.id
+      const userId = String(msg.from?.id)
+
+      if (!userId || !BotMiddleware.isUserBotAdmin(userId)) {
+        return this.bot.sendMessage(chatId, '❌ Access denied. Admin only command.')
+      }
+
+      try {
+        const response = await axios.get(`${this.tradingBotUrl}/trading/decisions`)
+        const decisions = Array.isArray(response.data?.decisions) ? response.data.decisions : []
+
+        if (decisions.length === 0) {
+          return this.bot.sendMessage(chatId, 'No recent signal decisions yet.')
+        }
+
+        const lines = ['🧠 <b>Recent Signal Decisions</b>', '']
+        for (const decision of decisions.slice(0, 12)) {
+          lines.push(
+            `• <b>${decision.status || 'unknown'}</b> | ${decision.signalType || 'unknown'} | risk ${decision.riskScore ?? 'n/a'}`,
+          )
+          lines.push(`  action: ${decision.actionHint || 'n/a'} | token: ${decision.tokenMint || 'n/a'}`)
+          lines.push(`  id: <code>${decision.signalId || 'unknown'}</code>`)
+          if (decision.reason) {
+            lines.push(`  reason: ${String(decision.reason).slice(0, 120)}`)
+          }
+          lines.push('')
+        }
+
+        await this.bot.sendMessage(chatId, lines.join('\n'), { parse_mode: 'HTML' })
+      } catch (error) {
+        console.error('Trading decisions error:', error)
+        this.bot.sendMessage(chatId, '❌ Failed to fetch decision cards')
+      }
+    })
+
     this.bot.onText(/\/trading_profile(?:\s+(conservative|balanced|aggressive))?/i, async (msg, match) => {
       const chatId = msg.chat.id
       const userId = String(msg.from?.id)
