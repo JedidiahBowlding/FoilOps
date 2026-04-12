@@ -207,7 +207,10 @@ async fn main() {
     // Listen for messages
     while let Some(Ok(msg)) = read.next().await {
         if let WsMessage::Text(text) = msg {
-            let json: Value = serde_json::from_str(&text).unwrap();
+            let json: Value = match serde_json::from_str(&text) {
+                Ok(value) => value,
+                Err(_) => continue,
+            };
 
             // println!("json: {:#?}", json);
 
