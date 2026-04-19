@@ -51,7 +51,7 @@ function renderGraphPage(wallet: string) {
     headerActionsHtml:
       '<form class="logout-form" method="post" action="/logout"><button class="fx-button" type="submit">Logout</button></form>',
     extraStyles:
-      '.wrap { display:grid; gap:16px; } .dot { width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:5px; vertical-align:middle; } svg text { fill: #d7e6ff; font-family: "IBM Plex Mono", monospace; } svg line { stroke: rgba(129,196,255,.45); } .wallet-chip.chip-tracked { border-color: rgba(103, 240, 255, 0.26); background: rgba(103, 240, 255, 0.08); color: #a8f4ff; } .wallet-chip.chip-source { border-color: rgba(124, 114, 255, 0.26); background: rgba(124, 114, 255, 0.1); color: #cec9ff; } .wallet-chip.chip-both { border-color: rgba(76, 255, 193, 0.28); background: rgba(76, 255, 193, 0.08); color: #b6ffe5; box-shadow: 0 0 0 1px rgba(76, 255, 193, 0.08) inset; } .chip-legend { display:flex; flex-wrap:wrap; gap:10px; margin: 10px 0 0; } .chip-legend-item { display:inline-flex; align-items:center; gap:8px; color:#a9bbd6; font-size:0.82rem; } .chip-legend-item .wallet-chip { cursor:default; }',
+      '.wrap { display:grid; gap:16px; } .dot { width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:5px; vertical-align:middle; } svg text { fill: #ffd0d4; font-family: "IBM Plex Mono", monospace; } svg line { stroke: rgba(255,40,60,.30); } .wallet-chip.chip-tracked { border-color: rgba(255, 30, 50, 0.30); background: rgba(255, 30, 50, 0.10); color: #ff9aa3; } .wallet-chip.chip-source { border-color: rgba(200, 0, 20, 0.30); background: rgba(200, 0, 20, 0.10); color: #ff8090; } .wallet-chip.chip-both { border-color: rgba(255, 119, 68, 0.30); background: rgba(255, 119, 68, 0.10); color: #ffcca8; box-shadow: 0 0 0 1px rgba(255, 119, 68, 0.08) inset; } .chip-legend { display:flex; flex-wrap:wrap; gap:10px; margin: 10px 0 0; } .chip-legend-item { display:inline-flex; align-items:center; gap:8px; color:#c9a0a0; font-size:0.82rem; } .chip-legend-item .wallet-chip { cursor:default; }',
     heroHtml: `
       <section class="page-header">
         <div>
@@ -96,9 +96,9 @@ function renderGraphPage(wallet: string) {
         <div class="panel">
           <svg id="graph" viewBox="0 0 900 430" preserveAspectRatio="xMidYMid meet"></svg>
           <div class="legend">
-            <span><span class="dot" style="background:#4cffc1"></span>Cluster Wallet</span>
+            <span><span class="dot" style="background:#ff7744"></span>Cluster Wallet</span>
             <span><span class="dot" style="background:#ff5a7a"></span>Primary Wallet</span>
-            <span><span class="dot" style="background:#7c72ff"></span>Related Wallet</span>
+            <span><span class="dot" style="background:#cc0820"></span>Related Wallet</span>
           </div>
           <div id="wallet-list" class="wallet-list"></div>
         </div>
@@ -586,7 +586,11 @@ export function registerGraphRoutes(app: Express, deps: GraphRouteDeps) {
       const tokenAccounts = await connection.getParsedTokenAccountsByOwner(pubkey, { programId: SPL_TOKEN_PROGRAM_ID })
       const tokens = tokenAccounts.value
         .map((account) => {
-          const info = (account.account.data as { parsed?: { info?: { mint?: string; tokenAmount?: { uiAmount?: number; decimals?: number } } } }).parsed?.info
+          const info = (
+            account.account.data as {
+              parsed?: { info?: { mint?: string; tokenAmount?: { uiAmount?: number; decimals?: number } } }
+            }
+          ).parsed?.info
           if (!info) return null
           const amount = info.tokenAmount?.uiAmount ?? 0
           const decimals = info.tokenAmount?.decimals ?? 0

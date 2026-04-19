@@ -681,7 +681,7 @@ export class TradingOpsDashboard {
         const px = (index) => 12 + (index / Math.max(1, series.length - 1)) * (width - 24)
         const py = (value) => height - 12 - ((value - min) / span) * (height - 24)
 
-        ctx.strokeStyle = 'rgba(129,196,255,0.15)'
+        ctx.strokeStyle = 'rgba(255,40,60,0.15)'
         ctx.lineWidth = 1
         for (let i = 0; i < 4; i++) {
           const y = 12 + i * ((height - 24) / 3)
@@ -719,12 +719,12 @@ export class TradingOpsDashboard {
           updateTrendTimestamp(latest && latest.timestamp)
 
           drawLineChart('chart-throughput', snapshots, [
-            { key: 'receivedTotal', color: '#67f0ff' },
-            { key: 'executedTotal', color: '#4cffc1' },
+            { key: 'receivedTotal', color: '#ff2233' },
+            { key: 'executedTotal', color: '#ff7744' },
           ])
           renderChartLegend('legend-throughput', latest, [
-            { key: 'receivedTotal', color: '#67f0ff', label: 'Received' },
-            { key: 'executedTotal', color: '#4cffc1', label: 'Executed' },
+            { key: 'receivedTotal', color: '#ff2233', label: 'Received' },
+            { key: 'executedTotal', color: '#ff7744', label: 'Executed' },
           ])
           drawLineChart('chart-outcomes', snapshots, [
             { key: 'blockedTotal', color: '#ffbc68' },
@@ -735,23 +735,23 @@ export class TradingOpsDashboard {
             { key: 'failedTotal', color: '#ff5a7a', label: 'Failed' },
           ])
           drawLineChart('chart-risk', snapshots, [
-            { key: 'maxRiskScore', color: '#7c72ff' },
-            { key: 'deadLetterCount', color: '#67f0ff' },
-            { key: 'watchlistSize', color: '#4cffc1' },
+            { key: 'maxRiskScore', color: '#cc0820' },
+            { key: 'deadLetterCount', color: '#ff2233' },
+            { key: 'watchlistSize', color: '#ff7744' },
           ])
           renderChartLegend('legend-risk', latest, [
-            { key: 'maxRiskScore', color: '#7c72ff', label: 'Max Risk' },
-            { key: 'deadLetterCount', color: '#67f0ff', label: 'Dead Letters' },
-            { key: 'watchlistSize', color: '#4cffc1', label: 'Watchlist' },
+            { key: 'maxRiskScore', color: '#cc0820', label: 'Max Risk' },
+            { key: 'deadLetterCount', color: '#ff2233', label: 'Dead Letters' },
+            { key: 'watchlistSize', color: '#ff7744', label: 'Watchlist' },
           ])
           drawLineChart('chart-attribution', snapshots, [
-            { key: 'trackedWalletCount', color: '#67f0ff' },
-            { key: 'avgWalletWinRate', color: '#4cffc1' },
+            { key: 'trackedWalletCount', color: '#ff2233' },
+            { key: 'avgWalletWinRate', color: '#ff7744' },
             { key: 'avgWalletPnl', color: '#ffbc68' },
           ])
           renderChartLegend('legend-attribution', latest, [
-            { key: 'trackedWalletCount', color: '#67f0ff', label: 'Tracked Wallets' },
-            { key: 'avgWalletWinRate', color: '#4cffc1', label: 'Avg Win Rate', suffix: '%' },
+            { key: 'trackedWalletCount', color: '#ff2233', label: 'Tracked Wallets' },
+            { key: 'avgWalletWinRate', color: '#ff7744', label: 'Avg Win Rate', suffix: '%' },
             { key: 'avgWalletPnl', color: '#ffbc68', label: 'Avg PnL', suffix: '%' },
           ])
 

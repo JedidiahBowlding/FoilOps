@@ -46,22 +46,22 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
     <style>
       :root {
         color-scheme: dark;
-        --fx-bg-0: #050816;
-        --fx-bg-1: #0b1231;
-        --fx-bg-2: #0f1b44;
-        --fx-panel: rgba(10, 17, 42, 0.78);
-        --fx-panel-strong: rgba(9, 15, 36, 0.92);
-        --fx-panel-soft: rgba(18, 27, 58, 0.72);
-        --fx-line: rgba(129, 196, 255, 0.16);
-        --fx-line-strong: rgba(96, 222, 255, 0.34);
-        --fx-ink: #edf4ff;
-        --fx-muted: #91a5d2;
-        --fx-primary: #67f0ff;
-        --fx-secondary: #7c72ff;
-        --fx-acid: #4cffc1;
-        --fx-danger: #ff5a7a;
+        --fx-bg-0: #080508;
+        --fx-bg-1: #110608;
+        --fx-bg-2: #180a0a;
+        --fx-panel: rgba(20, 5, 7, 0.78);
+        --fx-panel-strong: rgba(14, 4, 5, 0.92);
+        --fx-panel-soft: rgba(26, 8, 10, 0.72);
+        --fx-line: rgba(255, 40, 60, 0.16);
+        --fx-line-strong: rgba(255, 50, 70, 0.34);
+        --fx-ink: #f8eded;
+        --fx-muted: #b89898;
+        --fx-primary: #ff2233;
+        --fx-secondary: #cc0820;
+        --fx-acid: #ff7744;
+        --fx-danger: #ff4060;
         --fx-warning: #ffbc68;
-        --fx-shadow: 0 24px 80px rgba(2, 8, 24, 0.48);
+        --fx-shadow: 0 24px 80px rgba(24, 3, 5, 0.52);
       }
 
       * { box-sizing: border-box; }
@@ -74,9 +74,9 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         color: var(--fx-ink);
         font-family: "Space Grotesk", "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
         background:
-          radial-gradient(circle at 15% 20%, rgba(76, 255, 193, 0.14), transparent 26%),
-          radial-gradient(circle at 82% 16%, rgba(124, 114, 255, 0.18), transparent 28%),
-          radial-gradient(circle at 55% 78%, rgba(103, 240, 255, 0.11), transparent 24%),
+          radial-gradient(circle at 15% 20%, rgba(255, 20, 40, 0.14), transparent 26%),
+          radial-gradient(circle at 82% 16%, rgba(180, 0, 20, 0.12), transparent 28%),
+          radial-gradient(circle at 55% 78%, rgba(255, 50, 40, 0.09), transparent 24%),
           linear-gradient(140deg, var(--fx-bg-0) 0%, var(--fx-bg-1) 44%, var(--fx-bg-2) 100%);
         background-attachment: fixed;
       }
@@ -121,7 +121,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         padding: 14px 18px;
         border: 1px solid var(--fx-line);
         border-radius: 24px;
-        background: linear-gradient(180deg, rgba(8, 13, 31, 0.9), rgba(8, 14, 31, 0.62));
+        background: linear-gradient(180deg, rgba(14, 5, 7, 0.9), rgba(14, 5, 7, 0.62));
         box-shadow: var(--fx-shadow);
         backdrop-filter: blur(18px);
       }
@@ -139,13 +139,13 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         display: grid;
         place-items: center;
         border-radius: 14px;
-        border: 1px solid rgba(103, 240, 255, 0.28);
-        background: linear-gradient(145deg, rgba(103, 240, 255, 0.22), rgba(124, 114, 255, 0.14));
+        border: 1px solid rgba(255, 30, 50, 0.36);
+        background: linear-gradient(145deg, rgba(255, 30, 50, 0.24), rgba(180, 0, 20, 0.16));
         color: var(--fx-primary);
         font-size: 0.78rem;
         font-weight: 700;
         letter-spacing: 0.18em;
-        box-shadow: inset 0 0 28px rgba(103, 240, 255, 0.08), 0 0 28px rgba(103, 240, 255, 0.08);
+        box-shadow: inset 0 0 28px rgba(255, 30, 50, 0.12), 0 0 28px rgba(255, 30, 50, 0.12);
       }
 
       .fx-brand-copy {
@@ -191,8 +191,8 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       .fx-nav-link.active {
         color: var(--fx-ink);
         border-color: var(--fx-line-strong);
-        background: linear-gradient(180deg, rgba(103, 240, 255, 0.12), rgba(124, 114, 255, 0.08));
-        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02), 0 0 22px rgba(103, 240, 255, 0.08);
+        background: linear-gradient(180deg, rgba(255, 30, 50, 0.12), rgba(180, 0, 20, 0.06));
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02), 0 0 22px rgba(255, 30, 50, 0.08);
       }
 
       .fx-header-actions,
@@ -245,7 +245,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         position: relative;
         border: 1px solid var(--fx-line);
         border-radius: 24px;
-        background: linear-gradient(180deg, rgba(12, 19, 44, 0.84), rgba(8, 14, 33, 0.7));
+        background: linear-gradient(180deg, rgba(20, 6, 8, 0.84), rgba(14, 4, 5, 0.7));
         box-shadow: var(--fx-shadow);
         backdrop-filter: blur(18px);
         overflow: hidden;
@@ -269,7 +269,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         position: absolute;
         inset: 0;
         pointer-events: none;
-        background: linear-gradient(120deg, rgba(103, 240, 255, 0.08), transparent 36%, transparent 62%, rgba(124, 114, 255, 0.08));
+        background: linear-gradient(120deg, rgba(255, 30, 50, 0.06), transparent 36%, transparent 62%, rgba(180, 0, 20, 0.06));
       }
 
       .fx-card,
@@ -380,7 +380,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         border: 1px solid var(--fx-line);
         border-radius: 18px;
         padding: 14px;
-        background: linear-gradient(180deg, rgba(14, 23, 50, 0.9), rgba(10, 18, 42, 0.72));
+        background: linear-gradient(180deg, rgba(20, 7, 9, 0.9), rgba(16, 5, 7, 0.72));
       }
 
       .timeline-grid,
@@ -424,8 +424,8 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         gap: 8px;
         padding: 10px 14px;
         border-radius: 999px;
-        border: 1px solid rgba(129, 196, 255, 0.18);
-        background: rgba(7, 14, 34, 0.84);
+        border: 1px solid rgba(255, 40, 60, 0.18);
+        background: rgba(14, 5, 7, 0.84);
         color: var(--fx-ink);
         font-size: 0.82rem;
       }
@@ -446,8 +446,8 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       .summary-tile {
         padding: 14px 16px;
         border-radius: 18px;
-        border: 1px solid rgba(129, 196, 255, 0.12);
-        background: linear-gradient(180deg, rgba(10, 17, 40, 0.84), rgba(8, 14, 33, 0.68));
+        border: 1px solid rgba(255, 40, 60, 0.12);
+        background: linear-gradient(180deg, rgba(18, 5, 8, 0.84), rgba(14, 4, 5, 0.68));
       }
 
       .summary-tile-label {
@@ -475,8 +475,8 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       .empty-state {
         padding: 18px;
         border-radius: 18px;
-        border: 1px dashed rgba(129, 196, 255, 0.22);
-        background: rgba(7, 13, 31, 0.52);
+        border: 1px dashed rgba(255, 40, 60, 0.22);
+        background: rgba(14, 4, 5, 0.52);
       }
 
       .empty-state strong {
@@ -489,7 +489,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         font-size: clamp(1.7rem, 3vw, 2.6rem);
         color: var(--fx-ink);
         margin: 8px 0 6px;
-        text-shadow: 0 0 24px rgba(103, 240, 255, 0.16);
+        text-shadow: 0 0 24px rgba(255, 30, 50, 0.20);
       }
 
       .pill,
@@ -502,8 +502,8 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         gap: 6px;
         padding: 6px 11px;
         border-radius: 999px;
-        background: rgba(103, 240, 255, 0.12);
-        border: 1px solid rgba(103, 240, 255, 0.18);
+        background: rgba(255, 30, 50, 0.12);
+        border: 1px solid rgba(255, 30, 50, 0.18);
         color: var(--fx-primary);
         font-size: 0.74rem;
         font-weight: 700;
@@ -542,7 +542,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         text-decoration: none;
         color: var(--fx-ink);
         border: 1px solid var(--fx-line);
-        background: linear-gradient(180deg, rgba(25, 38, 78, 0.88), rgba(11, 18, 45, 0.88));
+        background: linear-gradient(180deg, rgba(28, 8, 10, 0.88), rgba(18, 5, 7, 0.88));
         box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
       }
 
@@ -551,9 +551,9 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       .button-row button.primary,
       .control-form button,
       .actions .primary {
-        border-color: rgba(103, 240, 255, 0.18);
-        background: linear-gradient(135deg, rgba(103, 240, 255, 0.26), rgba(124, 114, 255, 0.24));
-        box-shadow: 0 0 32px rgba(103, 240, 255, 0.12);
+        border-color: rgba(255, 30, 50, 0.30);
+        background: linear-gradient(135deg, rgba(255, 30, 50, 0.32), rgba(180, 0, 20, 0.24));
+        box-shadow: 0 0 32px rgba(255, 30, 50, 0.18);
       }
 
       .fx-button.secondary,
@@ -577,7 +577,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       .wallet-popup-actions button:hover,
       .button-row button:hover {
         transform: translateY(-1px);
-        box-shadow: 0 0 30px rgba(103, 240, 255, 0.12);
+        box-shadow: 0 0 30px rgba(255, 30, 50, 0.18);
       }
 
       input,
@@ -587,9 +587,9 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       .analysis-panel,
       svg {
         width: 100%;
-        border: 1px solid rgba(129, 196, 255, 0.18);
+        border: 1px solid rgba(255, 40, 60, 0.18);
         border-radius: 16px;
-        background: rgba(5, 10, 26, 0.88);
+        background: rgba(12, 4, 5, 0.88);
         color: var(--fx-ink);
       }
 
@@ -604,7 +604,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       select:focus,
       textarea:focus {
         border-color: var(--fx-line-strong);
-        box-shadow: 0 0 0 3px rgba(103, 240, 255, 0.1);
+        box-shadow: 0 0 0 3px rgba(255, 30, 50, 0.1);
       }
 
       textarea {
@@ -621,7 +621,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       td {
         text-align: left;
         padding: 12px 10px;
-        border-bottom: 1px solid rgba(129, 196, 255, 0.1);
+        border-bottom: 1px solid rgba(255, 40, 60, 0.1);
         vertical-align: top;
       }
 
@@ -630,7 +630,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       }
 
       tbody tr:hover {
-        background: rgba(103, 240, 255, 0.06);
+        background: rgba(255, 30, 50, 0.06);
       }
 
       th {
@@ -658,7 +658,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       .notice {
         padding: 14px 16px;
         border-radius: 18px;
-        border: 1px solid rgba(129, 196, 255, 0.14);
+        border: 1px solid rgba(255, 40, 60, 0.14);
         background: rgba(255, 255, 255, 0.03);
         color: var(--fx-muted);
       }
@@ -702,7 +702,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         gap: 8px;
         padding: 6px 10px;
         border-radius: 999px;
-        border: 1px solid rgba(129, 196, 255, 0.14);
+        border: 1px solid rgba(255, 40, 60, 0.14);
         background: rgba(255, 255, 255, 0.03);
         color: var(--fx-muted);
         font-size: 0.78rem;
@@ -764,7 +764,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
 
       .fx-divider {
         height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(129, 196, 255, 0.18), transparent);
+        background: linear-gradient(90deg, transparent, rgba(255, 40, 60, 0.18), transparent);
       }
 
       @media (max-width: 1080px) {

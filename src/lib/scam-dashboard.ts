@@ -110,7 +110,7 @@ export class ScamDashboard {
         </section>
       `,
       extraStyles:
-        '.control-form { grid-template-columns:minmax(0,1fr) auto; align-items:end; } .card.flagged { border-color: rgba(255,90,122,.36); } .card.unflagged { border-color: rgba(76,255,193,.2); } .investigation-card { border-color: rgba(103,240,255,.26); } @media (max-width: 720px) { .control-form { grid-template-columns:1fr; } }',
+        '.control-form { grid-template-columns:minmax(0,1fr) auto; align-items:end; } .card.flagged { border-color: rgba(255,90,122,.36); } .card.unflagged { border-color: rgba(76,255,193,.2); } .investigation-card { border-color: rgba(255,30,50,.26); } @media (max-width: 720px) { .control-form { grid-template-columns:1fr; } }',
       contentHtml: `
         <section class="control-shell">
       <h2>Start Token Investigation</h2>
