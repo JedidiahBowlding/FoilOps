@@ -104,17 +104,25 @@ export class CallbackQueryHandler {
         try {
           const existing = await this.prismaWalletRepository.getUserWalletById(userId, addr)
           if (existing) {
-            await this.bot.sendMessage(chatId, `\u{1F640} Already tracking <code>${addr}</code>`, { parse_mode: 'HTML', reply_markup: SUB_MENU })
+            await this.bot.sendMessage(chatId, `\u{1F640} Already tracking <code>${addr}</code>`, {
+              parse_mode: 'HTML',
+              reply_markup: SUB_MENU,
+            })
             return
           }
           const created = await this.prismaWalletRepository.create(userId, addr, 'Main wallet from investigation')
           if (created?.id) {
             await this.trackWallets.setupWalletWatcher({ event: 'create', walletId: created.id })
           }
-          await this.bot.sendMessage(chatId, `\u2705 Now tracking <code>${addr}</code>`, { parse_mode: 'HTML', reply_markup: SUB_MENU })
+          await this.bot.sendMessage(chatId, `\u2705 Now tracking <code>${addr}</code>`, {
+            parse_mode: 'HTML',
+            reply_markup: SUB_MENU,
+          })
         } catch (err) {
           console.error('CALLBACK_TW_ERROR', err)
-          await this.bot.sendMessage(chatId, '\u274C Failed to add wallet. Try /add manually.', { reply_markup: SUB_MENU })
+          await this.bot.sendMessage(chatId, '\u274C Failed to add wallet. Try /add manually.', {
+            reply_markup: SUB_MENU,
+          })
         }
         return
       }
@@ -127,7 +135,11 @@ export class CallbackQueryHandler {
         await this.bot.answerCallbackQuery(callbackQuery.id)
         try {
           const tradingBotUrl = getTradingBotBaseUrl()
-          await axios.post(`${tradingBotUrl}/trading/source-wallets`, { action: 'add', wallet: addr }, { timeout: 8_000 })
+          await axios.post(
+            `${tradingBotUrl}/trading/source-wallets`,
+            { action: 'add', wallet: addr },
+            { timeout: 8_000 },
+          )
           await this.bot.sendMessage(
             chatId,
             `\u2705 <code>${addr}</code> added as copy-trade source.\\n\\nRun /trading_enable to start trading.`,
