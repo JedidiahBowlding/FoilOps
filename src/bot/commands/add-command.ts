@@ -1,6 +1,5 @@
 import TelegramBot from 'node-telegram-bot-api'
 import { SUB_MENU, UPGRADE_PLAN_SUB_MENU } from '../../config/bot-menus'
-import { PublicKey } from '@solana/web3.js'
 import { PrismaWalletRepository } from '../../repositories/prisma/wallet'
 import { userExpectingWalletAddress } from '../../constants/flags'
 import { TrackWallets } from '../../lib/track-wallets'
@@ -13,6 +12,7 @@ import { GeneralMessages } from '../messages/general-messages'
 import { BANNED_WALLETS } from '../../constants/banned-wallets'
 import { BotMiddleware } from '../../config/bot-middleware'
 import { SubscriptionMessages } from '../messages/subscription-messages'
+import { parseWalletInput, toStoredWalletAddress } from '../../lib/wallet-chain'
 
 export class AddCommand {
   private prismaWalletRepository: PrismaWalletRepository
@@ -92,10 +92,21 @@ export class AddCommand {
           return
         }
 
-        const base58Regex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/
-
         for (const entry of walletEntries) {
-          const [walletAddress, walletName] = entry.split(' ')
+          const [walletInput, ...walletNameParts] = entry.split(' ')
+          const walletName = walletNameParts.join(' ').trim()
+          const parsedWallet = parseWalletInput(walletInput)
+
+          if (!parsedWallet) {
+            this.bot.sendMessage(
+              message.chat.id,
+              `😾 Invalid wallet format. Use Solana base58, or prefix EVM as eth:0x... / bnb:0x...`,
+            )
+            continue
+          }
+
+          const walletAddress = parsedWallet.address
+          const storedWalletAddress = toStoredWalletAddress(parsedWallet.chain, parsedWallet.address)
 
           // check for bot wallets
           if (BANNED_WALLETS.has(walletAddress)) {
@@ -127,27 +138,6 @@ export class AddCommand {
             )
           }
 
-          // Validate the wallet before pushing to the database
-          if (!base58Regex.test(walletAddress)) {
-            this.bot.sendMessage(message.chat.id, `😾 Address provided is not a valid Solana wallet`)
-            continue
-          }
-
-          const publicKeyWallet = new PublicKey(walletAddress)
-          if (!PublicKey.isOnCurve(publicKeyWallet.toBytes())) {
-            this.bot.sendMessage(message.chat.id, `😾 Address provided is not a valid Solana wallet`)
-            continue
-          }
-
-          // const isValid =
-          //   base58Regex.test(walletAddress as string) &&
-          //   PublicKey.isOnCurve(new PublicKey(walletAddress as string).toBytes())
-
-          // if (!isValid) {
-          //   this.bot.sendMessage(message.chat.id, `😾 Address provided is not a valid Solana wallet`)
-          //   continue
-          // }
-
           // const latestWalletTxs = await this.rateLimit.last5MinutesTxs(walletAddress)
 
           // if (latestWalletTxs && latestWalletTxs >= MAX_5_MIN_TXS_ALLOWED) {
@@ -158,7 +148,7 @@ export class AddCommand {
           //   continue
           // }
 
-          const isWalletAlready = await this.prismaWalletRepository.getUserWalletById(userId, walletAddress)
+          const isWalletAlready = await this.prismaWalletRepository.getUserWalletById(userId, storedWalletAddress)
 
           if (isWalletAlready) {
             this.bot.sendMessage(message.chat.id, `🙀 You already follow the wallet: ${walletAddress}`)
@@ -166,10 +156,10 @@ export class AddCommand {
           }
 
           // Add wallet to the database
-          const createdWallet = await this.prismaWalletRepository.create(userId!, walletAddress!, walletName)
+          const createdWallet = await this.prismaWalletRepository.create(userId!, storedWalletAddress, walletName)
           const createdWalletId = createdWallet?.id
 
-          this.bot.sendMessage(message.chat.id, `🎉 Wallet ${walletAddress} has been added.`)
+          this.bot.sendMessage(message.chat.id, `🎉 Wallet ${walletInput} has been added.`)
 
           await this.trackWallets.setupWalletWatcher({ event: 'create', walletId: createdWalletId })
         }

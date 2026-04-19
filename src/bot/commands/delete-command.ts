@@ -1,11 +1,11 @@
 import TelegramBot from 'node-telegram-bot-api'
 import { PrismaWalletRepository } from '../../repositories/prisma/wallet'
 import { SUB_MENU } from '../../config/bot-menus'
-import { PublicKey } from '@solana/web3.js'
 import { TrackWallets } from '../../lib/track-wallets'
 import { userExpectingWalletAddress } from '../../constants/flags'
 import { WalletMessages } from '../messages/wallet-messages'
 import { BotMiddleware } from '../../config/bot-middleware'
+import { parseWalletInput, toStoredWalletAddress } from '../../lib/wallet-chain'
 
 export class DeleteCommand {
   private prismaWalletRepository: PrismaWalletRepository
@@ -74,24 +74,26 @@ export class DeleteCommand {
         .map((addr) => addr.trim())
         .filter(Boolean) // Split input by new lines, trim, and remove empty lines
 
-      const base58Regex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/
-
       let deletedCount = 0
       const failedAddresses: string[] = [] // Track failed deletions
 
-      for (const walletAddress of walletAddresses!) {
-        // Validate each wallet address before using it in the database
-        const isValid = base58Regex.test(walletAddress) && PublicKey.isOnCurve(new PublicKey(walletAddress).toBytes())
+      for (const walletInput of walletAddresses!) {
+        const parsedWallet = parseWalletInput(walletInput)
 
-        if (!isValid) {
-          this.bot.sendMessage(message.chat.id, `Address ${walletAddress} is not a valid Solana wallet`)
+        if (!parsedWallet) {
+          this.bot.sendMessage(
+            message.chat.id,
+            `Invalid wallet format: ${walletInput}. Use Solana base58, or prefix EVM as eth:0x... / bnb:0x...`,
+          )
           continue
         }
 
-        const deletedAddress = await this.prismaWalletRepository.deleteWallet(userId, walletAddress)
+        const storedWalletAddress = toStoredWalletAddress(parsedWallet.chain, parsedWallet.address)
+
+        const deletedAddress = await this.prismaWalletRepository.deleteWallet(userId, storedWalletAddress)
 
         if (!deletedAddress?.walletId) {
-          this.bot.sendMessage(message.chat.id, `You're not tracking the wallet: ${walletAddress}`)
+          this.bot.sendMessage(message.chat.id, `You're not tracking the wallet: ${walletInput}`)
           continue
         }
 

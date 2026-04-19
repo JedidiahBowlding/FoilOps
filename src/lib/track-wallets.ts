@@ -7,6 +7,8 @@ import { SetupWalletWatcherProps } from '../types/general-interfaces'
 import { WalletWithUsers } from '../types/swap-types'
 import { WatchTransaction } from './watch-transactions'
 import { WhaleWalletSelector } from './whale-wallet-selector'
+import { fromStoredWalletAddress } from './wallet-chain'
+import { evmWalletMonitor } from './evm-wallet-monitor'
 
 export class TrackWallets {
   private prismaWalletRepository: PrismaWalletRepository
@@ -181,7 +183,11 @@ export class TrackWallets {
         )
 
       WalletPool.wallets = [...userWallets, ...autoWhaleWallets]
-      return await this.walletWatcher.watchSocket(WalletPool.wallets)
+      await evmWalletMonitor.refreshFromWalletPool(WalletPool.wallets)
+      const solanaWallets = WalletPool.wallets.filter(
+        (wallet) => fromStoredWalletAddress(wallet.address).chain === 'solana',
+      )
+      return await this.walletWatcher.watchSocket(solanaWallets)
     }
 
     return
@@ -228,7 +234,9 @@ export class TrackWallets {
   public async updateWallets(newWallets: WalletWithUsers[]): Promise<void> {
     // await this.stopWatching();
     console.log('REFETCHING WALLETS')
-    await this.walletWatcher.watchSocket(newWallets)
+    await evmWalletMonitor.refreshFromWalletPool(newWallets)
+    const solanaWallets = newWallets.filter((wallet) => fromStoredWalletAddress(wallet.address).chain === 'solana')
+    await this.walletWatcher.watchSocket(solanaWallets)
   }
 
   public async stopWatchingWallet(walletId: string): Promise<void> {
