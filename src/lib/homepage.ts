@@ -385,7 +385,7 @@ export function renderHomepageHtml(): string {
         </article>
 
         <aside class="panel hero-side">
-          <img src="/showcase/transfers.png" alt="FoilOps transaction notifications" />
+          <img src="/showcase/FoilOps_Start_Menu.jpeg" alt="FoilOps Telegram bot interface" />
           <div class="callout">
             <h2>What the homepage is protecting</h2>
             <p>The dashboards behind login are not brochure pages. They expose live watchlists, decision feeds, dead-letter queues, token investigations, graph-linked wallet clusters, and receiver status for the trading system. Public visitors start here. Operators authenticate before touching any of it.</p>

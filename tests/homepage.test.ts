@@ -9,6 +9,7 @@ describe('homepage renderer', () => {
     expect(html).toContain('/showcase/logo.jpeg')
     expect(html).toContain('/showcase/FoilOps_header.jpeg')
     expect(html).toContain('/showcase/FoilOps_banner.jpeg')
+    expect(html).toContain('/showcase/FoilOps_Start_Menu.jpeg')
     expect(html).toContain('Login to Dashboard')
     expect(html).toContain('Scam Intelligence Dashboard')
     expect(html).toContain('Trading Ops Dashboard')
