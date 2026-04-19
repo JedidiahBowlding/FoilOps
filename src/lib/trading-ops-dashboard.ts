@@ -227,6 +227,24 @@ export class TradingOpsDashboard {
     </section>
 
     <section class="section">
+      <h2>Flight Path</h2>
+      <p class="eyebrow">Understand the control flow in 30 seconds.</p>
+      <div class="help-grid">
+        <article class="help-card"><p class="eyebrow">Step 1</p><h3>Set Guardrails</h3><p>Apply preset or custom risk limits before enabling execution.</p></article>
+        <article class="help-card"><p class="eyebrow">Step 2</p><h3>Curate Wallets</h3><p>Keep source and tracked wallets clean. Flagged rapid-dumper wallets are enforced.</p></article>
+        <article class="help-card"><p class="eyebrow">Step 3</p><h3>Watch Drift</h3><p>Monitor attribution, token exposure, and replay mismatches to tune profiles.</p></article>
+      </div>
+      <div class="quick-nav">
+        <a class="fx-button secondary" href="#controls">Controls</a>
+        <a class="fx-button secondary" href="#profiles">Profiles</a>
+        <a class="fx-button secondary" href="#attribution">Attribution</a>
+        <a class="fx-button secondary" href="#exposure">Exposure</a>
+        <a class="fx-button secondary" href="#decision-feed">Decisions</a>
+        <a class="fx-button secondary" href="#simulation">Simulation</a>
+      </div>
+    </section>
+
+    <section class="section" id="controls">
       <h2>Web Control Surface</h2>
       <p class="eyebrow">The same live backend can now be controlled from this website as well as Telegram admin commands.</p>
       <div id="control-status" class="control-status">Choose an action, submit a setting update, or manage tracked wallets directly from the dashboard.</div>
@@ -357,7 +375,7 @@ export class TradingOpsDashboard {
       </div>
     </section>
 
-    <section class="section">
+    <section class="section" id="profiles">
       <h2>Source Wallet Profiles</h2>
       <p class="eyebrow">Watchlist size ${watchlist.length} | Profile count ${safety.sourceWalletProfileCount || Object.keys(sourceProfiles).length}</p>
       <div class="profiles">${profileCards || '<article class="mini-card"><p>No watchlisted wallets yet.</p></article>'}</div>
@@ -369,7 +387,7 @@ export class TradingOpsDashboard {
       <div class="control-form">${driftAlertHtml}</div>
     </section>
 
-    <section class="section table-card">
+    <section class="section table-card" id="attribution">
       <h2>Wallet Attribution</h2>
       <p class="eyebrow">Execution quality attribution by source wallet.</p>
       <table>
@@ -378,7 +396,7 @@ export class TradingOpsDashboard {
       </table>
     </section>
 
-    <section class="section table-card">
+    <section class="section table-card" id="exposure">
       <h2>Token Exposure</h2>
       <p class="eyebrow">Current observed token breadth per source wallet.</p>
       <table>
@@ -403,7 +421,7 @@ export class TradingOpsDashboard {
       </table>
     </section>
 
-    <section class="section table-card">
+    <section class="section table-card" id="decision-feed">
       <h2>Decision Feed</h2>
       <table>
         <thead><tr><th>Signal ID</th><th>Status</th><th>Type</th><th>Risk</th><th>Safety</th><th>Explanation</th></tr></thead>
@@ -411,7 +429,7 @@ export class TradingOpsDashboard {
       </table>
     </section>
 
-    <section class="section table-card">
+    <section class="section table-card" id="simulation">
       <h2>Simulation Replay</h2>
       <p class="eyebrow">Replay of recent decisions against current max risk gate (${maxRiskScore || 'n/a'}).</p>
       <div class="micro-grid">
@@ -877,27 +895,40 @@ export class TradingOpsDashboard {
   private buildWalletAttribution(
     journal: Array<Record<string, unknown>>,
     decisions: Array<Record<string, unknown>>,
-  ): Map<string, {
-    trades: number
-    wins: number
-    winRatePct: number
-    realizedPnl: number
-    avgSlippage: number | null
-    rapidDumpCount: number
-  }> {
-    const map = new Map<string, {
+  ): Map<
+    string,
+    {
       trades: number
       wins: number
       winRatePct: number
       realizedPnl: number
       avgSlippage: number | null
       rapidDumpCount: number
-    }>()
+    }
+  > {
+    const map = new Map<
+      string,
+      {
+        trades: number
+        wins: number
+        winRatePct: number
+        realizedPnl: number
+        avgSlippage: number | null
+        rapidDumpCount: number
+      }
+    >()
 
     const ensure = (wallet: string) => {
       const existing = map.get(wallet)
       if (existing) return existing
-      const next = { trades: 0, wins: 0, winRatePct: 0, realizedPnl: 0, avgSlippage: null as number | null, rapidDumpCount: 0 }
+      const next = {
+        trades: 0,
+        wins: 0,
+        winRatePct: 0,
+        realizedPnl: 0,
+        avgSlippage: null as number | null,
+        rapidDumpCount: 0,
+      }
       map.set(wallet, next)
       return next
     }
@@ -907,7 +938,8 @@ export class TradingOpsDashboard {
       if (!wallet) continue
       const target = ensure(wallet)
       target.trades += 1
-      const pnl = typeof row.pnlPct === 'number' ? row.pnlPct : typeof row.gainLossPct === 'number' ? row.gainLossPct : null
+      const pnl =
+        typeof row.pnlPct === 'number' ? row.pnlPct : typeof row.gainLossPct === 'number' ? row.gainLossPct : null
       if (pnl != null) {
         target.realizedPnl += pnl
         if (pnl > 0) target.wins += 1
@@ -922,7 +954,9 @@ export class TradingOpsDashboard {
       const wallet = String(row.sourceWallet || '').trim()
       if (!wallet) continue
       const target = ensure(wallet)
-      const safetyReasons = Array.isArray(row.safetyReasons) ? row.safetyReasons.map((r) => String(r).toLowerCase()) : []
+      const safetyReasons = Array.isArray(row.safetyReasons)
+        ? row.safetyReasons.map((r) => String(r).toLowerCase())
+        : []
       if (safetyReasons.some((reason) => reason.includes('rapid') && reason.includes('dump'))) {
         target.rapidDumpCount += 1
       }
@@ -936,14 +970,17 @@ export class TradingOpsDashboard {
   }
 
   private renderWalletAttributionRows(
-    attribution: Map<string, {
-      trades: number
-      wins: number
-      winRatePct: number
-      realizedPnl: number
-      avgSlippage: number | null
-      rapidDumpCount: number
-    }>,
+    attribution: Map<
+      string,
+      {
+        trades: number
+        wins: number
+        winRatePct: number
+        realizedPnl: number
+        avgSlippage: number | null
+        rapidDumpCount: number
+      }
+    >,
   ): string {
     const rows = Array.from(attribution.entries())
       .sort((a, b) => b[1].realizedPnl - a[1].realizedPnl)
@@ -979,7 +1016,10 @@ export class TradingOpsDashboard {
       .slice(0, 24)
       .map(([wallet, tokens]) => {
         const cap = tokens.length > 6 ? 'tighten cap' : tokens.length > 3 ? 'moderate cap' : 'standard cap'
-        const tokenText = tokens.slice(0, 6).map((token) => this.escapeHtml(token)).join(', ')
+        const tokenText = tokens
+          .slice(0, 6)
+          .map((token) => this.escapeHtml(token))
+          .join(', ')
         return `
           <tr>
             <td>${this.escapeHtml(wallet)}</td>

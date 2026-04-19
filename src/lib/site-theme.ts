@@ -348,7 +348,9 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       .intel-grid,
       .control-grid,
       .wallet-list,
-      .micro-grid {
+      .micro-grid,
+      .help-grid,
+      .quick-nav {
         display: grid;
         gap: 16px;
       }
@@ -364,8 +366,21 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       .control-grid,
       .profiles,
       .wallet-list,
-      .micro-grid {
+      .micro-grid,
+      .help-grid {
         grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      }
+
+      .quick-nav {
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        margin-top: 14px;
+      }
+
+      .help-card {
+        border: 1px solid var(--fx-line);
+        border-radius: 18px;
+        padding: 14px;
+        background: linear-gradient(180deg, rgba(14, 23, 50, 0.9), rgba(10, 18, 42, 0.72));
       }
 
       .timeline-grid,
@@ -511,6 +526,14 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         padding: 12px 10px;
         border-bottom: 1px solid rgba(129, 196, 255, 0.1);
         vertical-align: top;
+      }
+
+      tbody tr:nth-child(even) {
+        background: rgba(255, 255, 255, 0.015);
+      }
+
+      tbody tr:hover {
+        background: rgba(103, 240, 255, 0.06);
       }
 
       th {
