@@ -1,4 +1,4 @@
-import type { Express, Request, Response } from 'express'
+import type { Express, Request, RequestHandler, Response } from 'express'
 
 type FlowStep = {
   from: string
@@ -27,6 +27,8 @@ export type GraphRouteDeps = {
   aiAnalyzer?: {
     analyzeWallet(wallet: string): Promise<string>
   }
+  apiAuthMiddleware?: RequestHandler
+  pageAuthMiddleware?: RequestHandler
 }
 
 function extractFlowSteps(flowMetadata: unknown): FlowStep[] {
@@ -71,6 +73,29 @@ function renderGraphPage(wallet: string) {
       padding: 20px;
     }
 
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .page-title {
+      margin: 0;
+      font-size: clamp(1.5rem, 3vw, 2.2rem);
+    }
+
+    .page-subtitle {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .logout-form {
+      margin: 0;
+    }
+
     .panel {
       background: var(--panel);
       border: 1px solid var(--line);
@@ -105,6 +130,12 @@ function renderGraphPage(wallet: string) {
       padding: 10px 14px;
       font-weight: 700;
       cursor: pointer;
+    }
+
+    .logout-button {
+      background: var(--panel);
+      color: var(--ink);
+      border: 1px solid var(--line);
     }
 
     .meta {
@@ -258,6 +289,10 @@ function renderGraphPage(wallet: string) {
     }
 
     @media (max-width: 720px) {
+      .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
       svg {
         height: 360px;
       }
@@ -269,6 +304,15 @@ function renderGraphPage(wallet: string) {
 </head>
 <body>
   <div class="wrap">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Wallet Graph</h1>
+        <p class="page-subtitle">Inspect linked wallets, cluster signals, and AI analysis from the protected graph view.</p>
+      </div>
+      <form class="logout-form" method="post" action="/logout">
+        <button class="logout-button" type="submit">Logout</button>
+      </form>
+    </div>
     <div class="panel">
       <div class="top">
         <input id="wallet" value="${safeWallet}" placeholder="Enter wallet" />
@@ -535,7 +579,10 @@ function renderGraphPage(wallet: string) {
 }
 
 export function registerGraphRoutes(app: Express, deps: GraphRouteDeps) {
-  app.get('/api/graph/:wallet', async (req: Request, res: Response) => {
+  const apiAuthMiddleware = deps.apiAuthMiddleware || ((_req, _res, next) => next())
+  const pageAuthMiddleware = deps.pageAuthMiddleware || ((_req, _res, next) => next())
+
+  app.get('/api/graph/:wallet', apiAuthMiddleware, async (req: Request, res: Response) => {
     try {
       const wallet = req.params.wallet
       const latestFlow = await deps.scamWalletRepository.getLatestFlowTrace(wallet)
@@ -597,7 +644,7 @@ export function registerGraphRoutes(app: Express, deps: GraphRouteDeps) {
     }
   })
 
-  app.get('/api/graph/analyze/:wallet', async (req: Request, res: Response) => {
+  app.get('/api/graph/analyze/:wallet', apiAuthMiddleware, async (req: Request, res: Response) => {
     try {
       const wallet = req.params.wallet
       if (!deps.aiAnalyzer) {
@@ -616,7 +663,7 @@ export function registerGraphRoutes(app: Express, deps: GraphRouteDeps) {
     }
   })
 
-  app.get('/graph/:wallet?', (req: Request, res: Response) => {
+  app.get('/graph/:wallet?', pageAuthMiddleware, (req: Request, res: Response) => {
     const wallet = (req.params.wallet || '').trim()
     res.setHeader('Content-Type', 'text/html; charset=utf-8')
     res.status(200).send(renderGraphPage(wallet))

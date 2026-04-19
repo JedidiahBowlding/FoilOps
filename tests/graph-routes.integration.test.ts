@@ -62,4 +62,46 @@ describe('graph routes integration', () => {
     expect(response.text).toContain("fetch('/api/graph/' + encodeURIComponent(wallet))")
     expect(response.text).toContain('wallet-abc')
   })
+
+  it('supports attaching an auth middleware to graph routes', async () => {
+    const app = express()
+
+    registerGraphRoutes(app, {
+      pageAuthMiddleware: (_req, res, _next) => {
+        res.redirect(302, '/login?next=%2Fgraph%2Fwallet-abc')
+      },
+      scamWalletRepository: {
+        getLatestFlowTrace: vi.fn().mockResolvedValue(null),
+      },
+      walletClusterService: {
+        getLatestCluster: vi.fn().mockResolvedValue(null),
+      },
+    })
+
+    const response = await request(app).get('/graph/wallet-abc')
+
+    expect(response.status).toBe(302)
+    expect(response.headers.location).toBe('/login?next=%2Fgraph%2Fwallet-abc')
+  })
+
+  it('supports attaching a separate API auth middleware to graph data endpoints', async () => {
+    const app = express()
+
+    registerGraphRoutes(app, {
+      apiAuthMiddleware: (_req, res, _next) => {
+        res.status(401).json({ message: 'Dashboard authentication required' })
+      },
+      scamWalletRepository: {
+        getLatestFlowTrace: vi.fn().mockResolvedValue(null),
+      },
+      walletClusterService: {
+        getLatestCluster: vi.fn().mockResolvedValue(null),
+      },
+    })
+
+    const response = await request(app).get('/api/graph/wallet-abc')
+
+    expect(response.status).toBe(401)
+    expect(response.body).toEqual({ message: 'Dashboard authentication required' })
+  })
 })
