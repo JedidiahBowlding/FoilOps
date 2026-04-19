@@ -271,6 +271,16 @@ export function renderHomepageHtml(): string {
         border-radius: 22px;
         background: rgba(15, 20, 45, 0.5);
         padding: 18px;
+        overflow: hidden;
+      }
+
+      .card img {
+        width: 100%;
+        height: 160px;
+        object-fit: cover;
+        border-radius: 16px;
+        margin-bottom: 12px;
+        display: block;
       }
 
       .card h3,
@@ -430,26 +440,32 @@ export function renderHomepageHtml(): string {
             <h2 class="section-title">Detailed platform capabilities</h2>
             <div class="cards">
               <article class="card">
+                <img src="/showcase/FoilOps_Start_Menu.jpeg" alt="Wallet tracking interface" />
                 <h3>Wallet tracking</h3>
                 <p>Track wallet activity in real time, manage tracked wallets from Telegram, and monitor new moves across exchanges, launchpads, routers, and direct transfer paths.</p>
               </article>
               <article class="card">
+                <img src="/showcase/FoilOps_Menu_Commands.jpeg" alt="Scam wallet detection" />
                 <h3>Scam wallet lifecycle</h3>
                 <p>Persist flagged wallets, reasons, risk scores, launch history, prior token associations, and event history so investigative context survives across sessions.</p>
               </article>
               <article class="card">
+                <img src="/showcase/FoilOps_Menu_Buttons.jpeg" alt="Flow tracing" />
                 <h3>Flow tracing</h3>
                 <p>Traverse outgoing transactions across multiple hops, classify known counterparties such as bridges, exchanges, custody venues, and mixers, and store trace artifacts for review.</p>
               </article>
               <article class="card">
+                <img src="/showcase/FoilOps_Start_Menu.jpeg" alt="Token investigation" />
                 <h3>Token investigation</h3>
                 <p>Resolve a likely developer wallet from token authority and signer patterns, relate that wallet to prior token history, and initiate future launch monitoring.</p>
               </article>
               <article class="card">
+                <img src="/showcase/FoilOps_Menu_Commands.jpeg" alt="Protected dashboards" />
                 <h3>Protected dashboards</h3>
                 <p>Use the trading ops dashboard for receiver health, watchlist-driven settings, retry queues, and decision feeds, while the scam dashboard surfaces flagged wallet intelligence and investigations.</p>
               </article>
               <article class="card">
+                <img src="/showcase/FoilOps_Menu_Buttons.jpeg" alt="Signal-controlled trading" />
                 <h3>Signal-controlled trading</h3>
                 <p>When enabled, normalized signals feed a guarded Rust receiver with HMAC verification, deduplication, timestamp validation, staged position sizing, and emergency kill-switch support.</p>
               </article>
