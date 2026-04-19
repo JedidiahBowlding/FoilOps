@@ -57,7 +57,7 @@ function renderGraphPage(wallet: string) {
         </div>
         <div class="card" style="min-width:280px">
           <p class="eyebrow">Current query</p>
-          <div class="big mono">${safeWallet || 'none'}</div>
+          <div class="big mono" id="graph-current-query">${safeWallet || 'none'}</div>
           <p>Load any wallet address to pull flow edges, inferred cluster links, and AI wallet analysis into one view.</p>
         </div>
       </section>
@@ -124,6 +124,7 @@ function renderGraphPage(wallet: string) {
     const walletPopupClose = document.getElementById('wallet-popup-close')
     const walletPopupSolscan = document.getElementById('wallet-popup-solscan')
     const walletPopupAnalysis = document.getElementById('wallet-popup-analysis')
+    const graphCurrentQuery = document.getElementById('graph-current-query')
     const graphSummaryWallet = document.getElementById('graph-summary-wallet')
     const graphSummaryCoverage = document.getElementById('graph-summary-coverage')
     const graphSummaryCluster = document.getElementById('graph-summary-cluster')
@@ -133,6 +134,11 @@ function renderGraphPage(wallet: string) {
     function short(value) {
       if (!value || value.length < 10) return value
       return value.slice(0, 5) + '...' + value.slice(-4)
+    }
+
+    function setCurrentQuery(wallet) {
+      if (!graphCurrentQuery) return
+      graphCurrentQuery.textContent = wallet ? wallet : 'none'
     }
 
     function clearSvg() {
@@ -380,11 +386,13 @@ function renderGraphPage(wallet: string) {
       const wallet = walletInput.value.trim()
       if (!wallet) {
         meta.textContent = 'Enter a wallet to load graph.'
+        setCurrentQuery('')
         updateGraphSummary(null)
         clearSvg()
         return
       }
 
+      setCurrentQuery(wallet)
       meta.textContent = 'Loading graph...'
       if (graphSummaryWallet) {
         graphSummaryWallet.textContent = short(wallet)
@@ -443,6 +451,7 @@ function renderGraphPage(wallet: string) {
       if (!walletInput.value.trim() && followed.length > 0 && followed[0] && followed[0].wallet) {
         walletInput.value = String(followed[0].wallet)
       }
+      setCurrentQuery(walletInput.value.trim())
       loadGraph()
     })()
   </script>`,
