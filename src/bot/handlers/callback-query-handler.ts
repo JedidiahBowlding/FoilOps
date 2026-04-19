@@ -368,86 +368,27 @@ export class CallbackQueryHandler {
           )
           break
         case 'trading_status':
-          // This will be handled by the trading command
-          this.bot.sendMessage(chatId, 'Send: <code>/trading_status</code>', { parse_mode: 'HTML' })
-          break
         case 'trading_balance':
-          this.bot.sendMessage(chatId, 'Send: <code>/trading_balance</code>', { parse_mode: 'HTML' })
-          break
         case 'trading_safety':
-          this.bot.sendMessage(chatId, 'Send: <code>/trading_safety</code>', { parse_mode: 'HTML' })
-          break
         case 'trading_decisions':
-          this.bot.sendMessage(chatId, 'Send: <code>/trading_decisions</code>', { parse_mode: 'HTML' })
-          break
         case 'trading_trades':
-          this.bot.sendMessage(chatId, 'Send: <code>/trading_trades</code>', { parse_mode: 'HTML' })
-          break
         case 'trading_enable':
-          this.bot.sendMessage(chatId, 'Send: <code>/trading_enable</code>', { parse_mode: 'HTML' })
-          break
         case 'trading_disable':
-          this.bot.sendMessage(chatId, 'Send: <code>/trading_disable</code>', { parse_mode: 'HTML' })
-          break
         case 'trading_pause':
-          this.bot.sendMessage(chatId, 'Send: <code>/trading_pause</code>', { parse_mode: 'HTML' })
-          break
         case 'trading_resume':
-          this.bot.sendMessage(chatId, 'Send: <code>/trading_resume</code>', { parse_mode: 'HTML' })
-          break
         case 'trading_tighten_risk':
-          this.bot.sendMessage(chatId, 'Send: <code>/trading_tighten_risk</code>', { parse_mode: 'HTML' })
-          break
         case 'trading_kill':
-          this.bot.sendMessage(chatId, 'Send: <code>/trading_kill</code>', { parse_mode: 'HTML' })
-          break
         case 'trading_sources':
-          this.bot.sendMessage(chatId, 'Send: <code>/trading_sources</code>', { parse_mode: 'HTML' })
-          break
         case 'trading_alert_quality':
-          this.bot.sendMessage(
-            chatId,
-            'Send: <code>/trading_alert_quality</code> or <code>/trading_alert_quality 60 2</code>',
-            { parse_mode: 'HTML' },
-          )
-          break
         case 'trading_execution_mode':
-          this.bot.sendMessage(
-            chatId,
-            'Send: <code>/trading_execution_mode</code> or <code>/trading_execution_mode live</code>',
-            { parse_mode: 'HTML' },
-          )
-          break
         case 'trading_journal':
-          this.bot.sendMessage(chatId, 'Send: <code>/trading_journal</code>', { parse_mode: 'HTML' })
-          break
         case 'trading_metrics':
-          this.bot.sendMessage(chatId, 'Send: <code>/trading_metrics</code>', { parse_mode: 'HTML' })
-          break
         case 'trading_failures':
-          this.bot.sendMessage(
-            chatId,
-            'Send: <code>/trading_failures</code> or <code>/trading_retry_failed all</code>',
-            { parse_mode: 'HTML' },
-          )
-          break
         case 'trading_dashboard':
-          this.bot.sendMessage(chatId, 'Send: <code>/trading_dashboard</code>', { parse_mode: 'HTML' })
-          break
         case 'trading_audit_logs':
-          this.bot.sendMessage(chatId, 'Send: <code>/trading_audit_logs</code>', { parse_mode: 'HTML' })
-          break
         case 'trading_gate_metrics':
-          this.bot.sendMessage(chatId, 'Send: <code>/trading_gate_metrics</code>', { parse_mode: 'HTML' })
-          break
         case 'trading_config':
-          this.bot.sendMessage(
-            chatId,
-            'Commands: <code>/trading_slippage</code>, <code>/trading_target</code>, <code>/trading_profile</code>, <code>/trading_mode</code>, <code>/trading_size</code>, <code>/trading_sources</code>, <code>/trading_source_profile</code>, <code>/trading_alert_quality</code>, <code>/trading_execution_mode</code>, <code>/trading_metrics</code>, <code>/trading_journal</code>, <code>/trading_failures</code>, <code>/trading_retry_failed</code>, <code>/trading_audit_logs</code>, <code>/trading_gate_metrics</code>',
-            {
-              parse_mode: 'HTML',
-            },
-          )
+          await this.handleTradingMenuAction(chatId, userId, data)
           break
         case 'my_wallet':
           this.myWalletCommand.myWalletCommandHandler(message)
@@ -482,6 +423,323 @@ export class CallbackQueryHandler {
 
       // this.bot.sendMessage(chatId, responseText);
     })
+  }
+
+  private resolveAppUrl(): string {
+    return (process.env.APP_URL?.trim() || `http://127.0.0.1:${process.env.PORT || '3005'}`).replace(/\/$/, '')
+  }
+
+  private async handleTradingMenuAction(chatId: number, userId: string, action: string) {
+    if (!BotMiddleware.isUserBotAdmin(userId)) {
+      await this.bot.sendMessage(chatId, '❌ Access denied. Admin only command.')
+      return
+    }
+
+    const base = getTradingBotBaseUrl()
+
+    try {
+      if (action === 'trading_status') {
+        const { data } = await axios.get(`${base}/trading/status`)
+        await this.bot.sendMessage(
+          chatId,
+          [
+            '🤖 <b>Trading Bot Status</b>',
+            `Status: <b>${data.enabled ? 'Enabled' : 'Disabled'}</b>`,
+            `Paused: <b>${data.paused ? 'Yes' : 'No'}</b>`,
+            `Mode: <b>${data.mode || 'n/a'}</b>`,
+            `Execution: <b>${data.executionMode || 'paper'}</b>`,
+            `Slippage: <b>${data.slippage ?? 'n/a'}%</b>`,
+          ].join('\n'),
+          { parse_mode: 'HTML' },
+        )
+        return
+      }
+
+      if (action === 'trading_balance') {
+        const { data } = await axios.get(`${base}/trading/balance`)
+        await this.bot.sendMessage(
+          chatId,
+          [
+            '💰 <b>Trading Wallet Balance</b>',
+            `SOL: <b>${Number(data.solBalance || 0).toFixed(4)}</b>`,
+            `USDC: <b>$${Number(data.usdcBalance || 0).toFixed(2)}</b>`,
+            `Tokens: <b>${data.tokenCount ?? 0}</b>`,
+            `Total Value: <b>$${Number(data.totalValueUsd || 0).toFixed(2)}</b>`,
+          ].join('\n'),
+          { parse_mode: 'HTML' },
+        )
+        return
+      }
+
+      if (action === 'trading_safety') {
+        const { data } = await axios.get(`${base}/trading/safety`)
+        await this.bot.sendMessage(
+          chatId,
+          [
+            '🛡️ <b>Trading Safety Summary</b>',
+            `Execution mode: <b>${data.executionMode ?? 'paper'}</b>`,
+            `Max risk score: <b>${data.maxRiskScore ?? 'n/a'}</b>`,
+            `Min alert quality: <b>${data.minAlertQualityScore ?? 'n/a'}</b>`,
+            `Min trace alerts: <b>${data.minTraceAlerts ?? 'n/a'}</b>`,
+            `Buy amount: <b>${data.buyAmountSol ?? 'n/a'} SOL</b>`,
+            `Slippage: <b>${data.slippage ?? 'n/a'}%</b>`,
+          ].join('\n'),
+          { parse_mode: 'HTML' },
+        )
+        return
+      }
+
+      if (action === 'trading_decisions') {
+        const { data } = await axios.get(`${base}/trading/decisions`)
+        const decisions = Array.isArray(data?.decisions) ? data.decisions : []
+        if (decisions.length === 0) {
+          await this.bot.sendMessage(chatId, 'No recent signal decisions yet.')
+          return
+        }
+        const lines = ['🧠 <b>Recent Signal Decisions</b>', '']
+        for (const d of decisions.slice(0, 10)) {
+          lines.push(`• <b>${d.status || 'unknown'}</b> | ${d.signalType || 'unknown'} | risk ${d.riskScore ?? 'n/a'}`)
+          lines.push(`  id: <code>${d.signalId || 'unknown'}</code>`)
+        }
+        await this.bot.sendMessage(chatId, lines.join('\n'), { parse_mode: 'HTML' })
+        return
+      }
+
+      if (action === 'trading_trades') {
+        const { data } = await axios.get(`${base}/trading/trades`)
+        const trades = Array.isArray(data) ? data : []
+        if (trades.length === 0) {
+          await this.bot.sendMessage(chatId, '📊 No recent trades found')
+          return
+        }
+        const lines = ['📊 <b>Recent Trades</b>', '']
+        for (const t of trades.slice(0, 5)) {
+          lines.push(`• ${String(t.direction || '').toUpperCase()} ${t.amount} ${String(t.tokenMint || '').slice(0, 8)}... (${t.status})`)
+        }
+        await this.bot.sendMessage(chatId, lines.join('\n'), { parse_mode: 'HTML' })
+        return
+      }
+
+      if (action === 'trading_enable') {
+        const { data } = await axios.post(`${base}/trading/enable`, {})
+        await this.bot.sendMessage(chatId, `✅ ${data?.message || 'Trading bot enabled'}`)
+        return
+      }
+
+      if (action === 'trading_disable') {
+        await axios.post(`${base}/trading/disable`, {})
+        await this.bot.sendMessage(chatId, '⛔ Trading bot disabled')
+        return
+      }
+
+      if (action === 'trading_pause') {
+        await axios.post(`${base}/trading/pause`, {})
+        await this.bot.sendMessage(chatId, '⏸️ Trading paused')
+        return
+      }
+
+      if (action === 'trading_resume') {
+        await axios.post(`${base}/trading/resume`, {})
+        await this.bot.sendMessage(chatId, '▶️ Trading resumed')
+        return
+      }
+
+      if (action === 'trading_tighten_risk') {
+        const { data } = await axios.post(`${base}/trading/tighten-risk`, {})
+        await this.bot.sendMessage(chatId, `✅ ${data?.message || 'Risk tightened'}`)
+        return
+      }
+
+      if (action === 'trading_kill') {
+        const { data } = await axios.post(`${base}/trading/kill-switch`, {})
+        await this.bot.sendMessage(chatId, `🛑 ${data?.message || 'Kill switch activated'}`)
+        return
+      }
+
+      if (action === 'trading_sources') {
+        const { data } = await axios.get(`${base}/trading/source-wallets`)
+        const watchlist = Array.isArray(data?.watchlist) ? data.watchlist : []
+        const lines = ['👀 <b>Source Wallet Controls</b>', '', `Watchlist count: <b>${watchlist.length}</b>`]
+        for (const wallet of watchlist.slice(0, 12)) {
+          lines.push(`• <code>${wallet}</code>`)
+        }
+        await this.bot.sendMessage(chatId, lines.join('\n'), { parse_mode: 'HTML' })
+        return
+      }
+
+      if (action === 'trading_alert_quality') {
+        const { data } = await axios.get(`${base}/trading/alert-quality`)
+        await this.bot.sendMessage(
+          chatId,
+          [
+            '🎚️ <b>Alert Quality Controls</b>',
+            `Min alert quality score: <b>${data?.minAlertQualityScore ?? 0}</b>`,
+            `Min trace alerts: <b>${data?.minTraceAlerts ?? 0}</b>`,
+            '',
+            'Use /trading_alert_quality <min_score_0_100> <min_trace_alerts> to update.',
+          ].join('\n'),
+          { parse_mode: 'HTML' },
+        )
+        return
+      }
+
+      if (action === 'trading_execution_mode') {
+        const { data } = await axios.get(`${base}/trading/execution-mode`)
+        await this.bot.sendMessage(chatId, `🧪 Execution mode: <b>${data?.mode || 'paper'}</b>`, {
+          parse_mode: 'HTML',
+        })
+        return
+      }
+
+      if (action === 'trading_journal') {
+        const { data } = await axios.get(`${base}/trading/journal`)
+        const entries = Array.isArray(data?.entries) ? data.entries : []
+        if (entries.length === 0) {
+          await this.bot.sendMessage(chatId, '📒 No trade journal entries yet.')
+          return
+        }
+        const lines = ['📒 <b>Trade Journal</b>', '']
+        for (const e of entries.slice(0, 10)) {
+          lines.push(`• <b>${e.status || 'unknown'}</b> ${e.action || 'n/a'} ${e.amountSol ?? 0} SOL ${e.tokenMint || 'n/a'}`)
+        }
+        await this.bot.sendMessage(chatId, lines.join('\n'), { parse_mode: 'HTML' })
+        return
+      }
+
+      if (action === 'trading_metrics' || action === 'trading_gate_metrics') {
+        const { data } = await axios.get(`${base}/trading/metrics`)
+        const metrics = data?.metrics || {}
+        const receivedTotal = Number(metrics.receivedTotal || 0)
+        const acceptedTotal = Number(metrics.acceptedTotal || 0)
+
+        if (action === 'trading_metrics') {
+          await this.bot.sendMessage(
+            chatId,
+            [
+              '📉 <b>Trading Ops Metrics</b>',
+              `Execution mode: <b>${data?.executionMode || 'paper'}</b>`,
+              `Received: <b>${metrics.receivedTotal ?? 0}</b> | Accepted: <b>${metrics.acceptedTotal ?? 0}</b>`,
+              `Executed: <b>${metrics.executedTotal ?? 0}</b> | Blocked: <b>${metrics.blockedTotal ?? 0}</b>`,
+              `Failed: <b>${metrics.failedTotal ?? 0}</b> | Rejected: <b>${metrics.rejectedTotal ?? 0}</b>`,
+            ].join('\n'),
+            { parse_mode: 'HTML' },
+          )
+          return
+        }
+
+        const gateMetrics = [
+          ['risk_score_exceeded', metrics.gateRiskScoreExceeded || 0],
+          ['alert_quality_low', metrics.gateAlertQualityLow || 0],
+          ['trace_alerts_low', metrics.gateTraceAlertsLow || 0],
+          ['token_denylist', metrics.gateTokenDenylist || 0],
+          ['token_not_allowlisted', metrics.gateTokenNotAllowlisted || 0],
+          ['source_wallet_profile_blocked', metrics.gateSourceWalletProfileBlocked || 0],
+          ['source_wallet_action_blocked', metrics.gateSourceWalletActionBlocked || 0],
+          ['source_wallet_profile_cap_exceeded', metrics.gateSourceWalletProfileCapExceeded || 0],
+          ['source_wallet_cap_exceeded', metrics.gateSourceWalletCapExceeded || 0],
+          ['max_concurrent_positions', metrics.gateMaxConcurrentPositions || 0],
+        ]
+
+        const gateLines = gateMetrics
+          .filter(([_, count]) => Number(count) > 0)
+          .map(([gate, count]) => `🚫 <b>${gate}</b>: ${count} rejections`)
+          .join('\n')
+
+        await this.bot.sendMessage(
+          chatId,
+          [
+            '🔐 <b>Phase 3 Gate Metrics</b>',
+            '',
+            '<b>Gate Rejections:</b>',
+            gateLines || 'No gate rejections',
+            '',
+            `<b>Acceptance Rate:</b> ${receivedTotal > 0 ? ((acceptedTotal / receivedTotal) * 100).toFixed(1) : 0}%`,
+          ].join('\n'),
+          { parse_mode: 'HTML' },
+        )
+        return
+      }
+
+      if (action === 'trading_failures') {
+        const { data } = await axios.get(`${base}/trading/dead-letters`)
+        const entries = Array.isArray(data?.entries) ? data.entries : []
+        if (entries.length === 0) {
+          await this.bot.sendMessage(chatId, '🚨 No failed signals queued.')
+          return
+        }
+        const lines = ['🚨 <b>Failed Signal Queue</b>', '']
+        for (const e of entries.slice(0, 10)) {
+          lines.push(`• <b>${e.status || 'failed'}</b> ${e.signalType || 'unknown'} | token ${e.tokenMint || 'n/a'}`)
+          lines.push(`  id: <code>${e.signalId || 'unknown'}</code> | retries: ${e.retryCount ?? 0}`)
+        }
+        lines.push('')
+        lines.push('Retry with: /trading_retry_failed <signal_id> or /trading_retry_failed all')
+        await this.bot.sendMessage(chatId, lines.join('\n'), { parse_mode: 'HTML' })
+        return
+      }
+
+      if (action === 'trading_dashboard') {
+        const appUrl = this.resolveAppUrl()
+        await this.bot.sendMessage(
+          chatId,
+          [
+            '🌐 <b>Trading Ops Links</b>',
+            `${appUrl}/dashboard/trading-ops`,
+            `${appUrl}/api/trading-ops`,
+            `${appUrl}/api/trading-ops/export?format=json`,
+            `${appUrl}/api/trading-ops/export?format=csv`,
+          ].join('\n'),
+          { parse_mode: 'HTML' },
+        )
+        return
+      }
+
+      if (action === 'trading_audit_logs') {
+        const { data } = await axios.get(`${base}/trading/audit-logs`, { timeout: 10_000 })
+        const entries = Array.isArray(data?.entries) ? data.entries : []
+        const summary = data?.summary || {}
+        const summaryLines = Object.entries(summary)
+          .map(([k, v]) => `• <b>${k}</b>: ${v}`)
+          .join('\n')
+        const entryLines = entries
+          .slice(0, 10)
+          .map((e: any) => `<b>${e.event_type}</b> [${e.gate_name || 'n/a'}]\n  Signal: ${String(e.signal_id || '').slice(0, 8)}...\n  Reason: ${e.reason}`)
+          .join('\n\n')
+        await this.bot.sendMessage(
+          chatId,
+          ['📋 <b>Phase 3 Audit Logs</b>', '', '<b>Event Summary:</b>', summaryLines || 'No entries', '', entryLines || 'No recent events'].join('\n'),
+          { parse_mode: 'HTML' },
+        )
+        return
+      }
+
+      if (action === 'trading_config') {
+        const [statusRes, configRes] = await Promise.all([
+          axios.get(`${base}/trading/status`),
+          axios.get(`${base}/trading/config`),
+        ])
+        const status = statusRes.data || {}
+        const config = configRes.data || {}
+        await this.bot.sendMessage(
+          chatId,
+          [
+            '⚙️ <b>Trading Config</b>',
+            `Mode: <b>${status.mode || config.mode || 'n/a'}</b>`,
+            `Execution: <b>${status.executionMode || config.executionMode || 'paper'}</b>`,
+            `Profile: <b>${config.profile || 'n/a'}</b>`,
+            `Buy amount: <b>${config.buy_amount_sol ?? status.buyAmountSol ?? 'n/a'} SOL</b>`,
+            `Slippage: <b>${status.slippage ?? config.slippage ?? 'n/a'}%</b>`,
+            `Max risk score: <b>${config.max_risk_score ?? status.maxRiskScore ?? 'n/a'}</b>`,
+            '',
+            'Update with: /trading_profile, /trading_mode, /trading_size, /trading_slippage, /trading_target',
+          ].join('\n'),
+          { parse_mode: 'HTML' },
+        )
+      }
+    } catch (error) {
+      console.error('TRADING_MENU_ACTION_ERROR', { action, error })
+      await this.bot.sendMessage(chatId, `❌ Failed to execute ${action}. Please try again.`)
+    }
   }
 
   private async getGraphData(wallet: string) {
