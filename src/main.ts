@@ -36,6 +36,7 @@ import {
   getTradingBotBaseUrl,
   resolveTradingQuickActionPath,
 } from './lib/web-control-utils'
+import { registerFoilOpsRoutes } from './modules/foilops/api/foilOpsRoutes'
 
 dotenv.config()
 
@@ -392,6 +393,11 @@ class Main {
       aiAnalyzer: this.aiAnalyzer,
       apiAuthMiddleware: this.dashboardAuth.requireApiAuth,
       pageAuthMiddleware: this.dashboardAuth.requirePageAuth,
+    })
+
+    registerFoilOpsRoutes(this.app, {
+      requireApiAuth: this.dashboardAuth.requireApiAuth,
+      requirePageAuth: this.dashboardAuth.requirePageAuth,
     })
   }
 

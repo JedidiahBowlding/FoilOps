@@ -223,3 +223,132 @@ model UserAlertRule {
 
   @@index([userId])
 }
+
+// ─── FoilOps Launch Intelligence Models ───────────────────────────────────────
+
+enum WalletClassification {
+  EARLY_ENTRANT
+  MOMENTUM_WALLET
+  HIGH_RISK
+  WATCHLIST
+  IGNORE
+}
+
+enum TokenClassification {
+  SAFER_SPECULATIVE
+  WATCHLIST
+  HIGH_RISK
+  EXTREME_RISK
+}
+
+enum ClusterLinkType {
+  SHARED_FUNDER
+  CO_LAUNCH
+  SHARED_COUNTERPARTY
+  SIMILAR_EXIT_PATTERN
+  DOWNSTREAM_CONSOLIDATION
+}
+
+model WalletProfileSnapshot {
+  id                       String               @id @default(cuid())
+  wallet                   String
+  overallOpportunityScore  Int
+  overallRiskScore         Int
+  classification           WalletClassification
+  earlyEntryScore          Int
+  launchParticipationScore Int
+  momentumParticipationScore Int
+  repeatSuccessScore       Int
+  exitTimingScore          Int
+  rugRiskScore             Int
+  dumpSeverityScore        Int
+  clusterSuspicionScore    Int
+  liquidityPullScore       Int
+  suspiciousFundingScore   Int
+  tags                     String[]             @default([])
+  computedAt               DateTime             @default(now())
+
+  launchRecords            LaunchParticipationRecord[]
+
+  @@index([wallet])
+  @@index([classification])
+  @@index([overallOpportunityScore])
+  @@index([overallRiskScore])
+  @@index([computedAt])
+}
+
+model LaunchParticipationRecord {
+  id                   String                 @id @default(cuid())
+  snapshotId           String
+  wallet               String
+  tokenAddress         String
+  tokenSymbol          String?
+  entryTimestamp       BigInt
+  entryDelaySeconds    Int
+  exitTimestamp        BigInt?
+  exitDelaySeconds     Int?
+  gainLossPct          Float?
+  platform             String
+  createdAt            DateTime               @default(now())
+
+  snapshot             WalletProfileSnapshot  @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  @@index([snapshotId])
+  @@index([wallet])
+  @@index([tokenAddress])
+  @@index([entryTimestamp])
+}
+
+model TokenRiskSnapshot {
+  id                       String              @id @default(cuid())
+  tokenAddress             String
+  overallTokenRiskScore    Int
+  tokenClassification      TokenClassification
+  creatorHoldPercent       Float
+  top10HolderPercent       Float
+  liquidityUsd             Float
+  liquidityRemovalPercent  Float
+  suspiciousWalletLinks    Int
+  walletConcentrationScore Int
+  dumpPressureScore        Int
+  computedAt               DateTime            @default(now())
+
+  suspiciousEvents         SuspiciousEvent[]
+
+  @@index([tokenAddress])
+  @@index([tokenClassification])
+  @@index([overallTokenRiskScore])
+  @@index([computedAt])
+}
+
+model SuspiciousEvent {
+  id               String             @id @default(cuid())
+  snapshotId       String
+  eventType        String
+  eventTimestamp   BigInt
+  walletAddress    String?
+  details          String
+  createdAt        DateTime           @default(now())
+
+  snapshot         TokenRiskSnapshot  @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  @@index([snapshotId])
+  @@index([eventType])
+  @@index([eventTimestamp])
+}
+
+model WalletClusterEdge {
+  id            String          @id @default(cuid())
+  sourceWallet  String
+  targetWallet  String
+  linkType      ClusterLinkType
+  confidence    Float
+  evidence      String[]        @default([])
+  createdAt     DateTime        @default(now())
+
+  @@unique([sourceWallet, targetWallet, linkType])
+  @@index([sourceWallet])
+  @@index([targetWallet])
+  @@index([linkType])
+  @@index([confidence])
+}

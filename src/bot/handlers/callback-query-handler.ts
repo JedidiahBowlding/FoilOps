@@ -98,6 +98,8 @@ export class CallbackQueryHandler {
         return
       }
 
+      await this.acknowledgeCallbackQuery(callbackQuery.id, data)
+
       let responseText
 
       // Track wallet from investigation
@@ -105,7 +107,6 @@ export class CallbackQueryHandler {
         if (!BotMiddleware.isUserBotAdmin(userId)) return
         const addr = data.slice(3).trim()
         if (!addr) return
-        await this.bot.answerCallbackQuery(callbackQuery.id)
         try {
           const existing = await this.prismaWalletRepository.getUserWalletById(userId, addr)
           if (existing) {
@@ -137,7 +138,6 @@ export class CallbackQueryHandler {
         if (!BotMiddleware.isUserBotAdmin(userId)) return
         const addr = data.slice(3).trim()
         if (!addr) return
-        await this.bot.answerCallbackQuery(callbackQuery.id)
         try {
           const tradingBotUrl = getTradingBotBaseUrl()
           await axios.post(
@@ -429,6 +429,52 @@ export class CallbackQueryHandler {
     return (process.env.APP_URL?.trim() || `http://127.0.0.1:${process.env.PORT || '3005'}`).replace(/\/$/, '')
   }
 
+  private async acknowledgeCallbackQuery(callbackId: string, action?: string) {
+    const text = this.getCallbackLoadingText(action)
+    try {
+      await this.bot.answerCallbackQuery(callbackId, {
+        text,
+        show_alert: false,
+        cache_time: 1,
+      })
+    } catch (error) {
+      // Ignore callback ack race/timeout issues so button actions can continue normally.
+      console.error('CALLBACK_ACK_ERROR', { action, error })
+    }
+  }
+
+  private getCallbackLoadingText(action?: string): string {
+    if (!action) return 'Working...'
+    if (action.startsWith('trading_')) return 'Processing trading action...'
+    if (action.startsWith('scam_')) return 'Loading scam intelligence...'
+    if (action.startsWith('donate_action')) return 'Processing donation...'
+    if (action.startsWith('ga:') || action.startsWith('gn:') || action.startsWith('gt:') || action.startsWith('gw:')) {
+      return 'Analyzing wallet graph...'
+    }
+    if (action.startsWith('tw:') || action.startsWith('ct:')) return 'Applying wallet action...'
+
+    switch (action) {
+      case 'add':
+      case 'delete':
+      case 'manage':
+      case 'groups':
+      case 'delete_group':
+        return 'Updating menu...'
+      case 'settings':
+      case 'trading':
+        return 'Opening controls...'
+      case 'upgrade':
+      case 'upgrade_hobby':
+      case 'upgrade_pro':
+      case 'upgrade_whale':
+        return 'Loading upgrade options...'
+      case 'back_to_main_menu':
+        return 'Returning to main menu...'
+      default:
+        return 'Working...'
+    }
+  }
+
   private async handleTradingMenuAction(chatId: number, userId: string, action: string) {
     if (!BotMiddleware.isUserBotAdmin(userId)) {
       await this.bot.sendMessage(chatId, '❌ Access denied. Admin only command.')
@@ -514,7 +560,9 @@ export class CallbackQueryHandler {
         }
         const lines = ['📊 <b>Recent Trades</b>', '']
         for (const t of trades.slice(0, 5)) {
-          lines.push(`• ${String(t.direction || '').toUpperCase()} ${t.amount} ${String(t.tokenMint || '').slice(0, 8)}... (${t.status})`)
+          lines.push(
+            `• ${String(t.direction || '').toUpperCase()} ${t.amount} ${String(t.tokenMint || '').slice(0, 8)}... (${t.status})`,
+          )
         }
         await this.bot.sendMessage(chatId, lines.join('\n'), { parse_mode: 'HTML' })
         return
@@ -600,7 +648,9 @@ export class CallbackQueryHandler {
         }
         const lines = ['📒 <b>Trade Journal</b>', '']
         for (const e of entries.slice(0, 10)) {
-          lines.push(`• <b>${e.status || 'unknown'}</b> ${e.action || 'n/a'} ${e.amountSol ?? 0} SOL ${e.tokenMint || 'n/a'}`)
+          lines.push(
+            `• <b>${e.status || 'unknown'}</b> ${e.action || 'n/a'} ${e.amountSol ?? 0} SOL ${e.tokenMint || 'n/a'}`,
+          )
         }
         await this.bot.sendMessage(chatId, lines.join('\n'), { parse_mode: 'HTML' })
         return
@@ -703,11 +753,21 @@ export class CallbackQueryHandler {
           .join('\n')
         const entryLines = entries
           .slice(0, 10)
-          .map((e: any) => `<b>${e.event_type}</b> [${e.gate_name || 'n/a'}]\n  Signal: ${String(e.signal_id || '').slice(0, 8)}...\n  Reason: ${e.reason}`)
+          .map(
+            (e: any) =>
+              `<b>${e.event_type}</b> [${e.gate_name || 'n/a'}]\n  Signal: ${String(e.signal_id || '').slice(0, 8)}...\n  Reason: ${e.reason}`,
+          )
           .join('\n\n')
         await this.bot.sendMessage(
           chatId,
-          ['📋 <b>Phase 3 Audit Logs</b>', '', '<b>Event Summary:</b>', summaryLines || 'No entries', '', entryLines || 'No recent events'].join('\n'),
+          [
+            '📋 <b>Phase 3 Audit Logs</b>',
+            '',
+            '<b>Event Summary:</b>',
+            summaryLines || 'No entries',
+            '',
+            entryLines || 'No recent events',
+          ].join('\n'),
           { parse_mode: 'HTML' },
         )
         return
