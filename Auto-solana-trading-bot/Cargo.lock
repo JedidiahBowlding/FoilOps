@@ -7448,6 +7448,8 @@ dependencies = [
  "anchor-lang",
  "anyhow",
  "axum",
+ "base64 0.22.1",
+ "bincode",
  "borsh 1.5.5",
  "borsh-derive 1.5.5",
  "bytemuck",
