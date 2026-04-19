@@ -6,14 +6,17 @@ import { PrismaWalletRepository } from '../repositories/prisma/wallet'
 import { SetupWalletWatcherProps } from '../types/general-interfaces'
 import { WalletWithUsers } from '../types/swap-types'
 import { WatchTransaction } from './watch-transactions'
+import { WhaleWalletSelector } from './whale-wallet-selector'
 
 export class TrackWallets {
   private prismaWalletRepository: PrismaWalletRepository
   private walletWatcher: WatchTransaction
+  private whaleWalletSelector: WhaleWalletSelector
 
   constructor() {
     this.prismaWalletRepository = new PrismaWalletRepository()
     this.walletWatcher = new WatchTransaction()
+    this.whaleWalletSelector = new WhaleWalletSelector()
   }
 
   public async setupWalletWatcher({ event, userId, walletId }: SetupWalletWatcherProps): Promise<void> {
@@ -145,10 +148,10 @@ export class TrackWallets {
       // return await this.updateWallets(walletsArray!)
     } else if (event === 'initial') {
       const allWallets = await this.prismaWalletRepository.getAllWalletsWithUserIds()
-      const wallets = Array.isArray(allWallets) ? allWallets : []
+      const userWallets = Array.isArray(allWallets) ? allWallets : []
 
       // check for paused wallets before initial watcher call
-      const pausedWallets = wallets.filter((wallet) =>
+      const pausedWallets = userWallets.filter((wallet) =>
         wallet.userWallets.some((userWallet) => userWallet.status === 'SPAM_PAUSED'),
       )
 
@@ -163,9 +166,22 @@ export class TrackWallets {
         }
       }
 
-      WalletPool.wallets?.push(...wallets)
-      // console.log('WALLETS ARRAY:', walletsArray)
-      return await this.walletWatcher.watchSocket(WalletPool.wallets!)
+      const autoWhaleAddresses = await this.whaleWalletSelector.selectTopActiveWhales()
+
+      const existingAddresses = new Set(userWallets.map((wallet) => wallet.address))
+      const autoWhaleWallets = autoWhaleAddresses
+        .filter((address) => !existingAddresses.has(address))
+        .map(
+          (address) =>
+            ({
+              id: `auto-whale:${address}`,
+              address,
+              userWallets: [],
+            }) as unknown as WalletWithUsers,
+        )
+
+      WalletPool.wallets = [...userWallets, ...autoWhaleWallets]
+      return await this.walletWatcher.watchSocket(WalletPool.wallets)
     }
 
     return

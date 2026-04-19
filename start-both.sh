@@ -5,6 +5,13 @@
 
 echo "🚀 Starting FoilOps Wallet Tracker and Auto Solana Trading Bot..."
 
+# Export root .env variables so both child processes share the same runtime config.
+if [ -f .env ]; then
+    set -a
+    . ./.env
+    set +a
+fi
+
 # Resolve app port from environment/.env so startup follows PORT changes.
 APP_PORT="${PORT:-}"
 if [ -z "$APP_PORT" ] && [ -f .env ]; then
@@ -42,7 +49,12 @@ trap cleanup SIGINT SIGTERM
 # Start the Auto Solana Trading Bot in the background
 echo "📈 Starting Auto Solana Trading Bot..."
 cd Auto-solana-trading-bot
-cargo run --bin trading-bot &
+# Use the prebuilt debug binary when available to avoid slow cold-start recompiles.
+if [ -x "target/debug/trading-bot" ]; then
+    ./target/debug/trading-bot &
+else
+    cargo run --bin trading-bot &
+fi
 TRADING_PID=$!
 cd ..
 

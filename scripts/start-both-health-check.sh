@@ -11,7 +11,8 @@ APP_PORT="${APP_PORT:-${RESOLVED_PORT:-3001}}"
 RUST_PORT="${RUST_PORT:-8787}"
 APP_URL="${APP_URL:-http://127.0.0.1:${APP_PORT}/}"
 RUST_HEALTH_URL="${RUST_HEALTH_URL:-http://127.0.0.1:${RUST_PORT}/health}"
-MAX_RETRIES="${MAX_RETRIES:-20}"
+# Cold starts can take significantly longer when TypeScript and Rust compile together.
+MAX_RETRIES="${MAX_RETRIES:-180}"
 SLEEP_SECONDS="${SLEEP_SECONDS:-1}"
 
 check_port() {
