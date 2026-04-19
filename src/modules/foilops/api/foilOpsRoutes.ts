@@ -321,19 +321,19 @@ function renderFoilOpsDashboard(): string {
   <title>FoilOps — Launch Intelligence</title>
   <style>
     :root {
-      --bg: #0a0e27;
-      --panel: rgba(15,20,45,.85);
-      --ink: #e8ecff;
-      --muted: #7a84a0;
-      --accent: #ff2d2d;
-      --accent2: #4d7cff;
-      --border: rgba(255,45,45,.18);
+      --bg: #080508;
+      --panel: rgba(20,5,7,.85);
+      --ink: #f8eded;
+      --muted: #b89898;
+      --accent: #ff2233;
+      --accent2: #ff7744;
+      --border: rgba(255,40,60,.18);
       --success: #00e676;
-      --warning: #ffb300;
-      --risk: #ff6b35;
+      --warning: #ffbc68;
+      --risk: #ff7744;
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: var(--bg); color: var(--ink); font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
+    body { background: var(--bg); color: var(--ink); font-family: "Space Grotesk", "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif; min-height: 100vh; }
 
     /* ── Top bar ── */
     .topbar {
@@ -378,7 +378,7 @@ function renderFoilOpsDashboard(): string {
       background: var(--accent2); border: none; border-radius: 7px; color: #fff;
       font-weight: 700; font-size: .8rem; padding: .5rem 1.2rem; cursor: pointer; align-self: flex-end;
     }
-    .filter-bar .apply-btn:hover { background: #3a6ce8; }
+    .filter-bar .apply-btn:hover { background: #e96230; }
     .range-val { font-size: .75rem; color: var(--ink); }
 
     /* ── Panels grid ── */
@@ -395,14 +395,14 @@ function renderFoilOpsDashboard(): string {
     .panel-header h2 { font-size: .88rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
     .panel-header .pill {
       font-size: .68rem; font-weight: 700; padding: .2rem .5rem; border-radius: 20px;
-      background: rgba(77,124,255,.15); color: var(--accent2); border: 1px solid rgba(77,124,255,.3);
+      background: rgba(255,119,68,.15); color: var(--accent2); border: 1px solid rgba(255,119,68,.3);
     }
     .panel-header .pill.danger { background: rgba(255,45,45,.1); color: var(--accent); border-color: rgba(255,45,45,.3); }
 
     /* ── Tables ── */
     .table-wrap { overflow-x: auto; max-height: 340px; overflow-y: auto; }
     table { width: 100%; border-collapse: collapse; font-size: .78rem; }
-    th { position: sticky; top: 0; background: rgba(10,14,39,.95); text-align: left; padding: .5rem .8rem; font-size: .66rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+    th { position: sticky; top: 0; background: rgba(16,5,7,.95); text-align: left; padding: .5rem .8rem; font-size: .66rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
     td { padding: .48rem .8rem; border-bottom: 1px solid rgba(255,255,255,.04); vertical-align: middle; }
     tr:hover td { background: rgba(255,255,255,.03); }
     .addr { font-family: monospace; font-size: .74rem; color: var(--ink); cursor: pointer; text-decoration: underline dotted; }
@@ -414,7 +414,7 @@ function renderFoilOpsDashboard(): string {
       padding: .15rem .45rem; border-radius: 5px; min-width: 34px; text-align: center;
     }
     .badge.green { background: rgba(0,230,118,.15); color: var(--success); }
-    .badge.blue  { background: rgba(77,124,255,.15); color: var(--accent2); }
+    .badge.blue  { background: rgba(255,119,68,.15); color: var(--accent2); }
     .badge.orange{ background: rgba(255,107,53,.15);  color: var(--risk); }
     .badge.red   { background: rgba(255,45,45,.15);   color: var(--accent); }
     .badge.grey  { background: rgba(255,255,255,.07); color: var(--muted); }
@@ -425,7 +425,7 @@ function renderFoilOpsDashboard(): string {
       padding: .12rem .4rem; border-radius: 4px; text-transform: uppercase; white-space: nowrap;
     }
     .tag.EARLY_ENTRANT  { background: rgba(0,230,118,.12); color: var(--success); }
-    .tag.MOMENTUM_WALLET { background: rgba(77,124,255,.12); color: var(--accent2); }
+    .tag.MOMENTUM_WALLET { background: rgba(255,119,68,.12); color: var(--accent2); }
     .tag.HIGH_RISK      { background: rgba(255,45,45,.12);   color: var(--accent); }
     .tag.WATCHLIST      { background: rgba(255,179,0,.12);   color: var(--warning); }
     .tag.IGNORE         { background: rgba(255,255,255,.05); color: var(--muted); }
@@ -446,7 +446,7 @@ function renderFoilOpsDashboard(): string {
     }
     .modal-overlay.open { display: flex; }
     .modal {
-      background: #0d1236; border: 1px solid var(--border); border-radius: 14px;
+      background: #130608; border: 1px solid var(--border); border-radius: 14px;
       width: min(860px, 95vw); max-height: 90vh; overflow-y: auto; padding: 1.5rem;
     }
     .modal h2 { font-size: 1rem; font-weight: 800; margin-bottom: 1rem; color: var(--accent2); }
@@ -469,7 +469,7 @@ function renderFoilOpsDashboard(): string {
     /* ── Loader ── */
     .spin {
       display: inline-block; width: 14px; height: 14px;
-      border: 2px solid rgba(255,255,255,.15); border-top-color: var(--accent2);
+      border: 2px solid rgba(255,255,255,.15); border-top-color: var(--accent);
       border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle; margin-right: .4rem;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
@@ -480,7 +480,7 @@ function renderFoilOpsDashboard(): string {
 <div class="topbar">
   <h1>FOILOPS</h1>
   <nav>
-    <a href="/dashboard">Overview</a>
+    <a href="/">Overview</a>
     <a href="/dashboard/trading-ops">Trading Ops</a>
     <a href="/dashboard/scam-wallets">Scam Intel</a>
     <a href="/dashboard/foilops" class="active">Intelligence</a>

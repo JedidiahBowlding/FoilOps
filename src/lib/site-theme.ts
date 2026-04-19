@@ -391,6 +391,19 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       .section {
         display: grid;
         gap: 14px;
+        border: 1px solid var(--fx-line);
+        border-radius: 18px;
+        background: linear-gradient(180deg, rgba(18, 5, 8, 0.86), rgba(14, 4, 5, 0.72));
+        box-shadow: var(--fx-shadow);
+        overflow: hidden;
+      }
+
+      .section > * {
+        padding-inline: 18px;
+      }
+
+      .section > :last-child {
+        padding-bottom: 18px;
       }
 
       .section-header {
@@ -399,6 +412,10 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         align-items: end;
         gap: 14px;
         flex-wrap: wrap;
+        padding-top: 14px;
+        padding-bottom: 14px;
+        border-bottom: 1px solid rgba(255, 40, 60, 0.14);
+        background: rgba(10, 3, 4, 0.48);
       }
 
       .section-header-copy {

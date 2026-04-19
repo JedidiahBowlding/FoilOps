@@ -296,6 +296,16 @@ class Main {
       }
     })
 
+    this.app.get('/api/token-investigations', this.dashboardAuth.requireApiAuth, async (_req, res) => {
+      try {
+        const investigations = await this.scamWalletRepository.getTokenInvestigationRows()
+        res.status(200).json({ investigations, count: investigations.length })
+      } catch (error) {
+        console.error('Token investigations list API error', error)
+        res.status(500).json({ message: 'Failed to load token investigations' })
+      }
+    })
+
     this.app.get('/api/control/tracked-wallets', this.dashboardAuth.requireApiAuth, async (_req, res) => {
       try {
         const adminUserId = this.getDashboardAdminUserId()

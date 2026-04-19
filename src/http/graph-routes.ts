@@ -68,7 +68,13 @@ function renderGraphPage(wallet: string) {
     `,
     contentHtml: `
       <div class="wrap">
-        <div class="panel">
+        <div class="panel section">
+      <div class="section-header">
+        <div class="section-header-copy">
+          <h2>Graph Query + Intelligence Summary</h2>
+          <p class="section-subtitle">Load a wallet, inspect followed-wallet overlap, and review coverage plus AI analysis in one control block.</p>
+        </div>
+      </div>
       <div class="top">
         <input id="wallet" value="${safeWallet}" placeholder="Enter wallet" />
         <button id="load" class="fx-button primary">Load Graph</button>
@@ -93,7 +99,13 @@ function renderGraphPage(wallet: string) {
       </div>
         </div>
 
-        <div class="panel">
+        <div class="panel section">
+          <div class="section-header">
+            <div class="section-header-copy">
+              <h2>Wallet Relationship Canvas</h2>
+              <p class="section-subtitle">Visual map of primary wallet, nearby flow participants, and inferred cluster neighbors.</p>
+            </div>
+          </div>
           <svg id="graph" viewBox="0 0 900 430" preserveAspectRatio="xMidYMid meet"></svg>
           <div class="legend">
             <span><span class="dot" style="background:#ff7744"></span>Cluster Wallet</span>

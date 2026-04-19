@@ -112,9 +112,13 @@ export class ScamDashboard {
       extraStyles:
         '.control-form { grid-template-columns:minmax(0,1fr) auto; align-items:end; } .card.flagged { border-color: rgba(255,90,122,.36); } .card.unflagged { border-color: rgba(76,255,193,.2); } .investigation-card { border-color: rgba(255,30,50,.26); } @media (max-width: 720px) { .control-form { grid-template-columns:1fr; } }',
       contentHtml: `
-        <section class="control-shell">
-      <h2>Start Token Investigation</h2>
-      <p class="lead">Enter a token mint to identify the likely developer wallet, trace related funds, persist the investigation, and refresh scam monitoring from the website.</p>
+        <section class="section control-shell">
+      <div class="section-header">
+        <div class="section-header-copy">
+          <h2>Start Token Investigation</h2>
+          <p class="section-subtitle">Enter a token mint to identify the likely developer wallet, trace related funds, persist the investigation, and refresh scam monitoring from the website.</p>
+        </div>
+      </div>
       <form id="token-investigation-form" class="control-form">
         <label>Token mint
           <input name="tokenMint" type="text" placeholder="Token mint or contract address" />
@@ -125,10 +129,14 @@ export class ScamDashboard {
       <div id="token-investigation-result" class="control-result">Results will appear here after a successful investigation.</div>
     </section>
         <section class="grid">${cards || '<article class="card"><p>No scam-intelligence records available yet.</p></article>'}</section>
-        <section class="panel">
-          <p class="fx-eyebrow">Resolved investigations</p>
-          <h2>Developer-wallet investigations from token input</h2>
-          <p class="lead">These records capture developer resolution source, related token history, and the operator time the investigation was persisted.</p>
+        <section class="section panel">
+          <div class="section-header">
+            <div class="section-header-copy">
+              <p class="fx-eyebrow">Resolved investigations</p>
+              <h2>Developer-wallet investigations from token input</h2>
+              <p class="section-subtitle">These records capture developer resolution source, related token history, and the operator time the investigation was persisted.</p>
+            </div>
+          </div>
         </section>
         <section class="grid">${tokenInvestigationCards || '<article class="card"><p>No token investigations recorded yet.</p></article>'}</section>
       `,
