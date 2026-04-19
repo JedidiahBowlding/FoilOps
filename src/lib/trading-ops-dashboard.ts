@@ -482,15 +482,32 @@ export class TradingOpsDashboard {
       const captureSnapshotButton = document.getElementById('capture-snapshot')
       const attributionEmptyState = document.getElementById('chart-attribution-empty')
 
+      function applyTone(element, tone) {
+        if (!element) return
+        element.classList.remove('success', 'warning', 'error')
+        if (tone === 'success' || tone === 'warning' || tone === 'error') {
+          element.classList.add(tone)
+        }
+      }
+
+      function inferStatusTone(message, fallbackTone) {
+        const normalized = String(message || '').toLowerCase()
+        if (/fail|error|refus|invalid|unsupported|could not/.test(normalized)) return 'error'
+        if (/disabled|paused|kill switch|tighten risk|do not track|flagged|blocked|warning/.test(normalized)) {
+          return 'warning'
+        }
+        return fallbackTone || 'success'
+      }
+
       function setControlStatus(message, tone) {
         controlStatus.textContent = message
-        controlStatus.classList.toggle('error', tone === 'error')
+        applyTone(controlStatus, inferStatusTone(message, tone))
       }
 
       function setTrendStatus(message, tone) {
         if (!trendStatus) return
         trendStatus.textContent = message
-        trendStatus.classList.toggle('error', tone === 'error')
+        applyTone(trendStatus, tone)
       }
 
       function formatTrendValue(value, suffix) {
@@ -736,7 +753,10 @@ export class TradingOpsDashboard {
             + '<div>' + badgeHtml + '</div>'
             + (warning ? '<div style="margin-top:6px">' + warning + '</div>' : '')
             + '</div>'
+            + '<div class="button-row">'
+            + '<a class="fx-button secondary" href="/graph/' + encodeURIComponent(wallet.displayAddress) + '">Open Graph</a>'
             + '<button type="button" data-remove-wallet="' + escapeHtml(wallet.displayAddress) + '">Remove</button>'
+            + '</div>'
             + '</div>'
         }).join('')
       }
@@ -765,7 +785,7 @@ export class TradingOpsDashboard {
               method: 'POST',
               body: JSON.stringify({ action }),
             })
-            setControlStatus(payload.message || ('Trading action ' + action + ' completed.'))
+              setControlStatus(payload.message || ('Trading action ' + action + ' completed.'), 'success')
             window.setTimeout(() => window.location.reload(), 700)
           } catch (error) {
             setControlStatus(error.message || 'Trading action failed.', 'error')
@@ -792,7 +812,7 @@ export class TradingOpsDashboard {
             method: 'POST',
             body: JSON.stringify(payload),
           })
-          setControlStatus(response.message || 'Trading settings updated.')
+          setControlStatus(response.message || 'Trading settings updated.', 'success')
           window.setTimeout(() => window.location.reload(), 700)
         } catch (error) {
           setControlStatus(error.message || 'Trading settings update failed.', 'error')
@@ -847,7 +867,7 @@ export class TradingOpsDashboard {
           if (!preset) return
 
           applyPresetToForm(preset)
-          setControlStatus('Preset ' + preset + ' loaded. Applying settings...')
+          setControlStatus('Preset ' + preset + ' loaded. Applying settings...', 'warning')
 
           try {
             await tradingSettingsForm.requestSubmit()
@@ -881,7 +901,7 @@ export class TradingOpsDashboard {
             method: 'POST',
             body: JSON.stringify(payload),
           })
-          setControlStatus(response.message || 'Source wallet controls updated.')
+          setControlStatus(response.message || 'Source wallet controls updated.', 'success')
           window.setTimeout(() => window.location.reload(), 700)
         } catch (error) {
           setControlStatus(error.message || 'Source wallet update failed.', 'error')
@@ -903,7 +923,7 @@ export class TradingOpsDashboard {
             body: JSON.stringify(payload),
           })
           trackedWalletForm.reset()
-          setControlStatus(response.message || 'Tracked wallets updated.')
+          setControlStatus(response.message || 'Tracked wallets updated.', response.doNotTrack ? 'warning' : 'success')
           await loadTrackedWallets()
         } catch (error) {
           setControlStatus(error.message || 'Tracked wallet update failed.', 'error')
@@ -922,7 +942,7 @@ export class TradingOpsDashboard {
             method: 'POST',
             body: JSON.stringify({ action: 'remove', wallet }),
           })
-          setControlStatus(response.message || 'Tracked wallet removed.')
+          setControlStatus(response.message || 'Tracked wallet removed.', 'success')
           await loadTrackedWallets()
         } catch (error) {
           setControlStatus(error.message || 'Tracked wallet removal failed.', 'error')

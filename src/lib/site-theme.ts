@@ -573,6 +573,14 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         background: rgba(255, 90, 122, 0.08);
       }
 
+      .control-status.success,
+      .notice.success {
+        border-color: rgba(76, 255, 193, 0.24);
+        color: #baffea;
+        background: rgba(76, 255, 193, 0.08);
+      }
+
+      .control-status.warning,
       .notice.warning {
         border-color: rgba(255, 188, 104, 0.24);
         color: #ffd9a3;

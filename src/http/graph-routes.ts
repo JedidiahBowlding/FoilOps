@@ -47,7 +47,7 @@ function renderGraphPage(wallet: string) {
     headerActionsHtml:
       '<form class="logout-form" method="post" action="/logout"><button class="fx-button" type="submit">Logout</button></form>',
     extraStyles:
-      '.wrap { display:grid; gap:16px; } .dot { width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:5px; vertical-align:middle; } svg text { fill: #d7e6ff; font-family: "IBM Plex Mono", monospace; } svg line { stroke: rgba(129,196,255,.45); }',
+      '.wrap { display:grid; gap:16px; } .dot { width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:5px; vertical-align:middle; } svg text { fill: #d7e6ff; font-family: "IBM Plex Mono", monospace; } svg line { stroke: rgba(129,196,255,.45); } .wallet-chip.chip-tracked { border-color: rgba(103, 240, 255, 0.26); background: rgba(103, 240, 255, 0.08); color: #a8f4ff; } .wallet-chip.chip-source { border-color: rgba(124, 114, 255, 0.26); background: rgba(124, 114, 255, 0.1); color: #cec9ff; } .wallet-chip.chip-both { border-color: rgba(76, 255, 193, 0.28); background: rgba(76, 255, 193, 0.08); color: #b6ffe5; box-shadow: 0 0 0 1px rgba(76, 255, 193, 0.08) inset; }',
     heroHtml: `
       <section class="page-header">
         <div>
@@ -206,9 +206,17 @@ function renderGraphPage(wallet: string) {
       wallets.slice(0, 30).forEach((entry) => {
         const wallet = (entry && entry.wallet) ? String(entry.wallet) : ''
         if (!wallet) return
-        const sources = Array.isArray(entry.sources) ? entry.sources.join(' + ') : 'followed'
+        const sourceList = Array.isArray(entry.sources) ? entry.sources.map((source) => String(source)) : []
+        const sources = sourceList.length > 0 ? sourceList.join(' + ') : 'followed'
         const chip = document.createElement('button')
         chip.className = 'wallet-chip'
+        if (sourceList.includes('tracked') && sourceList.includes('source')) {
+          chip.classList.add('chip-both')
+        } else if (sourceList.includes('source')) {
+          chip.classList.add('chip-source')
+        } else {
+          chip.classList.add('chip-tracked')
+        }
         chip.type = 'button'
         chip.title = 'Load graph for ' + wallet
         chip.textContent = short(wallet) + ' [' + sources + ']'
