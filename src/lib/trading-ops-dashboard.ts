@@ -584,9 +584,14 @@ export class TradingOpsDashboard {
       'earlyEntryHits',
     ])
     const totalSignals = this.pickNumber(profile, ['totalSignals', 'total_signals', 'signalsSeen', 'signal_count'])
+    const totalEntries = this.pickNumber(profile, ['totalEntries', 'total_entries', 'entryCount', 'entry_count'])
+    const momentumHits = this.pickNumber(profile, ['momentumHits', 'momentum_hits', 'momentumCount'])
     const wins = this.pickNumber(profile, ['wins', 'winCount', 'win_count'])
     const winRateRaw = this.pickNumber(profile, ['winRate', 'win_rate', 'successRate', 'success_rate'])
     const avgRisk = this.pickNumber(profile, ['avgRiskScore', 'avg_risk_score', 'averageRiskScore'])
+    const avgEntryDelay = this.pickNumber(profile, ['avgEntryDelaySeconds', 'avg_entry_delay_seconds', 'entryDelayAvg'])
+    const avgExitDelay = this.pickNumber(profile, ['avgExitDelaySeconds', 'avg_exit_delay_seconds', 'exitDelayAvg'])
+    const pnlPct = this.pickNumber(profile, ['avgPnlPct', 'avg_pnl_pct', 'averagePnlPct'])
     const rapidDumps = this.pickNumber(profile, ['rapidDumps', 'rapid_dump_count', 'rapidDumperEvents'])
 
     const winRate = winRateRaw == null ? null : winRateRaw <= 1 ? Math.round(winRateRaw * 100) : Math.round(winRateRaw)
@@ -602,10 +607,15 @@ export class TradingOpsDashboard {
         <p><strong>Actions:</strong> ${actions}</p>
         <div class="micro-grid" style="margin-top:10px">
           ${this.renderScoreCard('Early Entries', earlyEntries)}
+          ${this.renderScoreCard('Total Entries', totalEntries)}
+          ${this.renderScoreCard('Momentum Hits', momentumHits)}
           ${this.renderScoreCard('Signals', totalSignals)}
           ${this.renderScoreCard('Wins', wins)}
           ${this.renderScoreCard('Win Rate', winRate, '%')}
           ${this.renderScoreCard('Avg Risk', avgRisk)}
+          ${this.renderScoreCard('Avg Entry Delay', avgEntryDelay, 's')}
+          ${this.renderScoreCard('Avg Exit Delay', avgExitDelay, 's')}
+          ${this.renderScoreCard('Avg PnL', pnlPct, '%')}
           ${this.renderScoreCard('Rapid Dumps', rapidDumps)}
         </div>
       </article>
@@ -613,7 +623,7 @@ export class TradingOpsDashboard {
   }
 
   private renderScoreCard(label: string, value: number | null, suffix = ''): string {
-    const display = value == null ? 'n/a' : `${value}${suffix}`
+    const display = value == null ? 'Not available' : `${value}${suffix}`
     return `<div class="card"><p class="eyebrow">${label}</p><p><strong>${display}</strong></p></div>`
   }
 
