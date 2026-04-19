@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from 'crypto'
 import type { Express, Request, RequestHandler, Response } from 'express'
+import { renderFuturisticPage } from './site-theme'
 
 type SessionPayload = {
   u: string
@@ -281,179 +282,46 @@ export class DashboardAuth {
 
     const formAction = options.showAuthDisabled ? '#' : '/login'
 
-    return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FoilOps Login</title>
-    <style>
-      :root {
-        --bg: #0a0e27;
-        --ink: #ffffff;
-        --muted: #a0a8c0;
-        --panel: rgba(15, 20, 45, 0.7);
-        --line: rgba(255, 45, 45, 0.2);
-        --accent: #ff2d2d;
-        --accent-2: #ff2d2d;
-        --danger: #ff2d2d;
-      }
-      * { box-sizing: border-box; }
-      body {
-        margin: 0;
-        min-height: 100vh;
-        display: grid;
-        place-items: center;
-        padding: 24px;
-        color: var(--ink);
-        background: linear-gradient(135deg, #0a0e27 0%, #0f1440 50%, #0a0e27 100%);
-        font-family: "Avenir Next", "Trebuchet MS", sans-serif;
-      }
-      .shell {
-        width: min(980px, 100%);
-        display: grid;
-        grid-template-columns: minmax(280px, 1.1fr) minmax(320px, 0.9fr);
-        gap: 18px;
-      }
-      .panel {
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 24px;
-        padding: 28px;
-        box-shadow: 0 24px 70px rgba(49, 35, 21, 0.12);
-        backdrop-filter: blur(10px);
-      }
-      .headline {
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-      }
-      .kicker {
-        font-size: 0.78rem;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-        color: var(--accent);
-      }
-      h1 {
-        margin: 10px 0 12px;
-        font-size: clamp(2rem, 5vw, 3.6rem);
-        line-height: 0.95;
-      }
-      .lead {
-        margin: 0;
-        color: var(--muted);
-        max-width: 34rem;
-        line-height: 1.6;
-      }
-      .grid {
-        margin-top: 28px;
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
-      }
-      .mini {
-        padding: 14px;
-        border-radius: 16px;
-        background: rgba(255,255,255,0.55);
-        border: 1px solid var(--line);
-      }
-      .mini strong {
-        display: block;
-        margin-bottom: 6px;
-      }
-      form {
-        display: grid;
-        gap: 14px;
-      }
-      .notice {
-        border-radius: 14px;
-        padding: 12px 14px;
-        background: rgba(255, 45, 45, 0.12);
-        border: 1px solid rgba(255, 45, 45, 0.2);
-        color: var(--ink);
-        font-size: 0.95rem;
-      }
-      .notice.warning {
-        background: rgba(255, 45, 45, 0.12);
-        border-color: rgba(255, 45, 45, 0.2);
-      }
-      .notice.error {
-        background: rgba(255, 45, 45, 0.15);
-        border-color: rgba(255, 45, 45, 0.3);
-        color: #ff7070;
-      }
-      label {
-        display: block;
-        font-size: 0.92rem;
-        font-weight: 600;
-        margin-bottom: 6px;
-      }
-      input {
-        width: 100%;
-        border: 1px solid var(--line);
-        border-radius: 14px;
-        padding: 14px 15px;
-        font-size: 1rem;
-        background: rgba(255,255,255,0.88);
-      }
-      button {
-        border: 0;
-        border-radius: 999px;
-        background: linear-gradient(135deg, var(--accent), #134b64);
-        color: #fff;
-        padding: 14px 18px;
-        font-size: 1rem;
-        font-weight: 700;
-        cursor: pointer;
-      }
-      button:disabled {
-        opacity: 0.55;
-        cursor: not-allowed;
-      }
-      .subtle {
-        margin: 0;
-        color: var(--muted);
-        font-size: 0.9rem;
-      }
-      @media (max-width: 860px) {
-        .shell { grid-template-columns: 1fr; }
-        .grid { grid-template-columns: 1fr; }
-      }
-    </style>
-  </head>
-  <body>
-    <main class="shell">
-      <section class="panel headline">
-        <div>
-          <div class="kicker">FoilOps Control Surface</div>
-          <h1>Dashboard access is now gated.</h1>
-          <p class="lead">Trading operations, scam intelligence, graph views, and export endpoints now share a single login boundary. Sign in before opening any dashboard route.</p>
-        </div>
-        <div class="grid">
-          <article class="mini"><strong>Protected</strong>Trading ops, scam intelligence, graph view, and dashboard JSON exports.</article>
-          <article class="mini"><strong>Session</strong>Signed HTTP-only cookie with a seven day expiry window.</article>
-          <article class="mini"><strong>Username</strong>${this.username}</article>
-          <article class="mini"><strong>Config</strong>Use DASHBOARD_USERNAME, DASHBOARD_PASSWORD, and optionally DASHBOARD_SESSION_SECRET.</article>
-        </div>
-      </section>
-      <section class="panel">
-        ${alertMarkup}
-        <form method="post" action="${formAction}">
-          <input type="hidden" name="next" value="${options.nextTarget || ''}" />
-          <div>
-            <label for="username">Username</label>
-            <input id="username" name="username" type="text" autocomplete="username" value="${this.username}" ${options.showAuthDisabled ? 'disabled' : ''} required />
-          </div>
-          <div>
-            <label for="password">Password</label>
-            <input id="password" name="password" type="password" autocomplete="current-password" ${options.showAuthDisabled ? 'disabled' : ''} required />
-          </div>
-          <button type="submit" ${options.showAuthDisabled ? 'disabled' : ''}>Sign in</button>
-          <p class="subtle">Unauthenticated API requests receive HTTP 401. Browser requests redirect here automatically.</p>
-        </form>
-      </section>
-    </main>
-  </body>
-</html>`
+    return renderFuturisticPage({
+      title: 'FoilOps Login',
+      activeNav: 'home',
+      headerActionsHtml: '<a class="fx-button secondary" href="/">Back to Overview</a>',
+      extraStyles: `
+        .login-shell { display:grid; grid-template-columns:minmax(300px,1.1fr) minmax(320px,.9fr); gap:18px; }
+        .login-panel { min-height: 100%; }
+        .login-grid { margin-top: 24px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+        .login-panel form { display:grid; gap:14px; }
+        @media (max-width: 920px) { .login-shell { grid-template-columns:1fr; } .login-grid { grid-template-columns:1fr; } }
+      `,
+      contentHtml: `
+        <section class="login-shell">
+          <article class="panel login-panel">
+            <p class="fx-eyebrow">FoilOps Control Surface</p>
+            <h1>Authenticate before touching live operator systems.</h1>
+            <p class="fx-lead">Trading operations, scam intelligence, graph views, and protected APIs now share one signed session boundary. This is the gate in front of the live wallet intelligence stack.</p>
+            <div class="login-grid">
+              <article class="mini"><strong>Protected</strong>Trading ops, scam intelligence, graph view, FoilOps launch intelligence, and dashboard exports.</article>
+              <article class="mini"><strong>Session</strong>HTTP-only signed cookie with a seven day expiry window.</article>
+              <article class="mini"><strong>Username</strong>${this.username}</article>
+              <article class="mini"><strong>Config</strong>DASHBOARD_USERNAME, DASHBOARD_PASSWORD, and optional DASHBOARD_SESSION_SECRET.</article>
+            </div>
+          </article>
+          <article class="panel login-panel">
+            ${alertMarkup}
+            <form method="post" action="${formAction}">
+              <input type="hidden" name="next" value="${options.nextTarget || ''}" />
+              <label for="username">Username
+                <input id="username" name="username" type="text" autocomplete="username" value="${this.username}" ${options.showAuthDisabled ? 'disabled' : ''} required />
+              </label>
+              <label for="password">Password
+                <input id="password" name="password" type="password" autocomplete="current-password" ${options.showAuthDisabled ? 'disabled' : ''} required />
+              </label>
+              <button class="fx-button primary" type="submit" ${options.showAuthDisabled ? 'disabled' : ''}>Sign in</button>
+              <p class="subtle">Unauthenticated API requests receive HTTP 401. Browser requests redirect here automatically.</p>
+            </form>
+          </article>
+        </section>
+      `,
+    })
   }
 }

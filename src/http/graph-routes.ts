@@ -1,4 +1,5 @@
 import type { Express, Request, RequestHandler, Response } from 'express'
+import { renderFuturisticPage } from '../lib/site-theme'
 
 type FlowStep = {
   from: string
@@ -40,309 +41,63 @@ function extractFlowSteps(flowMetadata: unknown): FlowStep[] {
 function renderGraphPage(wallet: string) {
   const safeWallet = wallet.replace(/[^A-Za-z0-9_-]/g, '')
 
-  return `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Wallet Graph</title>
-  <style>
-    :root {
-      --bg: #0a0e27;
-      --panel: rgba(15, 20, 45, 0.7);
-      --ink: #ffffff;
-      --muted: #a0a8c0;
-      --accent: #ff2d2d;
-      --accent-2: #ff2d2d;
-      --line: rgba(255, 45, 45, 0.2);
-    }
-
-    body {
-      margin: 0;
-      font-family: "Avenir Next", "Segoe UI", sans-serif;
-      color: var(--ink);
-      background: linear-gradient(135deg, #0a0e27 0%, #0f1440 50%, #0a0e27 100%);
-    }
-
-    .wrap {
-      max-width: 980px;
-      margin: 0 auto;
-      padding: 20px;
-    }
-
-    .page-header {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      align-items: center;
-      margin-bottom: 14px;
-    }
-
-    .page-title {
-      margin: 0;
-      font-size: clamp(1.5rem, 3vw, 2.2rem);
-    }
-
-    .page-subtitle {
-      margin: 6px 0 0;
-      color: var(--muted);
-      font-size: 14px;
-    }
-
-    .logout-form {
-      margin: 0;
-    }
-
-    .panel {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
-      padding: 16px;
-      margin-bottom: 14px;
-    }
-
-    .top {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
-    input {
-      flex: 1;
-      min-width: 280px;
-      font-size: 14px;
-      padding: 10px 12px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: #fff;
-    }
-
-    button {
-      border: 0;
-      border-radius: 8px;
-      background: var(--accent);
-      color: #fff;
-      padding: 10px 14px;
-      font-weight: 700;
-      cursor: pointer;
-    }
-
-    .logout-button {
-      background: var(--panel);
-      color: var(--ink);
-      border: 1px solid var(--line);
-    }
-
-    .meta {
-      color: var(--muted);
-      font-size: 13px;
-      margin-top: 8px;
-    }
-
-    .analysis-panel {
-      margin-top: 10px;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      background: #fff;
-      padding: 10px;
-      font-family: Menlo, Monaco, Consolas, monospace;
-      font-size: 12px;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-      max-height: 180px;
-      overflow-y: auto;
-    }
-
-    svg {
-      width: 100%;
-      height: 430px;
-      border-radius: 10px;
-      border: 1px solid var(--line);
-      background: #fff;
-    }
-
-    .legend {
-      display: flex;
-      gap: 14px;
-      flex-wrap: wrap;
-      font-size: 12px;
-      color: var(--muted);
-      margin-top: 8px;
-    }
-
-    .wallet-list {
-      margin-top: 12px;
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-      gap: 8px;
-    }
-
-    .wallet-chip {
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: #fff;
-      color: var(--ink);
-      text-align: left;
-      font-size: 12px;
-      padding: 8px 10px;
-      cursor: pointer;
-      font-family: Menlo, Monaco, Consolas, monospace;
-      white-space: normal;
-      overflow-wrap: anywhere;
-      word-break: break-word;
-      line-height: 1.4;
-      max-width: 100%;
-    }
-
-    .wallet-chip:hover {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 2px rgba(0, 122, 110, 0.12);
-    }
-
-    .wallet-popup {
-      position: fixed;
-      right: 14px;
-      bottom: 14px;
-      width: min(420px, calc(100vw - 28px));
-      background: #fff;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.16);
-      padding: 12px;
-      z-index: 20;
-      display: none;
-    }
-
-    .wallet-popup.active {
-      display: block;
-    }
-
-    .wallet-popup-title {
-      font-weight: 700;
-      font-size: 13px;
-      margin-bottom: 8px;
-    }
-
-    .wallet-popup-value {
-      font-family: Menlo, Monaco, Consolas, monospace;
-      font-size: 12px;
-      background: #fbf7f0;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 8px;
-      overflow-wrap: anywhere;
-      word-break: break-word;
-      margin-bottom: 10px;
-    }
-
-    .wallet-popup-actions {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .wallet-popup-analysis {
-      margin-top: 10px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: #fbf7f0;
-      padding: 8px;
-      font-family: Menlo, Monaco, Consolas, monospace;
-      font-size: 11px;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-      max-height: 160px;
-      overflow-y: auto;
-    }
-
-    .wallet-popup-actions button,
-    .wallet-popup-actions a {
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: #fff;
-      color: var(--ink);
-      padding: 7px 10px;
-      font-size: 12px;
-      text-decoration: none;
-      cursor: pointer;
-    }
-
-    .wallet-popup-actions button.primary {
-      border: 0;
-      background: var(--accent);
-      color: #fff;
-      font-weight: 700;
-    }
-
-    .dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      display: inline-block;
-      margin-right: 5px;
-      vertical-align: middle;
-    }
-
-    @media (max-width: 720px) {
-      .page-header {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-      svg {
-        height: 360px;
-      }
-      .wrap {
-        padding: 12px;
-      }
-    }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">Wallet Graph</h1>
-        <p class="page-subtitle">Inspect linked wallets, cluster signals, and AI analysis from the protected graph view.</p>
-      </div>
-      <form class="logout-form" method="post" action="/logout">
-        <button class="logout-button" type="submit">Logout</button>
-      </form>
-    </div>
-    <div class="panel">
+  return renderFuturisticPage({
+    title: 'FoilOps Wallet Graph',
+    activeNav: 'graph',
+    headerActionsHtml:
+      '<form class="logout-form" method="post" action="/logout"><button class="fx-button" type="submit">Logout</button></form>',
+    extraStyles:
+      '.wrap { display:grid; gap:16px; } .dot { width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:5px; vertical-align:middle; } svg text { fill: #d7e6ff; font-family: "IBM Plex Mono", monospace; } svg line { stroke: rgba(129,196,255,.45); }',
+    heroHtml: `
+      <section class="page-header">
+        <div>
+          <p class="fx-eyebrow">Relationship analysis</p>
+          <h1 class="page-title">Wallet Graph</h1>
+          <p class="page-subtitle">Inspect linked wallets, cluster signals, and analyst-side summaries from the protected graph view.</p>
+        </div>
+        <div class="card" style="min-width:280px">
+          <p class="eyebrow">Current query</p>
+          <div class="big mono">${safeWallet || 'none'}</div>
+          <p>Load any wallet address to pull flow edges, inferred cluster links, and AI wallet analysis into one view.</p>
+        </div>
+      </section>
+    `,
+    contentHtml: `
+      <div class="wrap">
+        <div class="panel">
       <div class="top">
         <input id="wallet" value="${safeWallet}" placeholder="Enter wallet" />
-        <button id="load">Load Graph</button>
+        <button id="load" class="fx-button primary">Load Graph</button>
       </div>
       <div id="meta" class="meta">Loading...</div>
       <div id="analysis-summary" class="analysis-panel">Analysis loading...</div>
-    </div>
+        </div>
 
-    <div class="panel">
-      <svg id="graph" viewBox="0 0 900 430" preserveAspectRatio="xMidYMid meet"></svg>
-      <div class="legend">
-        <span><span class="dot" style="background:#007a6e"></span>Cluster Wallet</span>
-        <span><span class="dot" style="background:#b14a2c"></span>Primary Wallet</span>
-        <span><span class="dot" style="background:#7a6f63"></span>Related Wallet</span>
+        <div class="panel">
+          <svg id="graph" viewBox="0 0 900 430" preserveAspectRatio="xMidYMid meet"></svg>
+          <div class="legend">
+            <span><span class="dot" style="background:#4cffc1"></span>Cluster Wallet</span>
+            <span><span class="dot" style="background:#ff5a7a"></span>Primary Wallet</span>
+            <span><span class="dot" style="background:#7c72ff"></span>Related Wallet</span>
+          </div>
+          <div id="wallet-list" class="wallet-list"></div>
+        </div>
+
+        <div id="wallet-popup" class="wallet-popup" role="dialog" aria-modal="false" aria-label="Wallet details">
+          <div class="wallet-popup-title">Wallet Address</div>
+          <div id="wallet-popup-value" class="wallet-popup-value"></div>
+          <div class="wallet-popup-actions">
+            <button id="wallet-popup-copy" class="fx-button primary" type="button">Copy Address</button>
+            <button id="wallet-popup-analyze" class="fx-button" type="button">Analyze Wallet</button>
+            <a id="wallet-popup-solscan" class="fx-button secondary" href="#" target="_blank" rel="noopener noreferrer">Open in Solscan</a>
+            <button id="wallet-popup-close" class="fx-button" type="button">Close</button>
+          </div>
+          <div id="wallet-popup-analysis" class="wallet-popup-analysis">Analysis not loaded.</div>
+        </div>
       </div>
-      <div id="wallet-list" class="wallet-list"></div>
-    </div>
+    `,
+    scriptHtml: `<script>
 
-    <div id="wallet-popup" class="wallet-popup" role="dialog" aria-modal="false" aria-label="Wallet details">
-      <div class="wallet-popup-title">Wallet Address</div>
-      <div id="wallet-popup-value" class="wallet-popup-value"></div>
-      <div class="wallet-popup-actions">
-        <button id="wallet-popup-copy" class="primary" type="button">Copy Address</button>
-        <button id="wallet-popup-analyze" type="button">Analyze Wallet</button>
-        <a id="wallet-popup-solscan" href="#" target="_blank" rel="noopener noreferrer">Open in Solscan</a>
-        <button id="wallet-popup-close" type="button">Close</button>
-      </div>
-      <div id="wallet-popup-analysis" class="wallet-popup-analysis">Analysis not loaded.</div>
-    </div>
-  </div>
-
-  <script>
     const svg = document.getElementById('graph')
     const meta = document.getElementById('meta')
     const walletInput = document.getElementById('wallet')
@@ -570,9 +325,8 @@ function renderGraphPage(wallet: string) {
       if (e.key === 'Enter') loadGraph()
     })
     loadGraph()
-  </script>
-</body>
-</html>`
+  </script>`,
+  })
 }
 
 export function registerGraphRoutes(app: Express, deps: GraphRouteDeps) {

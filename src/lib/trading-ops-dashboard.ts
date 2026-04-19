@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { renderFuturisticPage } from './site-theme'
 import { getTradingBotBaseUrl } from './web-control-utils'
 
 type DashboardSnapshot = {
@@ -176,214 +177,31 @@ export class TradingOpsDashboard {
       )
       .join('')
 
-    return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FoilOps Trading Ops</title>
-    <style>
-      :root {
-        --bg: #0a0e27;
-        --paper: rgba(15, 20, 45, 0.7);
-        --ink: #ffffff;
-        --muted: #a0a8c0;
-        --line: rgba(255, 45, 45, 0.2);
-        --accent: #ff2d2d;
-        --accent-2: #ff2d2d;
-        --warn: #ff2d2d;
-      }
-      * { box-sizing: border-box; }
-      body {
-        margin: 0;
-        padding: 28px;
-        color: var(--ink);
-        background: linear-gradient(135deg, #0a0e27 0%, #0f1440 50%, #0a0e27 100%);
-        font-family: "Avenir Next", "Trebuchet MS", sans-serif;
-      }
-      h1, h2, h3 { margin: 0; }
-      .hero {
-        display: flex;
-        justify-content: space-between;
-        gap: 16px;
-        align-items: end;
-        margin-bottom: 24px;
-      }
-      .hero p { color: var(--muted); max-width: 720px; }
-      .actions { display: flex; gap: 10px; flex-wrap: wrap; }
-      .actions a {
-        text-decoration: none;
-        color: var(--ink);
-        background: var(--paper);
-        border: 1px solid var(--line);
-        padding: 10px 14px;
-        border-radius: 999px;
-      }
-      .actions form { margin: 0; }
-      .actions button {
-        color: var(--ink);
-        background: var(--paper);
-        border: 1px solid var(--line);
-        padding: 10px 14px;
-        border-radius: 999px;
-        font: inherit;
-        cursor: pointer;
-      }
-      .control-status {
-        margin-top: 18px;
-        padding: 14px 16px;
-        border-radius: 18px;
-        background: rgba(255, 45, 45, 0.08);
-        border: 1px solid rgba(255, 45, 45, 0.2);
-      }
-      .control-status.error {
-        background: rgba(255, 45, 45, 0.12);
-        border-color: rgba(255, 45, 45, 0.3);
-        color: #ff7070;
-      }
-      .control-grid {
-        display: grid;
-        gap: 14px;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        margin-top: 16px;
-      }
-      .control-card {
-        padding: 18px;
-        background: var(--paper);
-        border: 1px solid var(--line);
-        border-radius: 20px;
-        box-shadow: 0 16px 40px rgba(52, 37, 24, 0.08);
-      }
-      .control-card p {
-        color: var(--muted);
-        line-height: 1.6;
-      }
-      .control-form {
-        display: grid;
-        gap: 12px;
-        margin-top: 12px;
-      }
-      .control-form label {
-        display: grid;
-        gap: 6px;
-        font-size: 0.88rem;
-        color: var(--muted);
-      }
-      .control-form input,
-      .control-form select,
-      .control-form textarea {
-        width: 100%;
-        padding: 11px 12px;
-        border: 1px solid var(--line);
-        border-radius: 14px;
-        background: rgba(255,255,255,0.72);
-        font: inherit;
-        color: var(--ink);
-      }
-      .control-form textarea {
-        min-height: 92px;
-        resize: vertical;
-      }
-      .button-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-      }
-      .button-row button {
-        border: 1px solid var(--line);
-        border-radius: 999px;
-        background: rgba(255,255,255,0.7);
-        color: var(--ink);
-        padding: 10px 14px;
-        font: inherit;
-        cursor: pointer;
-      }
-      .button-row button.primary {
-        background: var(--accent-2);
-        color: #fff;
-        border-color: transparent;
-      }
-      .button-row button.danger {
-        background: var(--warn);
-        color: #fff;
-        border-color: transparent;
-      }
-      .tracked-wallet-list {
-        margin-top: 12px;
-        display: grid;
-        gap: 8px;
-      }
-      .tracked-wallet-item {
-        display: flex;
-        justify-content: space-between;
-        gap: 10px;
-        align-items: start;
-        padding: 12px 14px;
-        border: 1px solid var(--line);
-        border-radius: 16px;
-        background: rgba(255,255,255,0.62);
-      }
-      .tracked-wallet-meta {
-        min-width: 0;
-      }
-      .tracked-wallet-meta strong,
-      .tracked-wallet-meta span {
-        display: block;
-        overflow-wrap: anywhere;
-      }
-      .tracked-wallet-meta span {
-        color: var(--muted);
-        font-size: 0.88rem;
-        margin-top: 4px;
-      }
-      .tracked-wallet-item button {
-        border: 1px solid var(--line);
-        border-radius: 999px;
-        padding: 8px 12px;
-        font: inherit;
-        background: rgba(255,255,255,0.8);
-        cursor: pointer;
-      }
-      .stats, .profiles { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
-      .card, .mini-card, .table-card {
-        background: var(--paper);
-        border: 1px solid var(--line);
-        border-radius: 20px;
-        box-shadow: 0 16px 40px rgba(52, 37, 24, 0.08);
-      }
-      .card { padding: 18px; }
-      .mini-card { padding: 16px; }
-      .eyebrow { text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.74rem; color: var(--muted); }
-      .big { font-size: 2rem; margin-top: 8px; }
-      .section { margin-top: 26px; }
-      .table-card { overflow: auto; padding: 12px; }
-      table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
-      th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
-      th { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; }
-      .pill { display: inline-block; padding: 4px 10px; border-radius: 999px; background: rgba(29,107,99,0.12); color: var(--accent-2); }
-      @media (max-width: 720px) {
-        body { padding: 16px; }
-        .hero { flex-direction: column; align-items: start; }
-      }
-    </style>
-  </head>
-  <body>
-    <section class="hero">
-      <div>
-        <h1>FoilOps Trading Ops Dashboard</h1>
-        <p>Live receiver health, watchlist-driven copy-trade controls, retry queue, and execution journal. Refresh the page for updated state.</p>
-      </div>
-      <div class="actions">
-        <a href="/api/trading-ops">JSON Snapshot</a>
-        <a href="/api/trading-ops/export?format=json">Export JSON</a>
-        <a href="/api/trading-ops/export?format=csv">Export CSV</a>
-        <form method="post" action="/logout">
-          <button type="submit">Logout</button>
-        </form>
-      </div>
-    </section>
-
-    <section class="stats">
+    return renderFuturisticPage({
+      title: 'FoilOps Trading Ops',
+      activeNav: 'trading',
+      headerActionsHtml: `
+        <a class="fx-button secondary" href="/api/trading-ops">JSON Snapshot</a>
+        <a class="fx-button secondary" href="/api/trading-ops/export?format=json">Export JSON</a>
+        <a class="fx-button secondary" href="/api/trading-ops/export?format=csv">Export CSV</a>
+        <form method="post" action="/logout"><button class="fx-button" type="submit">Logout</button></form>
+      `,
+      heroHtml: `
+        <section class="hero">
+          <div>
+            <p class="fx-eyebrow">Execution control layer</p>
+            <h1>Trading Ops Command Surface</h1>
+            <p class="fx-lead">Live receiver health, watchlist-driven copy-trade controls, retry queue inspection, and execution journal review. This page is tuned for rapid state changes without losing audit visibility.</p>
+          </div>
+          <div class="card" style="min-width:280px">
+            <p class="eyebrow">Current posture</p>
+            <div class="big">${data.metrics.executionMode || data.status.executionMode || 'paper'}</div>
+            <p>Mode ${data.status.mode || 'signal_based'} | ${data.status.enabled ? 'enabled' : 'disabled'} | slippage ${slippageValue || 'n/a'}</p>
+          </div>
+        </section>
+      `,
+      contentHtml: `
+        <section class="stats">
       <article class="card"><div class="eyebrow">Execution</div><div class="big">${data.metrics.executionMode || data.status.executionMode || 'paper'}</div><p>Bot mode ${data.status.mode || 'signal_based'} | ${data.status.enabled ? 'enabled' : 'disabled'}</p></article>
       <article class="card"><div class="eyebrow">Signals</div><div class="big">${metrics.receivedTotal || 0}</div><p>${metrics.executedTotal || 0} executed, ${metrics.blockedTotal || 0} blocked, ${metrics.failedTotal || 0} failed</p></article>
       <article class="card"><div class="eyebrow">Risk Gates</div><div class="big">${safety.maxRiskScore || 'n/a'}</div><p>Min quality ${safety.minAlertQualityScore || 0} | min trace alerts ${safety.minTraceAlerts || 0}</p></article>
@@ -546,7 +364,8 @@ export class TradingOpsDashboard {
       </table>
     </section>
 
-    <script>
+      `,
+      scriptHtml: `<script>
       const controlStatus = document.getElementById('control-status')
       const trackedWalletList = document.getElementById('tracked-wallet-list')
       const trackedWalletForm = document.getElementById('tracked-wallet-form')
@@ -724,9 +543,8 @@ export class TradingOpsDashboard {
       })
 
       loadTrackedWallets()
-    </script>
-  </body>
-</html>`
+    </script>`,
+    })
   }
 
   private async fetchJson<T extends Record<string, unknown>>(path: string, fallback: T): Promise<T> {

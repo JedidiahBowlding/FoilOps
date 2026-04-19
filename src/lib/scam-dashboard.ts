@@ -1,4 +1,5 @@
 import { PrismaScamWalletRepository } from '../repositories/prisma/scam-wallet'
+import { renderFuturisticPage } from './site-theme'
 
 export class ScamDashboard {
   private scamWalletRepository: PrismaScamWalletRepository
@@ -89,212 +90,29 @@ export class ScamDashboard {
       )
       .join('')
 
-    return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FoilOps Scam Intelligence</title>
-    <style>
-      :root {
-        --bg: #0a0e27;
-        --bg-alt: #0f1440;
-        --ink: #ffffff;
-        --muted: #a0a8c0;
-        --hot: #ff2d2d;
-        --warn: #ff7070;
-        --ok: #44d27a;
-      }
-
-      * { box-sizing: border-box; }
-
-      body {
-        margin: 0;
-        padding: 24px;
-        color: var(--ink);
-        background: linear-gradient(135deg, #0a0e27 0%, #0f1440 50%, #0a0e27 100%);
-        font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
-      }
-
-      h1 {
-        margin-top: 0;
-        margin-bottom: 8px;
-        font-size: clamp(1.5rem, 3vw, 2.4rem);
-        letter-spacing: 0.03em;
-      }
-
-      .topbar {
-        display: flex;
-        justify-content: space-between;
-        gap: 14px;
-        align-items: start;
-        margin-bottom: 18px;
-      }
-
-      .topbar-copy {
-        min-width: 0;
-      }
-
-      p.lead {
-        margin-top: 0;
-        margin-bottom: 24px;
-        color: var(--muted);
-      }
-
-      .logout-form {
-        margin: 0;
-      }
-
-      .logout-button {
-        border: 1px solid rgba(255, 255, 255, 0.18);
-        background: rgba(10, 20, 40, 0.72);
-        color: var(--ink);
-        border-radius: 999px;
-        padding: 10px 14px;
-        font: inherit;
-        cursor: pointer;
-        white-space: nowrap;
-      }
-
-      .control-shell {
-        margin-bottom: 18px;
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        background: rgba(10, 20, 40, 0.72);
-        border-radius: 16px;
-        padding: 16px;
-        backdrop-filter: blur(8px);
-      }
-
-      .control-form {
-        display: grid;
-        gap: 12px;
-        grid-template-columns: minmax(0, 1fr) auto;
-        align-items: end;
-      }
-
-      .control-form label {
-        display: grid;
-        gap: 6px;
-        font-size: 0.92rem;
-        color: var(--muted);
-      }
-
-      .control-form input {
-        width: 100%;
-        border: 1px solid rgba(255, 255, 255, 0.14);
-        border-radius: 12px;
-        padding: 12px 14px;
-        background: rgba(255,255,255,0.08);
-        color: var(--ink);
-        font: inherit;
-      }
-
-      .control-form button {
-        border: 0;
-        border-radius: 999px;
-        background: linear-gradient(135deg, #0d7267, #174a7c);
-        color: #fff;
-        padding: 12px 16px;
-        font: inherit;
-        font-weight: 700;
-        cursor: pointer;
-      }
-
-      .control-status,
-      .control-result {
-        margin-top: 12px;
-        border: 1px solid rgba(255,255,255,0.12);
-        border-radius: 14px;
-        padding: 12px 14px;
-        background: rgba(255,255,255,0.06);
-        color: var(--muted);
-      }
-
-      .control-status.error {
-        color: #ffb8a6;
-        border-color: rgba(255, 93, 93, 0.28);
-      }
-
-      .control-result a {
-        color: #b6ffdb;
-      }
-
-      .grid {
-        display: grid;
-        gap: 14px;
-        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      }
-
-      .card {
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        background: rgba(10, 20, 40, 0.72);
-        border-radius: 16px;
-        padding: 16px;
-        backdrop-filter: blur(8px);
-      }
-
-      .card.flagged { border-color: rgba(255, 93, 93, 0.5); }
-      .card.unflagged { border-color: rgba(68, 210, 122, 0.4); }
-      .investigation-card { border-color: rgba(95, 177, 255, 0.45); }
-
-      .card header {
-        display: flex;
-        justify-content: space-between;
-        gap: 8px;
-        align-items: center;
-      }
-
-      .card h3 {
-        margin: 0;
-        font-size: 0.9rem;
-        word-break: break-all;
-      }
-
-      .risk {
-        font-weight: 700;
-        color: var(--warn);
-      }
-
-      ul {
-        margin: 8px 0 0;
-        padding-left: 18px;
-      }
-
-      li { margin-bottom: 6px; }
-
-      .token {
-        font-family: "IBM Plex Mono", monospace;
-        color: #b6ffdb;
-      }
-
-      .meta {
-        display: block;
-        color: var(--muted);
-        font-size: 0.85rem;
-      }
-
-      @media (max-width: 720px) {
-        .topbar {
-          flex-direction: column;
-        }
-
-        .control-form {
-          grid-template-columns: 1fr;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="topbar">
-      <div class="topbar-copy">
-        <h1>FoilOps Scam Intelligence Dashboard</h1>
-        <p class="lead">Flagged wallet histories, prior token links, and suspicious launch risk scoring.</p>
-      </div>
-      <form class="logout-form" method="post" action="/logout">
-        <button class="logout-button" type="submit">Logout</button>
-      </form>
-    </div>
-    <section class="control-shell">
+    return renderFuturisticPage({
+      title: 'FoilOps Scam Intelligence',
+      activeNav: 'scam',
+      headerActionsHtml:
+        '<form class="logout-form" method="post" action="/logout"><button class="fx-button" type="submit">Logout</button></form>',
+      heroHtml: `
+        <section class="topbar">
+          <div class="topbar-copy">
+            <p class="fx-eyebrow">Investigation and persistence layer</p>
+            <h1>Scam Intelligence Dashboard</h1>
+            <p class="fx-lead">Flagged wallet histories, suspicious launch correlation, developer-wallet investigations, and reusable fund-flow context for repeated scam patterns.</p>
+          </div>
+          <div class="card" style="min-width:280px">
+            <p class="eyebrow">Coverage</p>
+            <div class="big">${wallets.length}</div>
+            <p>Flagged or monitored wallet records with ${tokenInvestigations.length} stored token investigations.</p>
+          </div>
+        </section>
+      `,
+      extraStyles:
+        '.control-form { grid-template-columns:minmax(0,1fr) auto; align-items:end; } .card.flagged { border-color: rgba(255,90,122,.36); } .card.unflagged { border-color: rgba(76,255,193,.2); } .investigation-card { border-color: rgba(103,240,255,.26); } @media (max-width: 720px) { .control-form { grid-template-columns:1fr; } }',
+      contentHtml: `
+        <section class="control-shell">
       <h2>Start Token Investigation</h2>
       <p class="lead">Enter a token mint to identify the likely developer wallet, trace related funds, persist the investigation, and refresh scam monitoring from the website.</p>
       <form id="token-investigation-form" class="control-form">
@@ -306,11 +124,15 @@ export class ScamDashboard {
       <div id="token-investigation-status" class="control-status">Use this form to run the same investigation workflow exposed through the API and Telegram admin tooling.</div>
       <div id="token-investigation-result" class="control-result">Results will appear here after a successful investigation.</div>
     </section>
-    <section class="grid">${cards || '<p>No scam-intelligence records available yet.</p>'}</section>
-    <h1>Token Investigations</h1>
-    <p class="lead">Developer-wallet investigations started from token contract input, with related token history.</p>
-    <section class="grid">${tokenInvestigationCards || '<p>No token investigations recorded yet.</p>'}</section>
-    <script>
+        <section class="grid">${cards || '<article class="card"><p>No scam-intelligence records available yet.</p></article>'}</section>
+        <section class="panel">
+          <p class="fx-eyebrow">Resolved investigations</p>
+          <h2>Developer-wallet investigations from token input</h2>
+          <p class="lead">These records capture developer resolution source, related token history, and the operator time the investigation was persisted.</p>
+        </section>
+        <section class="grid">${tokenInvestigationCards || '<article class="card"><p>No token investigations recorded yet.</p></article>'}</section>
+      `,
+      scriptHtml: `<script>
       const tokenInvestigationForm = document.getElementById('token-investigation-form')
       const tokenInvestigationStatus = document.getElementById('token-investigation-status')
       const tokenInvestigationResult = document.getElementById('token-investigation-result')
@@ -358,8 +180,7 @@ export class ScamDashboard {
           tokenInvestigationResult.textContent = 'Investigation failed.'
         }
       })
-    </script>
-  </body>
-</html>`
+    </script>`,
+    })
   }
 }
