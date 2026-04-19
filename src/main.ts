@@ -220,10 +220,21 @@ class Main {
       try {
         const adminUserId = this.getDashboardAdminUserId()
         const userWallets = (await this.prismaWalletRepository.getUserWallets(adminUserId)) || []
-        const wallets = userWallets
-          .map((userWallet) => {
+        const wallets = await Promise.all(
+          userWallets.map(async (userWallet) => {
             const storedAddress = userWallet.wallet.address
             const parsed = fromStoredWalletAddress(storedAddress)
+            const scamWallet =
+              parsed.chain === 'solana' ? await this.scamWalletRepository.getScamWalletByAddress(parsed.address) : null
+            const rapidDumper = this.isRapidDumperPattern(scamWallet?.reason, scamWallet?.events)
+            const isFlagged = scamWallet?.isFlagged === true
+            const doNotTrack = isFlagged && rapidDumper
+            const badges = this.buildTrackedWalletBadges({
+              status: userWallet.status,
+              isFlagged,
+              rapidDumper,
+              doNotTrack,
+            })
 
             return {
               walletId: userWallet.walletId,
@@ -233,11 +244,15 @@ class Main {
               address: parsed.address,
               name: userWallet.name || '',
               status: userWallet.status,
+              badges,
+              doNotTrack,
+              scamReason: scamWallet?.reason || null,
             }
-          })
-          .sort((left, right) => left.displayAddress.localeCompare(right.displayAddress))
+          }),
+        )
+        const sortedWallets = wallets.sort((left, right) => left.displayAddress.localeCompare(right.displayAddress))
 
-        res.status(200).json({ wallets })
+        res.status(200).json({ wallets: sortedWallets })
       } catch (error) {
         console.error('Tracked wallets API error', error)
         res.status(500).json({ message: 'Failed to load tracked wallets' })
@@ -268,14 +283,33 @@ class Main {
             return
           }
 
-          const createdWallet = await this.prismaWalletRepository.create(adminUserId, storedWalletAddress, walletName)
+          const scamWallet =
+            parsedWallet.chain === 'solana'
+              ? await this.scamWalletRepository.getScamWalletByAddress(parsedWallet.address)
+              : null
+          const shouldDoNotTrack =
+            scamWallet?.isFlagged === true && this.isRapidDumperPattern(scamWallet?.reason, scamWallet?.events)
+          const initialStatus = shouldDoNotTrack ? 'BANNED' : 'ACTIVE'
+
+          const createdWallet = await this.prismaWalletRepository.create(
+            adminUserId,
+            storedWalletAddress,
+            walletName,
+            initialStatus,
+          )
           if (!createdWallet?.id) {
             res.status(500).json({ message: 'Wallet could not be added.' })
             return
           }
 
           await this.trackWallets.setupWalletWatcher({ event: 'create', walletId: createdWallet.id })
-          res.status(200).json({ message: `Wallet ${walletInput} has been added.` })
+          res.status(200).json({
+            message: shouldDoNotTrack
+              ? `Wallet ${walletInput} has been stored as DO_NOT_TRACK (flagged rapid-dumper pattern).`
+              : `Wallet ${walletInput} has been added.`,
+            doNotTrack: shouldDoNotTrack,
+            status: initialStatus,
+          })
           return
         }
 
@@ -458,6 +492,45 @@ class Main {
 
     const parsed = Number(normalized)
     return Number.isFinite(parsed) ? parsed : undefined
+  }
+
+  private isRapidDumperPattern(
+    reason?: string | null,
+    events?: Array<{ details?: string | null; eventType?: string | null }>,
+  ): boolean {
+    const signal = /rapid[-\s]?dumper|aggressive[-\s]?dumper|rapid\s+dump/i
+    if (reason && signal.test(reason)) {
+      return true
+    }
+
+    return (events || []).some((event) => {
+      if (event.details && signal.test(event.details)) {
+        return true
+      }
+
+      return typeof event.eventType === 'string' && /dump/i.test(event.eventType)
+    })
+  }
+
+  private buildTrackedWalletBadges(input: {
+    status: string
+    isFlagged: boolean
+    rapidDumper: boolean
+    doNotTrack: boolean
+  }): string[] {
+    const badges = [input.status]
+
+    if (input.isFlagged) {
+      badges.push('FLAGGED')
+    }
+    if (input.rapidDumper) {
+      badges.push('RAPID_DUMPER')
+    }
+    if (input.doNotTrack) {
+      badges.push('DO_NOT_TRACK')
+    }
+
+    return badges
   }
 
   private startServer(): void {

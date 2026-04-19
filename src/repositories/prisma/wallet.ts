@@ -5,7 +5,7 @@ import { WalletWithUsers } from '../../types/swap-types'
 export class PrismaWalletRepository {
   constructor() {}
 
-  public async create(userId: string, walletAddress: string, walletName?: string) {
+  public async create(userId: string, walletAddress: string, walletName?: string, status: WalletStatus = 'ACTIVE') {
     try {
       const existingWallet = await prisma.wallet.findFirst({
         where: {
@@ -35,6 +35,7 @@ export class PrismaWalletRepository {
               walletId: existingWallet.id,
               name: walletName ? walletName : '',
               address: walletAddress,
+              status,
             },
           })
 
@@ -61,6 +62,7 @@ export class PrismaWalletRepository {
           walletId: newWallet.id,
           name: walletName ? walletName : '',
           address: walletAddress,
+          status,
         },
       })
 

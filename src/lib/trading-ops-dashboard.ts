@@ -117,14 +117,7 @@ export class TradingOpsDashboard {
       .slice(0, 18)
       .map((wallet) => {
         const profile = sourceProfiles[String(wallet)] || {}
-        return `
-          <article class="mini-card">
-            <h3>${wallet}</h3>
-            <p><strong>Preset:</strong> ${profile.preset || 'none'}</p>
-            <p><strong>Enabled:</strong> ${profile.enabled === false ? 'no' : 'yes'}</p>
-            <p><strong>Actions:</strong> ${Array.isArray(profile.allowedActions) ? profile.allowedActions.join(', ') : 'default'}</p>
-          </article>
-        `
+        return this.renderSourceWalletProfileCard(String(wallet), profile)
       })
       .join('')
 
@@ -409,13 +402,39 @@ export class TradingOpsDashboard {
           return
         }
 
+        const escapeHtml = (value) => String(value || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/\"/g, '&quot;')
+          .replace(/'/g, '&#39;')
+
+        const badgeTone = (badge) => {
+          const key = String(badge || '').toUpperCase()
+          if (key === 'DO_NOT_TRACK' || key === 'BANNED' || key === 'RAPID_DUMPER' || key === 'FLAGGED') {
+            return 'risk'
+          }
+          return 'badge'
+        }
+
         trackedWalletList.innerHTML = wallets.map((wallet) => {
+          const badges = Array.isArray(wallet.badges) ? wallet.badges : [wallet.status]
+          const badgeHtml = badges
+            .map((badge) => '<span class="' + badgeTone(badge) + '">' + escapeHtml(String(badge).replace(/_/g, ' ')) + '</span>')
+            .join(' ')
+
+          const warning = wallet.doNotTrack
+            ? '<span class="risk">Do not track: flagged rapid-dumper pattern</span>'
+            : ''
+
           return '<div class="tracked-wallet-item">'
             + '<div class="tracked-wallet-meta">'
-            + '<strong>' + wallet.displayAddress + '</strong>'
-            + '<span>' + (wallet.name || 'No label') + ' | ' + wallet.chain + ' | ' + wallet.status + '</span>'
+            + '<strong>' + escapeHtml(wallet.displayAddress) + '</strong>'
+            + '<span>' + escapeHtml(wallet.name || 'No label') + ' | ' + escapeHtml(wallet.chain) + '</span>'
+            + '<div>' + badgeHtml + '</div>'
+            + (warning ? '<div style="margin-top:6px">' + warning + '</div>' : '')
             + '</div>'
-            + '<button type="button" data-remove-wallet="' + wallet.displayAddress + '">Remove</button>'
+            + '<button type="button" data-remove-wallet="' + escapeHtml(wallet.displayAddress) + '">Remove</button>'
             + '</div>'
         }).join('')
       }
@@ -554,6 +573,74 @@ export class TradingOpsDashboard {
     } catch (error) {
       return fallback
     }
+  }
+
+  private renderSourceWalletProfileCard(wallet: string, profile: Record<string, unknown>): string {
+    const earlyEntries = this.pickNumber(profile, [
+      'earlyEntries',
+      'early_entries',
+      'earlyEntryCount',
+      'early_entry_count',
+      'earlyEntryHits',
+    ])
+    const totalSignals = this.pickNumber(profile, ['totalSignals', 'total_signals', 'signalsSeen', 'signal_count'])
+    const wins = this.pickNumber(profile, ['wins', 'winCount', 'win_count'])
+    const winRateRaw = this.pickNumber(profile, ['winRate', 'win_rate', 'successRate', 'success_rate'])
+    const avgRisk = this.pickNumber(profile, ['avgRiskScore', 'avg_risk_score', 'averageRiskScore'])
+    const rapidDumps = this.pickNumber(profile, ['rapidDumps', 'rapid_dump_count', 'rapidDumperEvents'])
+
+    const winRate = winRateRaw == null ? null : winRateRaw <= 1 ? Math.round(winRateRaw * 100) : Math.round(winRateRaw)
+    const actions = Array.isArray(profile.allowedActions)
+      ? profile.allowedActions.map((a) => this.escapeHtml(String(a))).join(', ')
+      : 'default'
+
+    return `
+      <article class="mini-card">
+        <h3>${this.escapeHtml(wallet)}</h3>
+        <p><strong>Preset:</strong> ${this.escapeHtml(profile.preset || 'none')}</p>
+        <p><strong>Enabled:</strong> ${profile.enabled === false ? 'no' : 'yes'}</p>
+        <p><strong>Actions:</strong> ${actions}</p>
+        <div class="micro-grid" style="margin-top:10px">
+          ${this.renderScoreCard('Early Entries', earlyEntries)}
+          ${this.renderScoreCard('Signals', totalSignals)}
+          ${this.renderScoreCard('Wins', wins)}
+          ${this.renderScoreCard('Win Rate', winRate, '%')}
+          ${this.renderScoreCard('Avg Risk', avgRisk)}
+          ${this.renderScoreCard('Rapid Dumps', rapidDumps)}
+        </div>
+      </article>
+    `
+  }
+
+  private renderScoreCard(label: string, value: number | null, suffix = ''): string {
+    const display = value == null ? 'n/a' : `${value}${suffix}`
+    return `<div class="card"><p class="eyebrow">${label}</p><p><strong>${display}</strong></p></div>`
+  }
+
+  private pickNumber(source: Record<string, unknown>, keys: string[]): number | null {
+    for (const key of keys) {
+      const value = source[key]
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        return value
+      }
+      if (typeof value === 'string') {
+        const parsed = Number(value)
+        if (Number.isFinite(parsed)) {
+          return parsed
+        }
+      }
+    }
+
+    return null
+  }
+
+  private escapeHtml(value: unknown): string {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\"/g, '&quot;')
+      .replace(/'/g, '&#39;')
   }
 
   private csv(value: unknown): string {
