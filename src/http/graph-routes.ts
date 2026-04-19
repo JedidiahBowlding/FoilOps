@@ -1,5 +1,9 @@
 import type { Express, Request, RequestHandler, Response } from 'express'
+import { PublicKey } from '@solana/web3.js'
 import { renderFuturisticPage } from '../lib/site-theme'
+import { RpcConnectionManager } from '../providers/solana'
+
+const SPL_TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
 
 type FlowStep = {
   from: string
@@ -83,6 +87,10 @@ function renderGraphPage(wallet: string) {
       </div>
       <div id="meta" class="meta">Loading...</div>
       <div id="analysis-summary" class="analysis-panel">Analysis loading...</div>
+      <div id="token-holdings-section" style="display:none">
+        <p class="eyebrow" style="margin-top:18px">Token Holdings</p>
+        <div id="token-holdings-list" class="meta">Loading tokens...</div>
+      </div>
         </div>
 
         <div class="panel">
@@ -116,6 +124,8 @@ function renderGraphPage(wallet: string) {
     const button = document.getElementById('load')
     const walletList = document.getElementById('wallet-list')
     const analysisSummary = document.getElementById('analysis-summary')
+    const tokenHoldingsSection = document.getElementById('token-holdings-section')
+    const tokenHoldingsList = document.getElementById('token-holdings-list')
     const followedWallets = document.getElementById('followed-wallets')
     const walletPopup = document.getElementById('wallet-popup')
     const walletPopupValue = document.getElementById('wallet-popup-value')
@@ -139,6 +149,45 @@ function renderGraphPage(wallet: string) {
     function setCurrentQuery(wallet) {
       if (!graphCurrentQuery) return
       graphCurrentQuery.textContent = wallet ? wallet : 'none'
+    }
+
+    function formatTokenAmount(amount, decimals) {
+      if (amount === 0) return '0'
+      if (amount < 0.0001) return '<0.0001'
+      if (amount >= 1e9) return (amount / 1e9).toFixed(2) + 'B'
+      if (amount >= 1e6) return (amount / 1e6).toFixed(2) + 'M'
+      if (amount >= 1e3) return (amount / 1e3).toFixed(2) + 'K'
+      return amount.toFixed(decimals > 4 ? 4 : decimals)
+    }
+
+    async function loadTokenHoldings(wallet) {
+      if (!tokenHoldingsSection || !tokenHoldingsList) return
+      tokenHoldingsSection.style.display = 'block'
+      tokenHoldingsList.textContent = 'Loading tokens...'
+      try {
+        const res = await fetch('/api/graph/tokens/' + encodeURIComponent(wallet))
+        if (!res.ok) {
+          tokenHoldingsList.textContent = 'Could not load token holdings.'
+          return
+        }
+        const data = await res.json()
+        const tokens = Array.isArray(data.tokens) ? data.tokens : []
+        if (tokens.length === 0) {
+          tokenHoldingsList.innerHTML = '<span style="color:#8ba4c0">No SPL token balances found.</span>'
+          return
+        }
+        const rows = tokens.map(t => {
+          const mintShort = t.mint ? t.mint.slice(0, 6) + '..' + t.mint.slice(-4) : '?'
+          const link = 'https://solscan.io/token/' + encodeURIComponent(t.mint || '')
+          return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(100,140,180,0.1)">'
+            + '<a href="' + link + '" target="_blank" rel="noopener noreferrer" class="mono" style="color:#81c4ff;font-size:0.82rem;text-decoration:none">' + mintShort + '</a>'
+            + '<span class="mono" style="font-size:0.82rem;color:#d7e6ff">' + formatTokenAmount(t.amount, t.decimals) + '</span>'
+            + '</div>'
+        }).join('')
+        tokenHoldingsList.innerHTML = rows
+      } catch {
+        tokenHoldingsList.textContent = 'Token fetch failed.'
+      }
     }
 
     function clearSvg() {
@@ -427,6 +476,7 @@ function renderGraphPage(wallet: string) {
       renderWalletList(data)
       analysisSummary.textContent = 'Analysis loading...'
       loadWalletAnalysis(wallet, analysisSummary)
+      loadTokenHoldings(wallet)
       history.replaceState({}, '', '/graph/' + encodeURIComponent(wallet))
     }
 
@@ -521,6 +571,34 @@ export function registerGraphRoutes(app: Express, deps: GraphRouteDeps) {
     } catch (error) {
       console.error('Graph API error', error)
       res.status(500).json({ message: 'Failed to build graph data' })
+    }
+  })
+
+  app.get('/api/graph/tokens/:wallet', apiAuthMiddleware, async (req: Request, res: Response) => {
+    try {
+      const wallet = req.params.wallet
+      if (!wallet || wallet.length < 32) {
+        res.status(400).json({ message: 'Invalid wallet address' })
+        return
+      }
+      const connection = RpcConnectionManager.getRandomConnection()
+      const pubkey = new PublicKey(wallet)
+      const tokenAccounts = await connection.getParsedTokenAccountsByOwner(pubkey, { programId: SPL_TOKEN_PROGRAM_ID })
+      const tokens = tokenAccounts.value
+        .map((account) => {
+          const info = (account.account.data as { parsed?: { info?: { mint?: string; tokenAmount?: { uiAmount?: number; decimals?: number } } } }).parsed?.info
+          if (!info) return null
+          const amount = info.tokenAmount?.uiAmount ?? 0
+          const decimals = info.tokenAmount?.decimals ?? 0
+          return { mint: info.mint, amount, decimals }
+        })
+        .filter((t): t is { mint: string | undefined; amount: number; decimals: number } => t !== null && t.amount > 0)
+        .sort((a, b) => b.amount - a.amount)
+        .slice(0, 50)
+      res.status(200).json({ wallet, tokens })
+    } catch (error) {
+      console.error('Token holdings error', error)
+      res.status(500).json({ message: 'Failed to fetch token accounts' })
     }
   })
 
