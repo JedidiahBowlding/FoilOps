@@ -245,6 +245,7 @@ export class TradingOpsDashboard {
         <div class="card"><p class="eyebrow">Signal Throughput</p><canvas id="chart-throughput" height="160"></canvas></div>
         <div class="card"><p class="eyebrow">Execution Outcomes</p><canvas id="chart-outcomes" height="160"></canvas></div>
         <div class="card"><p class="eyebrow">Risk + Queue</p><canvas id="chart-risk" height="160"></canvas></div>
+        <div class="card"><p class="eyebrow">Attribution Baselines</p><canvas id="chart-attribution" height="160"></canvas></div>
       </div>
     </section>
 
@@ -568,6 +569,11 @@ export class TradingOpsDashboard {
             { key: 'maxRiskScore', color: '#7c72ff' },
             { key: 'deadLetterCount', color: '#67f0ff' },
             { key: 'watchlistSize', color: '#4cffc1' },
+          ])
+          drawLineChart('chart-attribution', snapshots, [
+            { key: 'trackedWalletCount', color: '#67f0ff' },
+            { key: 'avgWalletWinRate', color: '#4cffc1' },
+            { key: 'avgWalletPnl', color: '#ffbc68' },
           ])
         } catch (error) {
           if (trendStatus) {

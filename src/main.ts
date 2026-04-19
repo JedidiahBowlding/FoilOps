@@ -161,7 +161,7 @@ class Main {
     this.app.get('/dashboard/trading-ops', this.dashboardAuth.requirePageAuth, async (req, res) => {
       try {
         const data = await this.tradingOpsDashboard.getDashboardData()
-        this.captureTradingAnalyticsSnapshot(data)
+        await this.captureTradingAnalyticsSnapshot(data)
         const dashboard = await this.tradingOpsDashboard.renderHtmlDashboard(data)
         res.setHeader('Content-Type', 'text/html; charset=utf-8')
         res.status(200).send(dashboard)
@@ -174,7 +174,7 @@ class Main {
     this.app.get('/api/trading-ops', this.dashboardAuth.requireApiAuth, async (req, res) => {
       try {
         const data = await this.tradingOpsDashboard.getDashboardData()
-        this.captureTradingAnalyticsSnapshot(data)
+        await this.captureTradingAnalyticsSnapshot(data)
         res.status(200).json(data)
       } catch (error) {
         console.error('Trading ops API error', error)
@@ -197,11 +197,62 @@ class Main {
     this.app.post('/api/analytics/snapshot', this.dashboardAuth.requireApiAuth, async (_req, res) => {
       try {
         const data = await this.tradingOpsDashboard.getDashboardData()
-        const result = this.captureTradingAnalyticsSnapshot(data, 0)
+        const result = await this.captureTradingAnalyticsSnapshot(data, 0)
         res.status(200).json({ message: 'Analytics snapshot captured', result })
       } catch (error) {
         console.error('Trading analytics snapshot API error', error)
         res.status(500).json({ message: 'Failed to capture trading analytics snapshot' })
+      }
+    })
+
+    this.app.get('/api/graph/followed-wallets', this.dashboardAuth.requireApiAuth, async (_req, res) => {
+      try {
+        const followed = new Map<string, { wallet: string; sources: string[] }>()
+
+        try {
+          const adminUserId = this.getDashboardAdminUserId()
+          const tracked = (await this.prismaWalletRepository.getUserWallets(adminUserId)) || []
+          for (const row of tracked) {
+            const parsed = fromStoredWalletAddress(row.wallet.address)
+            if (parsed.chain !== 'solana') {
+              continue
+            }
+            const existing = followed.get(parsed.address)
+            if (existing) {
+              if (!existing.sources.includes('tracked')) {
+                existing.sources.push('tracked')
+              }
+            } else {
+              followed.set(parsed.address, { wallet: parsed.address, sources: ['tracked'] })
+            }
+          }
+        } catch {
+          // If ADMIN_CHAT_ID is not configured, keep this endpoint usable via source-wallet fallback.
+        }
+
+        const sourceResponse = await axios.get(`${this.tradingBotUrl}/trading/source-wallets`).catch(() => null)
+        const sourcePayload = (sourceResponse?.data || {}) as Record<string, unknown>
+        const watchlist = Array.isArray(sourcePayload.watchlist) ? sourcePayload.watchlist : []
+        for (const item of watchlist) {
+          const wallet = typeof item === 'string' ? item.trim() : ''
+          if (!wallet) {
+            continue
+          }
+          const existing = followed.get(wallet)
+          if (existing) {
+            if (!existing.sources.includes('source')) {
+              existing.sources.push('source')
+            }
+          } else {
+            followed.set(wallet, { wallet, sources: ['source'] })
+          }
+        }
+
+        const wallets = Array.from(followed.values()).sort((left, right) => left.wallet.localeCompare(right.wallet))
+        res.status(200).json({ wallets })
+      } catch (error) {
+        console.error('Followed wallets API error', error)
+        res.status(500).json({ message: 'Failed to load followed wallets' })
       }
     })
 
@@ -565,12 +616,16 @@ class Main {
     return Number.isFinite(parsed) ? parsed : undefined
   }
 
-  private captureTradingAnalyticsSnapshot(data: Record<string, unknown>, minIntervalMinutes = 10) {
+  private async captureTradingAnalyticsSnapshot(data: Record<string, unknown>, minIntervalMinutes = 10) {
     const metrics = (data.metrics as Record<string, unknown>) || {}
     const metricValues = (metrics.metrics as Record<string, unknown>) || {}
     const safety = (data.safety as Record<string, unknown>) || {}
     const sources = (data.sources as Record<string, unknown>) || {}
     const watchlist = Array.isArray(sources.watchlist) ? sources.watchlist : []
+    const journal = Array.isArray(data.journal) ? (data.journal as Array<Record<string, unknown>>) : []
+    const decisions = Array.isArray(data.decisions) ? (data.decisions as Array<Record<string, unknown>>) : []
+    const attributionMetrics = this.buildAttributionSnapshotMetrics(journal, decisions)
+    const trackedWalletCount = await this.getTrackedWalletCount()
 
     const toNumber = (value: unknown): number => {
       if (typeof value === 'number' && Number.isFinite(value)) return value
@@ -596,12 +651,104 @@ class Main {
       blockedTotal: toNumber(metricValues.blockedTotal),
       failedTotal: toNumber(metricValues.failedTotal),
       watchlistSize: watchlist.length,
-      trackedWalletCount: null,
-      avgWalletWinRate: null,
-      avgWalletPnl: null,
+      trackedWalletCount,
+      avgWalletWinRate: attributionMetrics.avgWalletWinRate,
+      avgWalletPnl: attributionMetrics.avgWalletPnl,
     }
 
     return this.tradingAnalyticsStore.appendSnapshot(snapshot, minIntervalMinutes)
+  }
+
+  private async getTrackedWalletCount(): Promise<number | null> {
+    try {
+      const adminUserId = this.getDashboardAdminUserId()
+      const wallets = await this.prismaWalletRepository.getUserWallets(adminUserId)
+      return Array.isArray(wallets) ? wallets.length : 0
+    } catch {
+      return null
+    }
+  }
+
+  private buildAttributionSnapshotMetrics(
+    journal: Array<Record<string, unknown>>,
+    decisions: Array<Record<string, unknown>>,
+  ): { avgWalletWinRate: number | null; avgWalletPnl: number | null } {
+    const perWallet = new Map<string, { trades: number; wins: number; realizedPnl: number; rapidDumpCount: number }>()
+
+    const ensure = (wallet: string) => {
+      const existing = perWallet.get(wallet)
+      if (existing) {
+        return existing
+      }
+      const next = { trades: 0, wins: 0, realizedPnl: 0, rapidDumpCount: 0 }
+      perWallet.set(wallet, next)
+      return next
+    }
+
+    const toNumberOrNull = (value: unknown): number | null => {
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        return value
+      }
+      if (typeof value === 'string') {
+        const parsed = Number(value)
+        return Number.isFinite(parsed) ? parsed : null
+      }
+      return null
+    }
+
+    for (const row of journal) {
+      const wallet = String(row.sourceWallet || '').trim()
+      if (!wallet) {
+        continue
+      }
+
+      const target = ensure(wallet)
+      target.trades += 1
+      const pnl = toNumberOrNull(row.pnlPct) ?? toNumberOrNull(row.gainLossPct)
+      if (pnl != null) {
+        target.realizedPnl += pnl
+        if (pnl > 0) {
+          target.wins += 1
+        }
+      }
+
+      const reason = String(row.reason || '').toLowerCase()
+      if (/rapid[-\s]?dump|aggressive[-\s]?dump/.test(reason)) {
+        target.rapidDumpCount += 1
+      }
+    }
+
+    for (const row of decisions) {
+      const wallet = String(row.sourceWallet || '').trim()
+      if (!wallet) {
+        continue
+      }
+
+      const target = ensure(wallet)
+      const safetyReasons = Array.isArray(row.safetyReasons)
+        ? row.safetyReasons.map((reason) => String(reason).toLowerCase())
+        : []
+      if (safetyReasons.some((reason) => reason.includes('rapid') && reason.includes('dump'))) {
+        target.rapidDumpCount += 1
+      }
+    }
+
+    const withTrades = Array.from(perWallet.values()).filter((row) => row.trades > 0)
+    if (withTrades.length === 0) {
+      return { avgWalletWinRate: null, avgWalletPnl: null }
+    }
+
+    const avgWalletWinRate = Math.round(
+      withTrades.reduce((sum, row) => sum + (row.wins / row.trades) * 100, 0) / withTrades.length,
+    )
+    const avgWalletPnl = Number(
+      (withTrades.reduce((sum, row) => sum + row.realizedPnl, 0) / withTrades.length).toFixed(2),
+    )
+
+    return {
+      avgWalletWinRate,
+      avgWalletPnl,
+    }
   }
 
   private isRapidDumperPattern(

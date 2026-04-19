@@ -69,6 +69,7 @@ function renderGraphPage(wallet: string) {
         <input id="wallet" value="${safeWallet}" placeholder="Enter wallet" />
         <button id="load" class="fx-button primary">Load Graph</button>
       </div>
+      <div id="followed-wallets" class="wallet-list"></div>
       <div id="meta" class="meta">Loading...</div>
       <div id="analysis-summary" class="analysis-panel">Analysis loading...</div>
         </div>
@@ -104,6 +105,7 @@ function renderGraphPage(wallet: string) {
     const button = document.getElementById('load')
     const walletList = document.getElementById('wallet-list')
     const analysisSummary = document.getElementById('analysis-summary')
+    const followedWallets = document.getElementById('followed-wallets')
     const walletPopup = document.getElementById('wallet-popup')
     const walletPopupValue = document.getElementById('wallet-popup-value')
     const walletPopupCopy = document.getElementById('wallet-popup-copy')
@@ -187,6 +189,50 @@ function renderGraphPage(wallet: string) {
         chip.addEventListener('click', () => openWalletPopup(node.label))
         walletList.appendChild(chip)
       })
+    }
+
+    function renderFollowedWallets(wallets) {
+      if (!followedWallets) return
+      followedWallets.innerHTML = ''
+
+      if (!Array.isArray(wallets) || wallets.length === 0) {
+        const empty = document.createElement('div')
+        empty.className = 'meta'
+        empty.textContent = 'No followed wallets available yet. Add tracked/source wallets to auto-populate this graph view.'
+        followedWallets.appendChild(empty)
+        return
+      }
+
+      wallets.slice(0, 30).forEach((entry) => {
+        const wallet = (entry && entry.wallet) ? String(entry.wallet) : ''
+        if (!wallet) return
+        const sources = Array.isArray(entry.sources) ? entry.sources.join(' + ') : 'followed'
+        const chip = document.createElement('button')
+        chip.className = 'wallet-chip'
+        chip.type = 'button'
+        chip.title = 'Load graph for ' + wallet
+        chip.textContent = short(wallet) + ' [' + sources + ']'
+        chip.addEventListener('click', () => {
+          walletInput.value = wallet
+          loadGraph()
+        })
+        followedWallets.appendChild(chip)
+      })
+    }
+
+    async function loadFollowedWallets() {
+      try {
+        const response = await fetch('/api/graph/followed-wallets')
+        if (!response.ok) {
+          return []
+        }
+        const payload = await response.json()
+        const wallets = Array.isArray(payload.wallets) ? payload.wallets : []
+        renderFollowedWallets(wallets)
+        return wallets
+      } catch {
+        return []
+      }
     }
 
     function mk(tag, attrs = {}) {
@@ -324,7 +370,13 @@ function renderGraphPage(wallet: string) {
     walletInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') loadGraph()
     })
-    loadGraph()
+    ;(async function bootstrap() {
+      const followed = await loadFollowedWallets()
+      if (!walletInput.value.trim() && followed.length > 0 && followed[0] && followed[0].wallet) {
+        walletInput.value = String(followed[0].wallet)
+      }
+      loadGraph()
+    })()
   </script>`,
   })
 }
