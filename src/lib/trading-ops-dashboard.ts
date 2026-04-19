@@ -96,8 +96,8 @@ export class TradingOpsDashboard {
     return { contentType: 'application/json; charset=utf-8', body: JSON.stringify(data, null, 2) }
   }
 
-  async renderHtmlDashboard(): Promise<string> {
-    const data = await this.getDashboardData()
+  async renderHtmlDashboard(preloadedData?: DashboardSnapshot): Promise<string> {
+    const data = preloadedData || (await this.getDashboardData())
     const metrics = (data.metrics.metrics as Record<string, number | string | undefined>) || {}
     const config = data.config
     const safety = data.safety
@@ -224,6 +224,28 @@ export class TradingOpsDashboard {
       <article class="card"><div class="eyebrow">Signals</div><div class="big">${metrics.receivedTotal || 0}</div><p>${metrics.executedTotal || 0} executed, ${metrics.blockedTotal || 0} blocked, ${metrics.failedTotal || 0} failed</p></article>
       <article class="card"><div class="eyebrow">Risk Gates</div><div class="big">${safety.maxRiskScore || 'n/a'}</div><p>Min quality ${safety.minAlertQualityScore || 0} | min trace alerts ${safety.minTraceAlerts || 0}</p></article>
       <article class="card"><div class="eyebrow">Queue</div><div class="big">${data.metrics.deadLetterCount || 0}</div><p>${metrics.retriedTotal || 0} retry attempts recorded</p></article>
+    </section>
+
+    <section class="section table-card" id="trend-charts">
+      <h2>Durable Trend Charts</h2>
+      <p class="eyebrow">Persisted analytics history from snapshots. Use this to spot velocity and regime changes.</p>
+      <div class="micro-grid">
+        <label>Range (hours)
+          <select id="trend-range">
+            <option value="24">24h</option>
+            <option value="72">72h</option>
+            <option value="168" selected>7d</option>
+            <option value="336">14d</option>
+            <option value="720">30d</option>
+          </select>
+        </label>
+        <div class="notice" id="trend-status">Loading persisted trend snapshots...</div>
+      </div>
+      <div class="micro-grid" style="margin-top: 10px;">
+        <div class="card"><p class="eyebrow">Signal Throughput</p><canvas id="chart-throughput" height="160"></canvas></div>
+        <div class="card"><p class="eyebrow">Execution Outcomes</p><canvas id="chart-outcomes" height="160"></canvas></div>
+        <div class="card"><p class="eyebrow">Risk + Queue</p><canvas id="chart-risk" height="160"></canvas></div>
+      </div>
     </section>
 
     <section class="section">
@@ -451,6 +473,8 @@ export class TradingOpsDashboard {
       const trackedWalletForm = document.getElementById('tracked-wallet-form')
       const sourceWalletForm = document.getElementById('source-wallet-form')
       const tradingSettingsForm = document.getElementById('trading-settings-form')
+      const trendRange = document.getElementById('trend-range')
+      const trendStatus = document.getElementById('trend-status')
 
       function setControlStatus(message, tone) {
         controlStatus.textContent = message
@@ -471,6 +495,86 @@ export class TradingOpsDashboard {
         }
 
         return payload
+      }
+
+      function drawLineChart(canvasId, series, lines) {
+        const canvas = document.getElementById(canvasId)
+        if (!(canvas instanceof HTMLCanvasElement)) return
+        const ctx = canvas.getContext('2d')
+        if (!ctx) return
+
+        const width = canvas.width = canvas.clientWidth || 560
+        const height = canvas.height = canvas.height || 160
+        ctx.clearRect(0, 0, width, height)
+
+        if (!Array.isArray(series) || series.length < 2) {
+          ctx.fillStyle = 'rgba(145,165,210,0.8)'
+          ctx.fillText('Not enough snapshots yet.', 14, 20)
+          return
+        }
+
+        const allValues = lines.flatMap((line) => series.map((point) => Number(point[line.key] || 0)))
+        const min = Math.min(...allValues)
+        const max = Math.max(...allValues)
+        const span = Math.max(1, max - min)
+
+        const px = (index) => 12 + (index / Math.max(1, series.length - 1)) * (width - 24)
+        const py = (value) => height - 12 - ((value - min) / span) * (height - 24)
+
+        ctx.strokeStyle = 'rgba(129,196,255,0.15)'
+        ctx.lineWidth = 1
+        for (let i = 0; i < 4; i++) {
+          const y = 12 + i * ((height - 24) / 3)
+          ctx.beginPath()
+          ctx.moveTo(10, y)
+          ctx.lineTo(width - 10, y)
+          ctx.stroke()
+        }
+
+        lines.forEach((line) => {
+          ctx.strokeStyle = line.color
+          ctx.lineWidth = 2
+          ctx.beginPath()
+          series.forEach((point, index) => {
+            const x = px(index)
+            const y = py(Number(point[line.key] || 0))
+            if (index === 0) ctx.moveTo(x, y)
+            else ctx.lineTo(x, y)
+          })
+          ctx.stroke()
+        })
+      }
+
+      async function loadTrendCharts() {
+        const hours = Number((trendRange && trendRange.value) || 168)
+        try {
+          const payload = await requestJson('/api/analytics/trends?hours=' + hours, { method: 'GET' })
+          const snapshots = Array.isArray(payload.snapshots) ? payload.snapshots : []
+          if (trendStatus) {
+            trendStatus.textContent = snapshots.length > 0
+              ? 'Loaded ' + snapshots.length + ' persisted snapshots.'
+              : 'No persisted snapshots yet. Use the dashboard for a few minutes to collect trend data.'
+          }
+
+          drawLineChart('chart-throughput', snapshots, [
+            { key: 'receivedTotal', color: '#67f0ff' },
+            { key: 'executedTotal', color: '#4cffc1' },
+          ])
+          drawLineChart('chart-outcomes', snapshots, [
+            { key: 'blockedTotal', color: '#ffbc68' },
+            { key: 'failedTotal', color: '#ff5a7a' },
+          ])
+          drawLineChart('chart-risk', snapshots, [
+            { key: 'maxRiskScore', color: '#7c72ff' },
+            { key: 'deadLetterCount', color: '#67f0ff' },
+            { key: 'watchlistSize', color: '#4cffc1' },
+          ])
+        } catch (error) {
+          if (trendStatus) {
+            trendStatus.textContent = (error && error.message) ? error.message : 'Failed to load trend charts.'
+            trendStatus.classList.add('error')
+          }
+        }
       }
 
       function parseOptionalNumber(value) {
@@ -642,6 +746,10 @@ export class TradingOpsDashboard {
         })
       })
 
+      if (trendRange) {
+        trendRange.addEventListener('change', loadTrendCharts)
+      }
+
       sourceWalletForm.addEventListener('submit', async (event) => {
         event.preventDefault()
         const formData = new FormData(sourceWalletForm)
@@ -707,6 +815,7 @@ export class TradingOpsDashboard {
       })
 
       loadTrackedWallets()
+      loadTrendCharts()
     </script>`,
     })
   }

@@ -27,6 +27,7 @@ import { WalletClusterService } from './lib/wallet-cluster'
 import { registerGraphRoutes } from './http/graph-routes'
 import { AiAnalyzer } from './lib/ai-analyzer'
 import { TradingOpsDashboard } from './lib/trading-ops-dashboard'
+import { TradingAnalyticsStore, TradingAnalyticsSnapshot } from './lib/trading-analytics-store'
 import { DashboardAuth } from './lib/dashboard-auth'
 import { renderHomepageHtml } from './lib/homepage'
 import { PrismaWalletRepository } from './repositories/prisma/wallet'
@@ -65,6 +66,7 @@ class Main {
   private walletClusterService: WalletClusterService
   private aiAnalyzer: AiAnalyzer
   private tradingOpsDashboard: TradingOpsDashboard
+  private tradingAnalyticsStore: TradingAnalyticsStore
   private dashboardAuth: DashboardAuth
   private prismaWalletRepository: PrismaWalletRepository
   private foilOpsRepository: FoilOpsRepository
@@ -93,6 +95,7 @@ class Main {
     this.walletClusterService = new WalletClusterService()
     this.aiAnalyzer = new AiAnalyzer()
     this.tradingOpsDashboard = new TradingOpsDashboard()
+    this.tradingAnalyticsStore = new TradingAnalyticsStore()
     this.dashboardAuth = new DashboardAuth()
     this.prismaWalletRepository = new PrismaWalletRepository()
     this.foilOpsRepository = new FoilOpsRepository()
@@ -157,7 +160,9 @@ class Main {
 
     this.app.get('/dashboard/trading-ops', this.dashboardAuth.requirePageAuth, async (req, res) => {
       try {
-        const dashboard = await this.tradingOpsDashboard.renderHtmlDashboard()
+        const data = await this.tradingOpsDashboard.getDashboardData()
+        this.captureTradingAnalyticsSnapshot(data)
+        const dashboard = await this.tradingOpsDashboard.renderHtmlDashboard(data)
         res.setHeader('Content-Type', 'text/html; charset=utf-8')
         res.status(200).send(dashboard)
       } catch (error) {
@@ -169,10 +174,34 @@ class Main {
     this.app.get('/api/trading-ops', this.dashboardAuth.requireApiAuth, async (req, res) => {
       try {
         const data = await this.tradingOpsDashboard.getDashboardData()
+        this.captureTradingAnalyticsSnapshot(data)
         res.status(200).json(data)
       } catch (error) {
         console.error('Trading ops API error', error)
         res.status(500).json({ message: 'Failed to load trading ops data' })
+      }
+    })
+
+    this.app.get('/api/analytics/trends', this.dashboardAuth.requireApiAuth, async (req, res) => {
+      try {
+        const hoursRaw = typeof req.query.hours === 'string' ? Number(req.query.hours) : Number(req.query.hours ?? 168)
+        const hours = Number.isFinite(hoursRaw) ? Math.max(1, Math.min(24 * 30, Math.round(hoursRaw))) : 168
+        const trends = this.tradingAnalyticsStore.getTrends(hours)
+        res.status(200).json({ hours, ...trends })
+      } catch (error) {
+        console.error('Trading analytics trends API error', error)
+        res.status(500).json({ message: 'Failed to load trading analytics trends' })
+      }
+    })
+
+    this.app.post('/api/analytics/snapshot', this.dashboardAuth.requireApiAuth, async (_req, res) => {
+      try {
+        const data = await this.tradingOpsDashboard.getDashboardData()
+        const result = this.captureTradingAnalyticsSnapshot(data, 0)
+        res.status(200).json({ message: 'Analytics snapshot captured', result })
+      } catch (error) {
+        console.error('Trading analytics snapshot API error', error)
+        res.status(500).json({ message: 'Failed to capture trading analytics snapshot' })
       }
     })
 
@@ -355,7 +384,8 @@ class Main {
             }
 
             const scamWallet = await this.scamWalletRepository.getScamWalletByAddress(walletAddress)
-            const blocked = scamWallet?.isFlagged === true && this.isRapidDumperPattern(scamWallet.reason, scamWallet.events)
+            const blocked =
+              scamWallet?.isFlagged === true && this.isRapidDumperPattern(scamWallet.reason, scamWallet.events)
             if (blocked) {
               blockedWallets.push(walletAddress)
             }
@@ -428,7 +458,8 @@ class Main {
 
         if (action !== 'remove') {
           const scamWallet = await this.scamWalletRepository.getScamWalletByAddress(parsedWallet.address)
-          const doNotTrack = scamWallet?.isFlagged === true && this.isRapidDumperPattern(scamWallet.reason, scamWallet.events)
+          const doNotTrack =
+            scamWallet?.isFlagged === true && this.isRapidDumperPattern(scamWallet.reason, scamWallet.events)
           if (doNotTrack) {
             res.status(403).json({
               message: 'Source wallet is flagged with rapid-dumper pattern and is enforced as DO_NOT_TRACK.',
@@ -532,6 +563,45 @@ class Main {
 
     const parsed = Number(normalized)
     return Number.isFinite(parsed) ? parsed : undefined
+  }
+
+  private captureTradingAnalyticsSnapshot(data: Record<string, unknown>, minIntervalMinutes = 10) {
+    const metrics = (data.metrics as Record<string, unknown>) || {}
+    const metricValues = (metrics.metrics as Record<string, unknown>) || {}
+    const safety = (data.safety as Record<string, unknown>) || {}
+    const sources = (data.sources as Record<string, unknown>) || {}
+    const watchlist = Array.isArray(sources.watchlist) ? sources.watchlist : []
+
+    const toNumber = (value: unknown): number => {
+      if (typeof value === 'number' && Number.isFinite(value)) return value
+      if (typeof value === 'string') {
+        const parsed = Number(value)
+        return Number.isFinite(parsed) ? parsed : 0
+      }
+      return 0
+    }
+
+    const snapshot: TradingAnalyticsSnapshot = {
+      timestamp: new Date().toISOString(),
+      executionEnabled: Boolean((data.status as Record<string, unknown>)?.enabled),
+      maxRiskScore:
+        typeof safety.maxRiskScore === 'number'
+          ? safety.maxRiskScore
+          : typeof safety.max_risk_score === 'number'
+            ? safety.max_risk_score
+            : null,
+      deadLetterCount: toNumber(metrics.deadLetterCount),
+      receivedTotal: toNumber(metricValues.receivedTotal),
+      executedTotal: toNumber(metricValues.executedTotal),
+      blockedTotal: toNumber(metricValues.blockedTotal),
+      failedTotal: toNumber(metricValues.failedTotal),
+      watchlistSize: watchlist.length,
+      trackedWalletCount: null,
+      avgWalletWinRate: null,
+      avgWalletPnl: null,
+    }
+
+    return this.tradingAnalyticsStore.appendSnapshot(snapshot, minIntervalMinutes)
   }
 
   private isRapidDumperPattern(
