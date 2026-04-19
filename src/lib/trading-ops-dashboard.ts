@@ -229,7 +229,7 @@ export class TradingOpsDashboard {
     <section class="section table-card" id="trend-charts">
       <h2>Durable Trend Charts</h2>
       <p class="eyebrow">Persisted analytics history from snapshots. Use this to spot velocity and regime changes.</p>
-      <div class="micro-grid">
+      <div class="micro-grid trend-toolbar">
         <label>Range (hours)
           <select id="trend-range">
             <option value="24">24h</option>
@@ -239,13 +239,15 @@ export class TradingOpsDashboard {
             <option value="720">30d</option>
           </select>
         </label>
+        <button class="fx-button secondary" id="capture-snapshot" type="button">Capture Snapshot</button>
+        <div class="notice" id="trend-last-updated">Last snapshot: waiting for history...</div>
         <div class="notice" id="trend-status">Loading persisted trend snapshots...</div>
       </div>
       <div class="micro-grid" style="margin-top: 10px;">
-        <div class="card"><p class="eyebrow">Signal Throughput</p><canvas id="chart-throughput" height="160"></canvas></div>
-        <div class="card"><p class="eyebrow">Execution Outcomes</p><canvas id="chart-outcomes" height="160"></canvas></div>
-        <div class="card"><p class="eyebrow">Risk + Queue</p><canvas id="chart-risk" height="160"></canvas></div>
-        <div class="card"><p class="eyebrow">Attribution Baselines</p><canvas id="chart-attribution" height="160"></canvas></div>
+        <div class="card"><p class="eyebrow">Signal Throughput</p><div class="chart-legend" id="legend-throughput"></div><canvas id="chart-throughput" height="160"></canvas></div>
+        <div class="card"><p class="eyebrow">Execution Outcomes</p><div class="chart-legend" id="legend-outcomes"></div><canvas id="chart-outcomes" height="160"></canvas></div>
+        <div class="card"><p class="eyebrow">Risk + Queue</p><div class="chart-legend" id="legend-risk"></div><canvas id="chart-risk" height="160"></canvas></div>
+        <div class="card"><p class="eyebrow">Attribution Baselines</p><div class="chart-legend" id="legend-attribution"></div><div class="notice" id="chart-attribution-empty">Waiting for realized trade outcomes. Tracked-wallet count will still populate immediately.</div><canvas id="chart-attribution" height="160"></canvas></div>
       </div>
     </section>
 
@@ -476,10 +478,65 @@ export class TradingOpsDashboard {
       const tradingSettingsForm = document.getElementById('trading-settings-form')
       const trendRange = document.getElementById('trend-range')
       const trendStatus = document.getElementById('trend-status')
+      const trendLastUpdated = document.getElementById('trend-last-updated')
+      const captureSnapshotButton = document.getElementById('capture-snapshot')
+      const attributionEmptyState = document.getElementById('chart-attribution-empty')
 
       function setControlStatus(message, tone) {
         controlStatus.textContent = message
         controlStatus.classList.toggle('error', tone === 'error')
+      }
+
+      function setTrendStatus(message, tone) {
+        if (!trendStatus) return
+        trendStatus.textContent = message
+        trendStatus.classList.toggle('error', tone === 'error')
+      }
+
+      function formatTrendValue(value, suffix) {
+        if (value == null || value === '') return 'n/a'
+        if (typeof value === 'number' && Number.isFinite(value)) {
+          if (suffix === '%') {
+            return value.toFixed(Math.abs(value) >= 10 ? 0 : 2) + suffix
+          }
+          return Number.isInteger(value) ? String(value) : value.toFixed(2)
+        }
+        return String(value) + (suffix || '')
+      }
+
+      function formatRelativeTime(timestamp) {
+        if (!timestamp) return 'waiting for history...'
+        const date = new Date(timestamp)
+        if (!Number.isFinite(date.getTime())) return 'waiting for history...'
+        const deltaMs = Date.now() - date.getTime()
+        if (deltaMs < 60_000) return 'just now'
+        const minutes = Math.floor(deltaMs / 60_000)
+        if (minutes < 60) return minutes + 'm ago'
+        const hours = Math.floor(minutes / 60)
+        if (hours < 24) return hours + 'h ago'
+        const days = Math.floor(hours / 24)
+        return days + 'd ago'
+      }
+
+      function updateTrendTimestamp(timestamp) {
+        if (!trendLastUpdated) return
+        trendLastUpdated.textContent = 'Last snapshot: ' + formatRelativeTime(timestamp)
+      }
+
+      function renderChartLegend(legendId, latestPoint, lines) {
+        const legend = document.getElementById(legendId)
+        if (!legend) return
+        if (!latestPoint) {
+          legend.innerHTML = '<span class="legend-chip muted">No snapshot loaded</span>'
+          return
+        }
+
+        legend.innerHTML = lines.map((line) => {
+          const rawValue = latestPoint[line.key]
+          const value = rawValue == null ? 'n/a' : formatTrendValue(rawValue, line.suffix)
+          return '<span class="legend-chip"><span class="legend-swatch" style="background:' + line.color + '"></span>'
+            + line.label + ': ' + value + '</span>'
+        }).join('')
       }
 
       async function requestJson(url, options) {
@@ -551,34 +608,82 @@ export class TradingOpsDashboard {
         try {
           const payload = await requestJson('/api/analytics/trends?hours=' + hours, { method: 'GET' })
           const snapshots = Array.isArray(payload.snapshots) ? payload.snapshots : []
-          if (trendStatus) {
-            trendStatus.textContent = snapshots.length > 0
+          const latest = snapshots.length > 0 ? snapshots[snapshots.length - 1] : null
+          setTrendStatus(
+            snapshots.length > 0
               ? 'Loaded ' + snapshots.length + ' persisted snapshots.'
               : 'No persisted snapshots yet. Use the dashboard for a few minutes to collect trend data.'
-          }
+          )
+          updateTrendTimestamp(latest && latest.timestamp)
 
           drawLineChart('chart-throughput', snapshots, [
             { key: 'receivedTotal', color: '#67f0ff' },
             { key: 'executedTotal', color: '#4cffc1' },
           ])
+          renderChartLegend('legend-throughput', latest, [
+            { key: 'receivedTotal', color: '#67f0ff', label: 'Received' },
+            { key: 'executedTotal', color: '#4cffc1', label: 'Executed' },
+          ])
           drawLineChart('chart-outcomes', snapshots, [
             { key: 'blockedTotal', color: '#ffbc68' },
             { key: 'failedTotal', color: '#ff5a7a' },
+          ])
+          renderChartLegend('legend-outcomes', latest, [
+            { key: 'blockedTotal', color: '#ffbc68', label: 'Blocked' },
+            { key: 'failedTotal', color: '#ff5a7a', label: 'Failed' },
           ])
           drawLineChart('chart-risk', snapshots, [
             { key: 'maxRiskScore', color: '#7c72ff' },
             { key: 'deadLetterCount', color: '#67f0ff' },
             { key: 'watchlistSize', color: '#4cffc1' },
           ])
+          renderChartLegend('legend-risk', latest, [
+            { key: 'maxRiskScore', color: '#7c72ff', label: 'Max Risk' },
+            { key: 'deadLetterCount', color: '#67f0ff', label: 'Dead Letters' },
+            { key: 'watchlistSize', color: '#4cffc1', label: 'Watchlist' },
+          ])
           drawLineChart('chart-attribution', snapshots, [
             { key: 'trackedWalletCount', color: '#67f0ff' },
             { key: 'avgWalletWinRate', color: '#4cffc1' },
             { key: 'avgWalletPnl', color: '#ffbc68' },
           ])
+          renderChartLegend('legend-attribution', latest, [
+            { key: 'trackedWalletCount', color: '#67f0ff', label: 'Tracked Wallets' },
+            { key: 'avgWalletWinRate', color: '#4cffc1', label: 'Avg Win Rate', suffix: '%' },
+            { key: 'avgWalletPnl', color: '#ffbc68', label: 'Avg PnL', suffix: '%' },
+          ])
+
+          if (attributionEmptyState) {
+            const noAttributionTelemetry = !latest || (latest.avgWalletWinRate == null && latest.avgWalletPnl == null)
+            attributionEmptyState.textContent = noAttributionTelemetry
+              ? 'Waiting for realized trade outcomes. Tracked-wallet count is live, but win-rate and PnL history need journaled executions first.'
+              : 'Attribution telemetry is live and historical.'
+            attributionEmptyState.classList.toggle('warning', noAttributionTelemetry)
+          }
         } catch (error) {
-          if (trendStatus) {
-            trendStatus.textContent = (error && error.message) ? error.message : 'Failed to load trend charts.'
-            trendStatus.classList.add('error')
+          setTrendStatus((error && error.message) ? error.message : 'Failed to load trend charts.', 'error')
+          if (trendLastUpdated) {
+            trendLastUpdated.textContent = 'Last snapshot: unavailable'
+          }
+        }
+      }
+
+      async function captureSnapshotNow() {
+        if (captureSnapshotButton instanceof HTMLButtonElement) {
+          captureSnapshotButton.disabled = true
+          captureSnapshotButton.textContent = 'Capturing...'
+        }
+
+        try {
+          const response = await requestJson('/api/analytics/snapshot', { method: 'POST' })
+          setTrendStatus(response.message || 'Analytics snapshot captured.')
+          await loadTrendCharts()
+        } catch (error) {
+          setTrendStatus(error.message || 'Failed to capture snapshot.', 'error')
+        } finally {
+          if (captureSnapshotButton instanceof HTMLButtonElement) {
+            captureSnapshotButton.disabled = false
+            captureSnapshotButton.textContent = 'Capture Snapshot'
           }
         }
       }
@@ -754,6 +859,10 @@ export class TradingOpsDashboard {
 
       if (trendRange) {
         trendRange.addEventListener('change', loadTrendCharts)
+      }
+
+      if (captureSnapshotButton) {
+        captureSnapshotButton.addEventListener('click', captureSnapshotNow)
       }
 
       sourceWalletForm.addEventListener('submit', async (event) => {

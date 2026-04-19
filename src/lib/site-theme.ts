@@ -579,6 +579,44 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         background: rgba(255, 188, 104, 0.08);
       }
 
+      .trend-toolbar {
+        align-items: end;
+      }
+
+      .chart-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 8px 0 10px;
+        min-height: 30px;
+      }
+
+      .legend-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(129, 196, 255, 0.14);
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--fx-muted);
+        font-size: 0.78rem;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .legend-chip.muted {
+        opacity: 0.75;
+      }
+
+      .legend-swatch {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        box-shadow: 0 0 12px currentColor;
+        flex: 0 0 auto;
+      }
+
       .mono,
       .wallet-chip,
       .wallet-popup-value,
