@@ -47,7 +47,7 @@ function renderGraphPage(wallet: string) {
     headerActionsHtml:
       '<form class="logout-form" method="post" action="/logout"><button class="fx-button" type="submit">Logout</button></form>',
     extraStyles:
-      '.wrap { display:grid; gap:16px; } .dot { width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:5px; vertical-align:middle; } svg text { fill: #d7e6ff; font-family: "IBM Plex Mono", monospace; } svg line { stroke: rgba(129,196,255,.45); } .wallet-chip.chip-tracked { border-color: rgba(103, 240, 255, 0.26); background: rgba(103, 240, 255, 0.08); color: #a8f4ff; } .wallet-chip.chip-source { border-color: rgba(124, 114, 255, 0.26); background: rgba(124, 114, 255, 0.1); color: #cec9ff; } .wallet-chip.chip-both { border-color: rgba(76, 255, 193, 0.28); background: rgba(76, 255, 193, 0.08); color: #b6ffe5; box-shadow: 0 0 0 1px rgba(76, 255, 193, 0.08) inset; }',
+      '.wrap { display:grid; gap:16px; } .dot { width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:5px; vertical-align:middle; } svg text { fill: #d7e6ff; font-family: "IBM Plex Mono", monospace; } svg line { stroke: rgba(129,196,255,.45); } .wallet-chip.chip-tracked { border-color: rgba(103, 240, 255, 0.26); background: rgba(103, 240, 255, 0.08); color: #a8f4ff; } .wallet-chip.chip-source { border-color: rgba(124, 114, 255, 0.26); background: rgba(124, 114, 255, 0.1); color: #cec9ff; } .wallet-chip.chip-both { border-color: rgba(76, 255, 193, 0.28); background: rgba(76, 255, 193, 0.08); color: #b6ffe5; box-shadow: 0 0 0 1px rgba(76, 255, 193, 0.08) inset; } .chip-legend { display:flex; flex-wrap:wrap; gap:10px; margin: 10px 0 0; } .chip-legend-item { display:inline-flex; align-items:center; gap:8px; color:#a9bbd6; font-size:0.82rem; } .chip-legend-item .wallet-chip { cursor:default; }',
     heroHtml: `
       <section class="page-header">
         <div>
@@ -70,6 +70,11 @@ function renderGraphPage(wallet: string) {
         <button id="load" class="fx-button primary">Load Graph</button>
       </div>
       <div id="followed-wallets" class="wallet-list"></div>
+      <div class="chip-legend" aria-label="Followed wallet legend">
+        <span class="chip-legend-item"><span class="wallet-chip chip-tracked">Tracked</span><span>Tracked wallet only</span></span>
+        <span class="chip-legend-item"><span class="wallet-chip chip-source">Source</span><span>Source watchlist only</span></span>
+        <span class="chip-legend-item"><span class="wallet-chip chip-both">Tracked + Source</span><span>Present in both pools</span></span>
+      </div>
       <div id="meta" class="meta">Loading...</div>
       <div id="analysis-summary" class="analysis-panel">Analysis loading...</div>
         </div>

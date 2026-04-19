@@ -693,7 +693,7 @@ export class TradingOpsDashboard {
 
         try {
           const response = await requestJson('/api/analytics/snapshot', { method: 'POST' })
-          setTrendStatus(response.message || 'Analytics snapshot captured.')
+          setTrendStatus(response.message || 'Analytics snapshot captured.', 'success')
           await loadTrendCharts()
         } catch (error) {
           setTrendStatus(error.message || 'Failed to capture snapshot.', 'error')
@@ -754,7 +754,7 @@ export class TradingOpsDashboard {
             + (warning ? '<div style="margin-top:6px">' + warning + '</div>' : '')
             + '</div>'
             + '<div class="button-row">'
-            + '<a class="fx-button secondary" href="/graph/' + encodeURIComponent(wallet.displayAddress) + '">Open Graph</a>'
+            + '<button type="button" class="fx-button secondary" data-open-graph="' + escapeHtml(wallet.displayAddress) + '">Open Graph</button>'
             + '<button type="button" data-remove-wallet="' + escapeHtml(wallet.displayAddress) + '">Remove</button>'
             + '</div>'
             + '</div>'
@@ -935,17 +935,23 @@ export class TradingOpsDashboard {
         if (!(target instanceof HTMLButtonElement)) return
 
         const wallet = target.getAttribute('data-remove-wallet')
-        if (!wallet) return
+        if (wallet) {
+          try {
+            const response = await requestJson('/api/control/tracked-wallets', {
+              method: 'POST',
+              body: JSON.stringify({ action: 'remove', wallet }),
+            })
+            setControlStatus(response.message || 'Tracked wallet removed.', 'success')
+            await loadTrackedWallets()
+          } catch (error) {
+            setControlStatus(error.message || 'Tracked wallet removal failed.', 'error')
+          }
+          return
+        }
 
-        try {
-          const response = await requestJson('/api/control/tracked-wallets', {
-            method: 'POST',
-            body: JSON.stringify({ action: 'remove', wallet }),
-          })
-          setControlStatus(response.message || 'Tracked wallet removed.', 'success')
-          await loadTrackedWallets()
-        } catch (error) {
-          setControlStatus(error.message || 'Tracked wallet removal failed.', 'error')
+        const graphWallet = target.getAttribute('data-open-graph')
+        if (graphWallet) {
+          window.location.assign('/graph/' + encodeURIComponent(graphWallet))
         }
       })
 
