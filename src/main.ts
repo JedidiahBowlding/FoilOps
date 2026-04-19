@@ -37,6 +37,7 @@ import {
   resolveTradingQuickActionPath,
 } from './lib/web-control-utils'
 import { registerFoilOpsRoutes } from './modules/foilops/api/foilOpsRoutes'
+import { FoilOpsRepository } from './modules/foilops/repository/foilOpsRepository'
 
 dotenv.config()
 
@@ -66,6 +67,7 @@ class Main {
   private tradingOpsDashboard: TradingOpsDashboard
   private dashboardAuth: DashboardAuth
   private prismaWalletRepository: PrismaWalletRepository
+  private foilOpsRepository: FoilOpsRepository
   private readonly tradingBotUrl: string
   constructor(private app: Express = express()) {
     this.setupMiddleware()
@@ -93,6 +95,7 @@ class Main {
     this.tradingOpsDashboard = new TradingOpsDashboard()
     this.dashboardAuth = new DashboardAuth()
     this.prismaWalletRepository = new PrismaWalletRepository()
+    this.foilOpsRepository = new FoilOpsRepository()
     this.tradingBotUrl = getTradingBotBaseUrl()
 
     // register routes after route dependencies are initialized
@@ -398,6 +401,7 @@ class Main {
     registerFoilOpsRoutes(this.app, {
       requireApiAuth: this.dashboardAuth.requireApiAuth,
       requirePageAuth: this.dashboardAuth.requirePageAuth,
+      repository: this.foilOpsRepository,
     })
   }
 
