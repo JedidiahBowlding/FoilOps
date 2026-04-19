@@ -91,7 +91,7 @@ class Main {
     // Default endpoint
     this.app.get('/', async (req, res) => {
       try {
-        res.status(200).send('Hello world')
+        res.redirect(302, '/dashboard/trading-ops')
       } catch (error) {
         console.error('Default route error', error)
         res.status(500).send('Error processing default route')
