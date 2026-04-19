@@ -67,6 +67,17 @@ export function renderHomepageHtml(): string {
         </article>
       </section>
 
+      <section style="margin-bottom:0">
+        <p class="fx-eyebrow" style="margin-bottom:10px">Live dashboard surfaces</p>
+        <h2 style="margin-bottom:22px">What the operator console looks like</h2>
+      </section>
+
+      <section class="cards" style="margin-bottom:48px">
+        <article class="card"><a href="/dashboard/trading-ops" style="display:block;text-decoration:none"><img src="/showcase/dashboard_trading_ops.jpeg" alt="Trading Ops dashboard" style="width:100%;display:block;height:220px;object-fit:cover;object-position:top;border-radius:18px;border:1px solid rgba(129,196,255,.22)" /></a><h3>Trading Ops Command Surface</h3><p>Live receiver health, execution stats, risk gate readings, tracked-wallet roster, and decision feed — all on one authenticated surface.</p></article>
+        <article class="card"><a href="/graph" style="display:block;text-decoration:none"><img src="/showcase/dashboard_graph.jpeg" alt="Wallet Graph dashboard" style="width:100%;display:block;height:220px;object-fit:cover;object-position:top;border-radius:18px;border:1px solid rgba(129,196,255,.22)" /></a><h3>Wallet Graph &amp; Token Holdings</h3><p>Cluster visualization, flow-edge mapping, AI wallet analysis, and live SPL token holdings — all anchored to a single wallet query.</p></article>
+        <article class="card"><a href="/dashboard/scam-wallets" style="display:block;text-decoration:none"><img src="/showcase/dashboard_scam_intel.jpeg" alt="Scam Intelligence dashboard" style="width:100%;display:block;height:220px;object-fit:cover;object-position:top;border-radius:18px;border:1px solid rgba(129,196,255,.22)" /></a><h3>Scam Intelligence</h3><p>Flagged wallets, suspicious launch history, fund-flow traces, and token investigations in a persistent case-history view.</p></article>
+      </section>
+
       <section class="cards">
         <article class="card"><img src="/showcase/FoilOps_Start_Menu.jpeg" alt="Telegram interface" style="width:100%;display:block;height:190px;object-fit:cover;border-radius:18px;border:1px solid rgba(129,196,255,.16)" /><h3>Telegram-first workflow</h3><p>Operators can manage wallets and trigger actions in chat, then validate deeper system state from the protected web console.</p></article>
         <article class="card"><img src="/showcase/FoilOps_Menu_Commands.jpeg" alt="Command surfaces" style="width:100%;display:block;height:190px;object-fit:cover;border-radius:18px;border:1px solid rgba(129,196,255,.16)" /><h3>Persistent intelligence</h3><p>Scam findings, related launches, suspicious flow traces, and token investigations survive across sessions instead of disappearing into logs.</p></article>
