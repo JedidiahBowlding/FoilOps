@@ -9,14 +9,15 @@ export function renderHomepageHtml(): string {
     <title>FoilOps | Wallet Intelligence and Trading Control</title>
     <style>
       :root {
-        --sand: #efe2cd;
-        --paper: rgba(255, 250, 244, 0.9);
-        --ink: #1f1914;
-        --muted: #65594d;
-        --line: rgba(56, 39, 22, 0.14);
-        --teal: #0f6f65;
-        --rust: #c65a34;
-        --shadow: rgba(39, 25, 12, 0.12);
+        --primary: #ff2d2d;
+        --primary-dark: #d41f1f;
+        --dark-bg: #0a0e27;
+        --card-bg: rgba(15, 20, 45, 0.7);
+        --ink: #ffffff;
+        --muted: #a0a8c0;
+        --line: rgba(255, 45, 45, 0.2);
+        --accent: #ff2d2d;
+        --shadow: rgba(10, 14, 39, 0.3);
       }
 
       * { box-sizing: border-box; }
@@ -24,10 +25,7 @@ export function renderHomepageHtml(): string {
       body {
         margin: 0;
         color: var(--ink);
-        background:
-          radial-gradient(circle at 8% 12%, rgba(198, 90, 52, 0.22), transparent 24%),
-          radial-gradient(circle at 88% 10%, rgba(15, 111, 101, 0.2), transparent 26%),
-          linear-gradient(135deg, #f6eedf 0%, #e7d7bd 56%, #dbc7ab 100%);
+        background: linear-gradient(135deg, #0a0e27 0%, #0f1440 50%, #0a0e27 100%);
         font-family: "Avenir Next", "Trebuchet MS", sans-serif;
       }
 
@@ -74,7 +72,7 @@ export function renderHomepageHtml(): string {
         font-size: 0.8rem;
         letter-spacing: 0.18em;
         text-transform: uppercase;
-        color: var(--teal);
+        color: var(--primary);
       }
 
       .brand-title {
@@ -102,13 +100,13 @@ export function renderHomepageHtml(): string {
       }
 
       .button {
-        background: linear-gradient(135deg, var(--teal), #123d54);
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
         color: #fff;
-        box-shadow: 0 14px 34px rgba(16, 67, 91, 0.2);
+        box-shadow: 0 14px 34px rgba(255, 45, 45, 0.25);
       }
 
       .button-secondary {
-        background: rgba(255, 255, 255, 0.58);
+        background: rgba(255, 255, 255, 0.1);
         color: var(--ink);
         border-color: var(--line);
       }
@@ -121,7 +119,7 @@ export function renderHomepageHtml(): string {
       }
 
       .panel {
-        background: var(--paper);
+        background: var(--card-bg);
         border: 1px solid var(--line);
         border-radius: 30px;
         box-shadow: 0 22px 70px var(--shadow);
@@ -139,7 +137,7 @@ export function renderHomepageHtml(): string {
         font-size: 0.8rem;
         letter-spacing: 0.14em;
         text-transform: uppercase;
-        color: var(--rust);
+        color: var(--primary);
       }
 
       h1 {
@@ -172,7 +170,7 @@ export function renderHomepageHtml(): string {
       }
 
       .mini {
-        background: rgba(255, 255, 255, 0.56);
+        background: rgba(255, 45, 45, 0.08);
         border: 1px solid var(--line);
         border-radius: 18px;
         padding: 14px;
@@ -196,7 +194,7 @@ export function renderHomepageHtml(): string {
         border-radius: 22px;
         border: 1px solid var(--line);
         object-fit: cover;
-        background: rgba(255, 255, 255, 0.72);
+        background: rgba(15, 20, 45, 0.5);
       }
 
       .banner-wrap {
@@ -216,7 +214,7 @@ export function renderHomepageHtml(): string {
       .callout {
         padding: 16px 18px;
         border-radius: 20px;
-        background: linear-gradient(135deg, rgba(15, 111, 101, 0.12), rgba(198, 90, 52, 0.08));
+        background: linear-gradient(135deg, rgba(255, 45, 45, 0.12), rgba(255, 45, 45, 0.08));
         border: 1px solid var(--line);
       }
 
@@ -224,6 +222,7 @@ export function renderHomepageHtml(): string {
       .section-title {
         margin: 0 0 10px;
         font-size: 1.2rem;
+        color: #ffffff;
       }
 
       .callout p,
@@ -270,7 +269,7 @@ export function renderHomepageHtml(): string {
       .intel {
         border: 1px solid var(--line);
         border-radius: 22px;
-        background: rgba(255, 255, 255, 0.58);
+        background: rgba(15, 20, 45, 0.5);
         padding: 18px;
       }
 
@@ -292,8 +291,8 @@ export function renderHomepageHtml(): string {
         display: inline-grid;
         place-items: center;
         border-radius: 999px;
-        background: rgba(15, 111, 101, 0.12);
-        color: var(--teal);
+        background: rgba(255, 45, 45, 0.15);
+        color: var(--primary);
         font-weight: 700;
         margin-bottom: 10px;
       }
