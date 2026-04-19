@@ -1,5 +1,5 @@
 import { format, formatDistanceToNow } from 'date-fns'
-import { BOT_USERNAME } from '../../constants/failops'
+import { BOT_USERNAME } from '../../constants/foilops'
 import {
   HOBBY_PLAN_FEE,
   MAX_HOBBY_WALLETS,

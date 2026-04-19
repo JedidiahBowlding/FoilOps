@@ -52,21 +52,21 @@ sleep 2
 # Start the FoilOps bot
 echo "🤖 Starting FoilOps Wallet Tracker..."
 pnpm start &
-FAILOPS_PID=$!
+FOILOPS_PID=$!
 
 echo "✅ Both services started!"
 echo "📈 Trading Bot PID: $TRADING_PID"
-echo "🤖 FoilOps Bot PID: $FAILOPS_PID"
+echo "🤖 FoilOps Bot PID: $FOILOPS_PID"
 echo ""
 echo "Press Ctrl+C to stop both services"
 
 # Verify both services are actually healthy so PM2 doesn't keep a half-dead stack.
 if ! bash ./scripts/start-both-health-check.sh; then
     echo "❌ Health check failed. Stopping services..."
-    kill "$TRADING_PID" "$FAILOPS_PID" 2>/dev/null || true
-    wait "$TRADING_PID" "$FAILOPS_PID" 2>/dev/null || true
+    kill "$TRADING_PID" "$FOILOPS_PID" 2>/dev/null || true
+    wait "$TRADING_PID" "$FOILOPS_PID" 2>/dev/null || true
     exit 1
 fi
 
 # Wait for both processes
-wait $TRADING_PID $FAILOPS_PID
+wait $TRADING_PID $FOILOPS_PID

@@ -5,7 +5,7 @@ import { MAX_FREE_DAILY_MESSAGES } from '../constants/pricing'
 
 import { RateLimitMessages } from '../bot/messages/rate-limit-messages'
 import { TxPerSecondCapInterface } from '../types/general-interfaces'
-import { MAX_5_MIN_TXS_ALLOWED, MAX_TPS_ALLOWED, MAX_TPS_FOR_BAN, WALLET_SLEEP_TIME } from '../constants/failops'
+import { MAX_5_MIN_TXS_ALLOWED, MAX_TPS_ALLOWED, MAX_TPS_FOR_BAN, WALLET_SLEEP_TIME } from '../constants/foilops'
 import { PrismaWalletRepository } from '../repositories/prisma/wallet'
 import { BANNED_WALLETS } from '../constants/banned-wallets'
 import { RpcConnectionManager } from '../providers/solana'
