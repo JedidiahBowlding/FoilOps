@@ -6,7 +6,9 @@ describe('homepage renderer', () => {
     const html = renderHomepageHtml()
 
     expect(html).toContain('FoilOps watches wallets before traders react.')
-    expect(html).toContain('/showcase/logo.jpg')
+    expect(html).toContain('/showcase/logo.jpeg')
+    expect(html).toContain('/showcase/FoilOps_header.jpeg')
+    expect(html).toContain('/showcase/FoilOps_banner.jpeg')
     expect(html).toContain('Login to Dashboard')
     expect(html).toContain('Scam Intelligence Dashboard')
     expect(html).toContain('Trading Ops Dashboard')

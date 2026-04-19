@@ -54,13 +54,20 @@ export function renderHomepageHtml(): string {
         min-width: 0;
       }
 
-      .brand img {
-        width: 62px;
-        height: 62px;
-        border-radius: 18px;
+      .brand-logo {
+        height: 52px;
+        width: auto;
+        border-radius: 14px;
         object-fit: cover;
         border: 1px solid rgba(255, 255, 255, 0.46);
         box-shadow: 0 12px 30px var(--shadow);
+      }
+
+      .brand-wordmark {
+        height: 44px;
+        width: auto;
+        border-radius: 10px;
+        object-fit: contain;
       }
 
       .brand-mark {
@@ -190,6 +197,20 @@ export function renderHomepageHtml(): string {
         border: 1px solid var(--line);
         object-fit: cover;
         background: rgba(255, 255, 255, 0.72);
+      }
+
+      .banner-wrap {
+        margin-top: 22px;
+        border-radius: 26px;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        box-shadow: 0 18px 50px var(--shadow);
+      }
+
+      .banner-wrap img {
+        display: block;
+        width: 100%;
+        height: auto;
       }
 
       .callout {
@@ -339,11 +360,8 @@ export function renderHomepageHtml(): string {
     <main class="page">
       <header class="nav">
         <div class="brand">
-          <img src="/showcase/logo.jpg" alt="FoilOps logo" />
-          <div>
-            <div class="brand-mark">FoilOps Intelligence Stack</div>
-            <p class="brand-title">Wallet tracking, scam analysis, and guarded trading control</p>
-          </div>
+          <img class="brand-logo" src="/showcase/logo.jpeg" alt="FoilOps logo" />
+          <img class="brand-wordmark" src="/showcase/FoilOps_header.jpeg" alt="FoilOps" />
         </div>
         <div class="nav-actions">
           <a class="button-secondary" href="https://t.me/${BOT_USERNAME}" target="_blank" rel="noopener noreferrer">Open Telegram Bot</a>
@@ -375,6 +393,10 @@ export function renderHomepageHtml(): string {
           </div>
         </aside>
       </section>
+
+      <div class="banner-wrap">
+        <img src="/showcase/FoilOps_banner.jpeg" alt="FoilOps — Trace wallets. Track devs. Stop rugs." />
+      </div>
 
       <section class="content-grid">
         <div class="stack">
