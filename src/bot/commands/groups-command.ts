@@ -19,28 +19,55 @@ export class GroupsCommand {
     this.prismaUserRepository = new PrismaUserRepository()
   }
 
-  public async groupsButtonHandler(message: TelegramBot.Message) {
-    const userId = message.chat.id.toString()
+  public groupsSlashCommandHandler() {
+    this.bot.onText(/^\/groups(?:@\w+)?$/i, async (msg) => {
+      const userId = msg.chat.id.toString()
+      await this.renderGroupsMenu(msg.chat.id, userId, false)
+    })
+  }
 
+  private async renderGroupsMenu(chatId: number, userId: string, isButton: boolean, messageId?: number) {
     const isUserPro = await BotMiddleware.isUserPro(userId)
 
     if (isUserPro) {
       const allUserGroups = await this.prismaGroupRepository.getAllUserGroups(userId)
+      const text = GeneralMessages.groupsMessage(allUserGroups || [])
 
-      this.bot.editMessageText(GeneralMessages.groupsMessage(allUserGroups || []), {
-        chat_id: message.chat.id,
-        message_id: message.message_id,
-        parse_mode: 'HTML',
-        reply_markup: GROUPS_MENU,
-      })
-    } else {
-      this.bot.editMessageText(SubscriptionMessages.userUpgradeGroups, {
-        chat_id: message.chat.id,
-        message_id: message.message_id,
+      if (isButton && messageId) {
+        await this.bot.editMessageText(text, {
+          chat_id: chatId,
+          message_id: messageId,
+          parse_mode: 'HTML',
+          reply_markup: GROUPS_MENU,
+        })
+      } else {
+        await this.bot.sendMessage(chatId, text, {
+          parse_mode: 'HTML',
+          reply_markup: GROUPS_MENU,
+        })
+      }
+      return
+    }
+
+    if (isButton && messageId) {
+      await this.bot.editMessageText(SubscriptionMessages.userUpgradeGroups, {
+        chat_id: chatId,
+        message_id: messageId,
         parse_mode: 'HTML',
         reply_markup: SUGGEST_UPGRADE_SUBMENU,
       })
+      return
     }
+
+    await this.bot.sendMessage(chatId, SubscriptionMessages.userUpgradeGroups, {
+      parse_mode: 'HTML',
+      reply_markup: SUGGEST_UPGRADE_SUBMENU,
+    })
+  }
+
+  public async groupsButtonHandler(message: TelegramBot.Message) {
+    const userId = message.chat.id.toString()
+    await this.renderGroupsMenu(message.chat.id, userId, true, message.message_id)
   }
 
   public async activateGroupCommandHandler() {

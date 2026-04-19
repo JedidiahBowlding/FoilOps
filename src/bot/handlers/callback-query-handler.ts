@@ -79,6 +79,11 @@ export class CallbackQueryHandler {
     this.promotionHandler = new PromotionHandler(this.bot)
     this.prismaWalletRepository = new PrismaWalletRepository()
     this.trackWallets = new TrackWallets()
+
+    this.myWalletCommand.registerSlashHandler()
+    this.donateCommand.registerSlashHandler()
+    this.settingsCommand.registerSlashHandler()
+    this.groupsCommand.groupsSlashCommandHandler()
   }
 
   public call() {

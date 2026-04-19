@@ -13,19 +13,31 @@ export class SettingsCommand {
     this.prismaUserRepository = new PrismaUserRepository()
   }
 
-  public async settingsCommandHandler(msg: TelegramBot.Message) {
+  public registerSlashHandler() {
+    this.bot.onText(/^\/settings(?:@\w+)?$/i, async (msg) => {
+      await this.settingsCommandHandler(msg, false)
+    })
+  }
+
+  public async settingsCommandHandler(msg: TelegramBot.Message, isButton = true) {
     const userId = msg.chat.id.toString()
 
     const messageText = UserSettingsMessages.settingsMessage
 
     const userBotStatus = await this.prismaUserRepository.getBotStatus(userId)
 
-    const sendMessage = this.bot.editMessageText(messageText, {
-      chat_id: msg.chat.id,
-      message_id: msg.message_id,
+    const payload = {
       reply_markup: USER_SETTINGS_MENU(userBotStatus ? userBotStatus.botStatus : 'ACTIVE'),
-      parse_mode: 'HTML',
-    })
+      parse_mode: 'HTML' as const,
+    }
+
+    const sendMessage = isButton
+      ? this.bot.editMessageText(messageText, {
+          chat_id: msg.chat.id,
+          message_id: msg.message_id,
+          ...payload,
+        })
+      : this.bot.sendMessage(msg.chat.id, messageText, payload)
 
     return sendMessage
   }

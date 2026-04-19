@@ -2,7 +2,7 @@ import TelegramBot from 'node-telegram-bot-api'
 import { AlertEventType } from '@prisma/client'
 import { PublicKey } from '@solana/web3.js'
 import { BotMiddleware } from '../../config/bot-middleware'
-import { SUB_MENU } from '../../config/bot-menus'
+import { SCAM_INTEL_MENU, SUB_MENU } from '../../config/bot-menus'
 import { PrismaScamWalletRepository } from '../../repositories/prisma/scam-wallet'
 import { ScamWalletMonitor } from '../../lib/scam-wallet-monitor'
 import { FundFlowTracer } from '../../lib/fund-flow-tracer'
@@ -36,6 +36,7 @@ export class ScamWalletCommand {
   }
 
   public registerHandlers() {
+    this.scamIntelligenceHandler()
     this.flagWalletHandler()
     this.unflagWalletHandler()
     this.scamFeedHandler()
@@ -48,6 +49,31 @@ export class ScamWalletCommand {
     this.setAlertHandler()
     this.viewAlertsHandler()
     this.deleteAlertHandler()
+  }
+
+  private scamIntelligenceHandler() {
+    this.bot.onText(/^\/scam_intelligence(?:@\w+)?$/i, async (msg) => {
+      const userId = String(msg.from?.id || '')
+      if (!BotMiddleware.isUserBotAdmin(userId)) return
+
+      await this.bot.sendMessage(
+        msg.chat.id,
+        [
+          '🚨 <b>Scam Intelligence</b>',
+          '',
+          '🚩 <b>Flag Wallet</b> — reply with: <code>/flag_wallet &lt;address&gt; [reason]</code>',
+          '🗺️ <b>Flow Map</b> — reply with: <code>/flow_map &lt;address&gt;</code>',
+          '🔬 <b>Trace Token</b> — reply with: <code>/trace_token &lt;token_mint&gt;</code>',
+          '📡 <b>Scam Feed</b> — reply with: <code>/scam_feed</code>',
+          '',
+          'Or use the buttons below to be prompted automatically.',
+        ].join('\n'),
+        {
+          parse_mode: 'HTML',
+          reply_markup: SCAM_INTEL_MENU,
+        },
+      )
+    })
   }
 
   private graphWalletHandler() {

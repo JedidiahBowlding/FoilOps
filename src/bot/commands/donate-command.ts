@@ -17,7 +17,13 @@ export class DonateCommand {
     this.payments = new Payments()
   }
 
-  public async donateCommandHandler(msg: TelegramBot.Message) {
+  public registerSlashHandler() {
+    this.bot.onText(/^\/donate(?:@\w+)?$/i, async (msg) => {
+      await this.donateCommandHandler(msg, false)
+    })
+  }
+
+  public async donateCommandHandler(msg: TelegramBot.Message, isButton = true) {
     this.bot.removeAllListeners('message')
 
     const user = await this.prismaUserRepository.getUserPlan(String(msg.chat.id))
@@ -68,11 +74,19 @@ export class DonateCommand {
 
     const messageText = DonateMessages.donateMessage(userWallet)
 
-    this.bot.editMessageText(messageText, {
-      chat_id: msg.chat.id,
-      message_id: msg.message_id,
+    const payload = {
       reply_markup: DONATE_MENU,
-      parse_mode: 'HTML',
-    })
+      parse_mode: 'HTML' as const,
+    }
+
+    if (isButton) {
+      this.bot.editMessageText(messageText, {
+        chat_id: msg.chat.id,
+        message_id: msg.message_id,
+        ...payload,
+      })
+    } else {
+      this.bot.sendMessage(msg.chat.id, messageText, payload)
+    }
   }
 }

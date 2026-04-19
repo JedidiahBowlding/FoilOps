@@ -13,7 +13,13 @@ export class MyWalletCommand {
     this.bot = bot
   }
 
-  public async myWalletCommandHandler(msg: TelegramBot.Message) {
+  public registerSlashHandler() {
+    this.bot.onText(/^\/my_wallet(?:@\w+)?$/i, async (msg) => {
+      await this.myWalletCommandHandler(msg, false)
+    })
+  }
+
+  public async myWalletCommandHandler(msg: TelegramBot.Message, isButton = true) {
     const userId = msg.chat.id.toString()
     const userPersonalWallet = await this.prismaUserRepository.getPersonalWallet(userId)
 
@@ -23,12 +29,18 @@ export class MyWalletCommand {
 
     const messageText = await this.walletMessages.sendMyWalletMessage(userPersonalWallet)
 
-    const sendMessage = this.bot.editMessageText(messageText, {
-      chat_id: msg.chat.id,
-      message_id: msg.message_id,
+    const payload = {
       reply_markup: USER_WALLET_SUB_MENU,
-      parse_mode: 'HTML',
-    })
+      parse_mode: 'HTML' as const,
+    }
+
+    const sendMessage = isButton
+      ? this.bot.editMessageText(messageText, {
+          chat_id: msg.chat.id,
+          message_id: msg.message_id,
+          ...payload,
+        })
+      : this.bot.sendMessage(msg.chat.id, messageText, payload)
 
     return sendMessage
   }
