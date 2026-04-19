@@ -112,12 +112,14 @@ export class TradingOpsDashboard {
     const currentMode = String(data.status.mode || 'signal_based')
     const currentProfile = String(config.profile || config.profilePreset || 'conservative')
     const currentExecutionMode = String(data.metrics.executionMode || data.status.executionMode || 'paper')
+    const observedTokensByWallet = this.buildObservedTokensByWallet(data.journal, data.failures, data.decisions)
 
     const profileCards = watchlist
       .slice(0, 18)
       .map((wallet) => {
         const profile = sourceProfiles[String(wallet)] || {}
-        return this.renderSourceWalletProfileCard(String(wallet), profile)
+        const observedTokens = observedTokensByWallet.get(String(wallet)) || []
+        return this.renderSourceWalletProfileCard(String(wallet), profile, observedTokens)
       })
       .join('')
 
@@ -575,7 +577,11 @@ export class TradingOpsDashboard {
     }
   }
 
-  private renderSourceWalletProfileCard(wallet: string, profile: Record<string, unknown>): string {
+  private renderSourceWalletProfileCard(
+    wallet: string,
+    profile: Record<string, unknown>,
+    observedTokens: string[],
+  ): string {
     const earlyEntries = this.pickNumber(profile, [
       'earlyEntries',
       'early_entries',
@@ -598,6 +604,11 @@ export class TradingOpsDashboard {
     const actions = Array.isArray(profile.allowedActions)
       ? profile.allowedActions.map((a) => this.escapeHtml(String(a))).join(', ')
       : 'default'
+    const profileTokens = this.extractTokensFromProfile(profile)
+    const tokens = [...new Set([...profileTokens, ...observedTokens])].slice(0, 12)
+    const tokenHtml = tokens.length
+      ? tokens.map((token) => `<span class="badge mono">${this.escapeHtml(token)}</span>`).join(' ')
+      : '<span class="badge">Not available yet</span>'
 
     return `
       <article class="mini-card">
@@ -605,6 +616,8 @@ export class TradingOpsDashboard {
         <p><strong>Preset:</strong> ${this.escapeHtml(profile.preset || 'none')}</p>
         <p><strong>Enabled:</strong> ${profile.enabled === false ? 'no' : 'yes'}</p>
         <p><strong>Actions:</strong> ${actions}</p>
+        <p><strong>Observed Tokens:</strong></p>
+        <div class="wallet-list" style="margin: 6px 0 10px;">${tokenHtml}</div>
         <div class="micro-grid" style="margin-top:10px">
           ${this.renderScoreCard('Early Entries', earlyEntries)}
           ${this.renderScoreCard('Total Entries', totalEntries)}
@@ -642,6 +655,82 @@ export class TradingOpsDashboard {
     }
 
     return null
+  }
+
+  private buildObservedTokensByWallet(
+    journal: Array<Record<string, unknown>>,
+    failures: Array<Record<string, unknown>>,
+    decisions: Array<Record<string, unknown>>,
+  ): Map<string, string[]> {
+    const byWallet = new Map<string, Set<string>>()
+
+    const collect = (wallet: unknown, token: unknown) => {
+      const walletKey = String(wallet || '').trim()
+      const tokenValue = String(token || '').trim()
+      if (!walletKey || !tokenValue) {
+        return
+      }
+
+      const set = byWallet.get(walletKey) || new Set<string>()
+      set.add(tokenValue)
+      byWallet.set(walletKey, set)
+    }
+
+    for (const row of journal || []) {
+      collect(row.sourceWallet, row.tokenMint)
+    }
+    for (const row of failures || []) {
+      collect(row.sourceWallet, row.tokenMint)
+    }
+    for (const row of decisions || []) {
+      collect(row.sourceWallet, row.tokenMint)
+    }
+
+    const normalized = new Map<string, string[]>()
+    for (const [wallet, tokens] of byWallet.entries()) {
+      normalized.set(wallet, Array.from(tokens).slice(0, 20))
+    }
+
+    return normalized
+  }
+
+  private extractTokensFromProfile(profile: Record<string, unknown>): string[] {
+    const tokenBuckets = [
+      profile.tokens,
+      profile.tokenMints,
+      profile.token_mints,
+      profile.observedTokens,
+      profile.observed_tokens,
+      profile.recentTokens,
+      profile.recent_tokens,
+    ]
+
+    const out = new Set<string>()
+    for (const bucket of tokenBuckets) {
+      if (!Array.isArray(bucket)) {
+        continue
+      }
+
+      for (const item of bucket) {
+        if (typeof item === 'string' && item.trim()) {
+          out.add(item.trim())
+          continue
+        }
+
+        if (item && typeof item === 'object') {
+          const value =
+            (item as Record<string, unknown>).mint ||
+            (item as Record<string, unknown>).tokenMint ||
+            (item as Record<string, unknown>).address ||
+            (item as Record<string, unknown>).symbol
+          if (typeof value === 'string' && value.trim()) {
+            out.add(value.trim())
+          }
+        }
+      }
+    }
+
+    return Array.from(out)
   }
 
   private escapeHtml(value: unknown): string {
