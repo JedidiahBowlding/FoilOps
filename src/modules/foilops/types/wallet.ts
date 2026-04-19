@@ -34,12 +34,7 @@ export type WalletRiskProfile = {
 
 // ─── Combined Wallet Profile ───────────────────────────────────────────────────
 
-export type WalletClassification =
-  | 'early-entrant'
-  | 'momentum-wallet'
-  | 'high-risk'
-  | 'watchlist'
-  | 'ignore'
+export type WalletClassification = 'early-entrant' | 'momentum-wallet' | 'high-risk' | 'watchlist' | 'ignore'
 
 export type WalletProfile = WalletOpportunityProfile &
   WalletRiskProfile & {

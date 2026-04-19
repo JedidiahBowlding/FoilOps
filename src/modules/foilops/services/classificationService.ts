@@ -7,27 +7,18 @@ import { walletRules, tokenRules } from '../config/foilOpsConfig'
 
 // ─── Wallet classification ─────────────────────────────────────────────────────
 
-export function classifyWalletProfile(
-  overallOpportunityScore: number,
-  overallRiskScore: number,
-): WalletClassification {
+export function classifyWalletProfile(overallOpportunityScore: number, overallRiskScore: number): WalletClassification {
   const r = walletRules.classification
 
   // High-risk trumps everything
   if (overallRiskScore >= r.highRiskMinRisk) return 'high-risk'
 
   // Must have low enough risk to be in the opportunity tiers
-  if (
-    overallOpportunityScore >= r.earlyEntrantMinOpportunity &&
-    overallRiskScore <= r.earlyEntrantMaxRisk
-  ) {
+  if (overallOpportunityScore >= r.earlyEntrantMinOpportunity && overallRiskScore <= r.earlyEntrantMaxRisk) {
     return 'early-entrant'
   }
 
-  if (
-    overallOpportunityScore >= r.momentumMinOpportunity &&
-    overallRiskScore <= r.momentumMaxRisk
-  ) {
+  if (overallOpportunityScore >= r.momentumMinOpportunity && overallRiskScore <= r.momentumMaxRisk) {
     return 'momentum-wallet'
   }
 

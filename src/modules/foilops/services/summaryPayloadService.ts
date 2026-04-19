@@ -109,7 +109,9 @@ export function buildWalletDetailPage(
     exitTimingAvgSeconds: exitDelays.length > 0 ? Math.round(median(exitDelays)) : 0,
     connectedClusterWallets: clusterResult?.reachableWallets ?? [],
     riskTags: profile.tags.filter((t) =>
-      ['rug-associated', 'aggressive-dumper', 'cluster-linked', 'suspicious-funding', 'liquidity-pull-risk'].includes(t),
+      ['rug-associated', 'aggressive-dumper', 'cluster-linked', 'suspicious-funding', 'liquidity-pull-risk'].includes(
+        t,
+      ),
     ),
     aiSummaryPayload: buildWalletSummaryPayload(profile, launches, clusterResult) as unknown as Record<string, unknown>,
   }

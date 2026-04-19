@@ -1,11 +1,7 @@
 // ─── Token Risk Profile ────────────────────────────────────────────────────────
 // Scores how dangerous a new token launch is based on on-chain evidence.
 
-export type TokenClassification =
-  | 'safer-speculative'
-  | 'watchlist'
-  | 'high-risk'
-  | 'extreme-risk'
+export type TokenClassification = 'safer-speculative' | 'watchlist' | 'high-risk' | 'extreme-risk'
 
 export type TokenRiskProfile = {
   tokenAddress: string
@@ -33,12 +29,7 @@ export type TokenRiskProfile = {
 // ─── Token Detail Page ─────────────────────────────────────────────────────────
 
 export type SuspiciousTokenEvent = {
-  eventType:
-    | 'large-sell'
-    | 'liquidity-removal'
-    | 'suspicious-wallet-entry'
-    | 'cluster-overlap'
-    | 'rapid-dump'
+  eventType: 'large-sell' | 'liquidity-removal' | 'suspicious-wallet-entry' | 'cluster-overlap' | 'rapid-dump'
   timestamp: number
   walletAddress?: string
   details: string

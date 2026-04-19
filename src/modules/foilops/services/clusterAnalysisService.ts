@@ -3,11 +3,7 @@
 // This is a standalone, pure-computation service that accepts pre-fetched data
 // so it can be tested without database dependencies.
 
-import {
-  WalletClusterLink,
-  ClusterLinkType,
-  ClusterAnalysisResult,
-} from '../types/cluster'
+import { WalletClusterLink, ClusterLinkType, ClusterAnalysisResult } from '../types/cluster'
 import { tracingRules, walletRules } from '../config/foilOpsConfig'
 import { additiveCap, clamp100 } from '../utils/scoringMath'
 
@@ -130,10 +126,7 @@ function detectDownstreamConsolidationLinks(
   for (const candidate of candidates) {
     if (candidate.address === targetAddress) continue
     // If candidate is a downstream recipient of target, or vice-versa
-    if (
-      targetDownstream.has(candidate.address) ||
-      candidate.downstreamRecipients.includes(targetAddress)
-    ) {
+    if (targetDownstream.has(candidate.address) || candidate.downstreamRecipients.includes(targetAddress)) {
       links.push({
         sourceWallet: targetAddress,
         targetWallet: candidate.address,

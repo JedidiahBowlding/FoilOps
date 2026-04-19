@@ -2,22 +2,10 @@
 // Converts raw on-chain evidence into structured opportunity + risk scores.
 // All inputs come from repositories / callers — this service is pure computation.
 
-import {
-  WalletOpportunityProfile,
-  WalletRiskProfile,
-  WalletProfile,
-  LaunchParticipationRecord,
-} from '../types/wallet'
+import { WalletOpportunityProfile, WalletRiskProfile, WalletProfile, LaunchParticipationRecord } from '../types/wallet'
 import { ClusterAnalysisResult } from '../types/cluster'
 import { walletRules } from '../config/foilOpsConfig'
-import {
-  clamp100,
-  clamp1,
-  weightedMean,
-  earlyEntryScore,
-  participationScore,
-  additiveCap,
-} from '../utils/scoringMath'
+import { clamp100, clamp1, weightedMean, earlyEntryScore, participationScore, additiveCap } from '../utils/scoringMath'
 import { classifyWalletProfile } from './classificationService'
 
 // ─── Input types ───────────────────────────────────────────────────────────────
@@ -100,7 +88,9 @@ export function calculateLaunchParticipationScore(launches: LaunchParticipationR
   return participationScore(rate, pr.highRateThreshold, pr.mediumRateThreshold)
 }
 
-export function calculateRugRiskScore(input: Pick<WalletScoringInput, 'isFlagged' | 'rugEventCount' | 'clusterResult'>): number {
+export function calculateRugRiskScore(
+  input: Pick<WalletScoringInput, 'isFlagged' | 'rugEventCount' | 'clusterResult'>,
+): number {
   const rr = walletRules.rugRisk
   const flagScore = input.isFlagged ? rr.weights.flagged : 0
   const eventScore = Math.min(60, input.rugEventCount * rr.weights.perEvent)
@@ -122,9 +112,7 @@ export function calculateClusterSuspicionScore(clusterResult: ClusterAnalysisRes
   return clamp100(clusterResult.clusterSuspicionScore)
 }
 
-export function calculateSuspiciousFundingScore(
-  flags: WalletScoringInput['fundingFlags'],
-): number {
+export function calculateSuspiciousFundingScore(flags: WalletScoringInput['fundingFlags']): number {
   const fw = walletRules.suspiciousFunding.weights
   return additiveCap([
     flags.fromKnownBadActor ? fw.fromKnownBadActor : 0,
@@ -200,10 +188,7 @@ export function scoreWallet(input: WalletScoringInput): WalletProfile {
 
 // ─── Tag builder ───────────────────────────────────────────────────────────────
 
-function buildWalletTags(
-  opportunity: WalletOpportunityProfile,
-  risk: WalletRiskProfile,
-): string[] {
+function buildWalletTags(opportunity: WalletOpportunityProfile, risk: WalletRiskProfile): string[] {
   const tags: string[] = []
   if (opportunity.earlyEntryScore >= 80) tags.push('ultra-early-entrant')
   else if (opportunity.earlyEntryScore >= 60) tags.push('early-entrant')

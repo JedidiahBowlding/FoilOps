@@ -73,8 +73,8 @@ describe('calculateEarlyEntryScore', () => {
 
   it('averages across multiple launches', () => {
     const mixed = [
-      makeLaunch({ entryDelaySeconds: 30 }),   // 100
-      makeLaunch({ entryDelaySeconds: 2000 }),  // 0
+      makeLaunch({ entryDelaySeconds: 30 }), // 100
+      makeLaunch({ entryDelaySeconds: 2000 }), // 0
     ]
     const score = calculateEarlyEntryScore(mixed)
     expect(score).toBeGreaterThan(0)
@@ -110,20 +110,13 @@ describe('calculateRepeatSuccessScore', () => {
   })
 
   it('returns high score when most exits are profitable', () => {
-    const launches = [
-      makeLaunch({ gainLossPct: 50 }),
-      makeLaunch({ gainLossPct: 20 }),
-      makeLaunch({ gainLossPct: 80 }),
-    ]
+    const launches = [makeLaunch({ gainLossPct: 50 }), makeLaunch({ gainLossPct: 20 }), makeLaunch({ gainLossPct: 80 })]
     const score = calculateRepeatSuccessScore(launches)
     expect(score).toBeGreaterThan(70)
   })
 
   it('returns low score when most exits are losses', () => {
-    const launches = [
-      makeLaunch({ gainLossPct: -30 }),
-      makeLaunch({ gainLossPct: -10 }),
-    ]
+    const launches = [makeLaunch({ gainLossPct: -30 }), makeLaunch({ gainLossPct: -10 })]
     const score = calculateRepeatSuccessScore(launches)
     expect(score).toBeLessThan(30)
   })
