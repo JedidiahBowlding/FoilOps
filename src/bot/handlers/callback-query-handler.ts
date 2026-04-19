@@ -26,6 +26,10 @@ import { BotMiddleware } from '../../config/bot-middleware'
 import { PrismaScamWalletRepository } from '../../repositories/prisma/scam-wallet'
 import { WalletClusterService } from '../../lib/wallet-cluster'
 import { AiAnalyzer } from '../../lib/ai-analyzer'
+import axios from 'axios'
+import { PrismaWalletRepository } from '../../repositories/prisma/wallet'
+import { TrackWallets } from '../../lib/track-wallets'
+import { getTradingBotBaseUrl } from '../../lib/web-control-utils'
 
 export class CallbackQueryHandler {
   private addCommand: AddCommand
@@ -44,6 +48,8 @@ export class CallbackQueryHandler {
   private scamWalletRepository: PrismaScamWalletRepository
   private walletClusterService: WalletClusterService
   private aiAnalyzer: AiAnalyzer
+  private prismaWalletRepository: PrismaWalletRepository
+  private trackWallets: TrackWallets
 
   private upgradePlanHandler: UpgradePlanHandler
   private donateHandler: DonateHandler
@@ -71,6 +77,8 @@ export class CallbackQueryHandler {
     this.upgradePlanHandler = new UpgradePlanHandler(this.bot)
     this.donateHandler = new DonateHandler(this.bot)
     this.promotionHandler = new PromotionHandler(this.bot)
+    this.prismaWalletRepository = new PrismaWalletRepository()
+    this.trackWallets = new TrackWallets()
   }
 
   public call() {
@@ -86,6 +94,55 @@ export class CallbackQueryHandler {
       }
 
       let responseText
+
+      // Track wallet from investigation
+      if (data?.startsWith('tw:')) {
+        if (!BotMiddleware.isUserBotAdmin(userId)) return
+        const addr = data.slice(3).trim()
+        if (!addr) return
+        await this.bot.answerCallbackQuery(callbackQuery.id)
+        try {
+          const existing = await this.prismaWalletRepository.getUserWalletById(userId, addr)
+          if (existing) {
+            await this.bot.sendMessage(chatId, `\u{1F640} Already tracking <code>${addr}</code>`, { parse_mode: 'HTML', reply_markup: SUB_MENU })
+            return
+          }
+          const created = await this.prismaWalletRepository.create(userId, addr, 'Main wallet from investigation')
+          if (created?.id) {
+            await this.trackWallets.setupWalletWatcher({ event: 'create', walletId: created.id })
+          }
+          await this.bot.sendMessage(chatId, `\u2705 Now tracking <code>${addr}</code>`, { parse_mode: 'HTML', reply_markup: SUB_MENU })
+        } catch (err) {
+          console.error('CALLBACK_TW_ERROR', err)
+          await this.bot.sendMessage(chatId, '\u274C Failed to add wallet. Try /add manually.', { reply_markup: SUB_MENU })
+        }
+        return
+      }
+
+      // Add wallet as copy-trade source
+      if (data?.startsWith('ct:')) {
+        if (!BotMiddleware.isUserBotAdmin(userId)) return
+        const addr = data.slice(3).trim()
+        if (!addr) return
+        await this.bot.answerCallbackQuery(callbackQuery.id)
+        try {
+          const tradingBotUrl = getTradingBotBaseUrl()
+          await axios.post(`${tradingBotUrl}/trading/source-wallets`, { action: 'add', wallet: addr }, { timeout: 8_000 })
+          await this.bot.sendMessage(
+            chatId,
+            `\u2705 <code>${addr}</code> added as copy-trade source.\\n\\nRun /trading_enable to start trading.`,
+            { parse_mode: 'HTML', reply_markup: SUB_MENU },
+          )
+        } catch (err) {
+          console.error('CALLBACK_CT_ERROR', err)
+          await this.bot.sendMessage(
+            chatId,
+            `\u274C Could not reach trading bot. Use:\\n<code>/trading_source_add ${addr}</code>`,
+            { parse_mode: 'HTML', reply_markup: SUB_MENU },
+          )
+        }
+        return
+      }
 
       // handle donations
       if (data?.startsWith('donate_action')) {

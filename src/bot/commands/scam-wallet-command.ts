@@ -801,6 +801,34 @@ export class ScamWalletCommand {
           disable_web_page_preview: true,
         })
 
+        // ── Message 5b: Main Wallet (top non-platform destination) ────────────
+        const mainWalletEntry = sorted.find(([, info]) => info.platform === 'Unknown')
+        if (mainWalletEntry) {
+          const [mainAddr, mainInfo] = mainWalletEntry
+          const mainLines = [
+            '🏦 <b>Main Wallet — Largest Fund Destination</b>',
+            '',
+            `<code>${mainAddr}</code>`,
+            '',
+            `💰 Received: <b>${mainInfo.totalSol.toFixed(4)} SOL</b> across <b>${mainInfo.count}</b> hop(s)`,
+            `🔗 <a href="${explorerWallet(mainAddr)}">View on Solscan</a>`,
+            '',
+            'Tap a button below to track this wallet or start copy trading it.',
+          ]
+          await this.bot.sendMessage(chatId, mainLines.join('\n'), {
+            parse_mode: 'HTML',
+            disable_web_page_preview: true,
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '➕ Track wallet', callback_data: `tw:${mainAddr}` },
+                  { text: '🔁 Copy trade', callback_data: `ct:${mainAddr}` },
+                ],
+              ],
+            },
+          })
+        }
+
         // ── Message 6: Individual Hops ────────────────────────────────────────
         const hopLines = ['📋 <b>Dev Wallet Hops (newest first)</b>', '']
         for (const step of allSteps.slice(0, 15)) {
