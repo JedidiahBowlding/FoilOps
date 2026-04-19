@@ -184,24 +184,21 @@ export class TradingOpsDashboard {
     <title>FoilOps Trading Ops</title>
     <style>
       :root {
-        --bg: #f5efe2;
-        --paper: rgba(255, 249, 239, 0.92);
-        --ink: #1f1a14;
-        --muted: #6c6256;
-        --line: rgba(43, 31, 19, 0.12);
-        --accent: #c24d2c;
-        --accent-2: #1d6b63;
-        --warn: #a6452b;
+        --bg: #0a0e27;
+        --paper: rgba(15, 20, 45, 0.7);
+        --ink: #ffffff;
+        --muted: #a0a8c0;
+        --line: rgba(255, 45, 45, 0.2);
+        --accent: #ff2d2d;
+        --accent-2: #ff2d2d;
+        --warn: #ff2d2d;
       }
       * { box-sizing: border-box; }
       body {
         margin: 0;
         padding: 28px;
         color: var(--ink);
-        background:
-          radial-gradient(circle at 12% 18%, rgba(194,77,44,0.22), transparent 28%),
-          radial-gradient(circle at 88% 12%, rgba(29,107,99,0.18), transparent 24%),
-          linear-gradient(145deg, #f7f1e3, #e7ddca 60%, #ddd1bc);
+        background: linear-gradient(135deg, #0a0e27 0%, #0f1440 50%, #0a0e27 100%);
         font-family: "Avenir Next", "Trebuchet MS", sans-serif;
       }
       h1, h2, h3 { margin: 0; }
@@ -236,13 +233,13 @@ export class TradingOpsDashboard {
         margin-top: 18px;
         padding: 14px 16px;
         border-radius: 18px;
-        background: rgba(29,107,99,0.1);
-        border: 1px solid rgba(29,107,99,0.16);
+        background: rgba(255, 45, 45, 0.08);
+        border: 1px solid rgba(255, 45, 45, 0.2);
       }
       .control-status.error {
-        background: rgba(166,69,43,0.1);
-        border-color: rgba(166,69,43,0.18);
-        color: var(--warn);
+        background: rgba(255, 45, 45, 0.12);
+        border-color: rgba(255, 45, 45, 0.3);
+        color: #ff7070;
       }
       .control-grid {
         display: grid;

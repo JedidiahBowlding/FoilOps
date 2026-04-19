@@ -48,23 +48,20 @@ function renderGraphPage(wallet: string) {
   <title>Wallet Graph</title>
   <style>
     :root {
-      --bg: #f6efe4;
-      --panel: #fffaf2;
-      --ink: #1f1a14;
-      --muted: #5f5446;
-      --accent: #007a6e;
-      --accent-2: #b14a2c;
-      --line: #d8cbb6;
+      --bg: #0a0e27;
+      --panel: rgba(15, 20, 45, 0.7);
+      --ink: #ffffff;
+      --muted: #a0a8c0;
+      --accent: #ff2d2d;
+      --accent-2: #ff2d2d;
+      --line: rgba(255, 45, 45, 0.2);
     }
 
     body {
       margin: 0;
       font-family: "Avenir Next", "Segoe UI", sans-serif;
       color: var(--ink);
-      background:
-        radial-gradient(1200px 800px at 5% -10%, #f8d9b8 0%, transparent 55%),
-        radial-gradient(1000px 700px at 95% 10%, #d3efe7 0%, transparent 55%),
-        var(--bg);
+      background: linear-gradient(135deg, #0a0e27 0%, #0f1440 50%, #0a0e27 100%);
     }
 
     .wrap {

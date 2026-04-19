@@ -97,12 +97,12 @@ export class ScamDashboard {
     <title>FoilOps Scam Intelligence</title>
     <style>
       :root {
-        --bg: #0a111f;
-        --bg-alt: #12213f;
-        --ink: #f1f5ff;
-        --muted: #a8b3d1;
-        --hot: #ff5d5d;
-        --warn: #ffad42;
+        --bg: #0a0e27;
+        --bg-alt: #0f1440;
+        --ink: #ffffff;
+        --muted: #a0a8c0;
+        --hot: #ff2d2d;
+        --warn: #ff7070;
         --ok: #44d27a;
       }
 
@@ -112,7 +112,7 @@ export class ScamDashboard {
         margin: 0;
         padding: 24px;
         color: var(--ink);
-        background: radial-gradient(circle at 10% 10%, #17315f, var(--bg) 42%), linear-gradient(130deg, #0a111f, #091a3b 80%);
+        background: linear-gradient(135deg, #0a0e27 0%, #0f1440 50%, #0a0e27 100%);
         font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
       }
 

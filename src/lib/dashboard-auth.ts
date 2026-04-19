@@ -289,14 +289,14 @@ export class DashboardAuth {
     <title>FoilOps Login</title>
     <style>
       :root {
-        --bg: #f3ead8;
-        --ink: #231a12;
-        --muted: #6e6257;
-        --panel: rgba(255, 250, 242, 0.92);
-        --line: rgba(62, 41, 20, 0.12);
-        --accent: #0b6e61;
-        --accent-2: #c24d2c;
-        --danger: #8e2f22;
+        --bg: #0a0e27;
+        --ink: #ffffff;
+        --muted: #a0a8c0;
+        --panel: rgba(15, 20, 45, 0.7);
+        --line: rgba(255, 45, 45, 0.2);
+        --accent: #ff2d2d;
+        --accent-2: #ff2d2d;
+        --danger: #ff2d2d;
       }
       * { box-sizing: border-box; }
       body {
@@ -306,10 +306,7 @@ export class DashboardAuth {
         place-items: center;
         padding: 24px;
         color: var(--ink);
-        background:
-          radial-gradient(circle at 14% 18%, rgba(194,77,44,0.22), transparent 24%),
-          radial-gradient(circle at 82% 12%, rgba(11,110,97,0.18), transparent 22%),
-          linear-gradient(135deg, #f7efe1, #e5d8c1 58%, #d8c6ab);
+        background: linear-gradient(135deg, #0a0e27 0%, #0f1440 50%, #0a0e27 100%);
         font-family: "Avenir Next", "Trebuchet MS", sans-serif;
       }
       .shell {
@@ -371,19 +368,19 @@ export class DashboardAuth {
       .notice {
         border-radius: 14px;
         padding: 12px 14px;
-        background: rgba(11,110,97,0.08);
-        border: 1px solid rgba(11,110,97,0.14);
+        background: rgba(255, 45, 45, 0.12);
+        border: 1px solid rgba(255, 45, 45, 0.2);
         color: var(--ink);
         font-size: 0.95rem;
       }
       .notice.warning {
-        background: rgba(194,77,44,0.08);
-        border-color: rgba(194,77,44,0.2);
+        background: rgba(255, 45, 45, 0.12);
+        border-color: rgba(255, 45, 45, 0.2);
       }
       .notice.error {
-        background: rgba(142,47,34,0.1);
-        border-color: rgba(142,47,34,0.22);
-        color: var(--danger);
+        background: rgba(255, 45, 45, 0.15);
+        border-color: rgba(255, 45, 45, 0.3);
+        color: #ff7070;
       }
       label {
         display: block;
