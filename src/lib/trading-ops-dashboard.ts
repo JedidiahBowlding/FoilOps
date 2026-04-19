@@ -116,6 +116,14 @@ export class TradingOpsDashboard {
     const walletAttribution = this.buildWalletAttribution(data.journal, data.decisions)
     const attributionRows = this.renderWalletAttributionRows(walletAttribution)
     const driftAlerts = this.buildProfileDriftAlerts(sourceProfiles, walletAttribution)
+    const driftAlertCount = driftAlerts.length
+    const watchlistCount = watchlist.length
+    const profileCount = Number(safety.sourceWalletProfileCount || Object.keys(sourceProfiles).length || 0)
+    const attributedWalletCount = walletAttribution.size
+    const tokenExposureCount = observedTokensByWallet.size
+    const journalCount = data.journal.length
+    const failureCount = data.failures.length
+    const decisionCount = data.decisions.length
     const driftAlertHtml = driftAlerts.length
       ? driftAlerts.map((alert) => `<div class="notice warning">${this.escapeHtml(alert)}</div>`).join('')
       : '<div class="notice">No profile drift alerts detected from current telemetry.</div>'
@@ -226,9 +234,36 @@ export class TradingOpsDashboard {
       <article class="card"><div class="eyebrow">Queue</div><div class="big">${data.metrics.deadLetterCount || 0}</div><p>${metrics.retriedTotal || 0} retry attempts recorded</p></article>
     </section>
 
+    <section class="section">
+      <div class="section-header">
+        <div class="section-header-copy">
+          <h2>Operator Snapshot</h2>
+          <p class="section-subtitle">Immediate scan line for posture, coverage, and backlog before you drill into controls or telemetry tables.</p>
+        </div>
+      </div>
+      <div class="signal-strip">
+        <span class="signal-pill"><strong>Receiver</strong>${data.status.enabled ? 'Enabled' : 'Disabled'}</span>
+        <span class="signal-pill"><strong>Execution</strong>${currentExecutionMode}</span>
+        <span class="signal-pill"><strong>Mode</strong>${currentMode}</span>
+        <span class="signal-pill"><strong>Profile</strong>${currentProfile}</span>
+        <span class="signal-pill"><strong>Watchlist</strong>${watchlistCount}</span>
+        <span class="signal-pill"><strong>Dead Letters</strong>${failureCount}</span>
+      </div>
+      <div class="summary-grid">
+        <article class="summary-tile"><p class="summary-tile-label">Profile Coverage</p><div class="summary-tile-value">${profileCount}</div><p class="summary-tile-copy">Source-wallet presets currently available to guide copy-trade behavior.</p></article>
+        <article class="summary-tile"><p class="summary-tile-label">Attributed Wallets</p><div class="summary-tile-value">${attributedWalletCount}</div><p class="summary-tile-copy">Wallets with enough telemetry to show attribution, drift, or replay context.</p></article>
+        <article class="summary-tile"><p class="summary-tile-label">Decision History</p><div class="summary-tile-value">${decisionCount}</div><p class="summary-tile-copy">Recent decision records available for replay and guardrail tuning.</p></article>
+        <article class="summary-tile"><p class="summary-tile-label">Alert Pressure</p><div class="summary-tile-value">${driftAlertCount}</div><p class="summary-tile-copy">Drift alerts currently calling for review before loosening execution posture.</p></article>
+      </div>
+    </section>
+
     <section class="section table-card" id="trend-charts">
-      <h2>Durable Trend Charts</h2>
-      <p class="eyebrow">Persisted analytics history from snapshots. Use this to spot velocity and regime changes.</p>
+      <div class="section-header">
+        <div class="section-header-copy">
+          <h2>Durable Trend Charts</h2>
+          <p class="section-subtitle">Persisted analytics history from snapshots. Use this to spot velocity and regime changes.</p>
+        </div>
+      </div>
       <div class="micro-grid trend-toolbar">
         <label>Range (hours)
           <select id="trend-range">
@@ -252,8 +287,12 @@ export class TradingOpsDashboard {
     </section>
 
     <section class="section">
-      <h2>Flight Path</h2>
-      <p class="eyebrow">Understand the control flow in 30 seconds.</p>
+      <div class="section-header">
+        <div class="section-header-copy">
+          <h2>Flight Path</h2>
+          <p class="section-subtitle">Understand the control flow in 30 seconds.</p>
+        </div>
+      </div>
       <div class="help-grid">
         <article class="help-card"><p class="eyebrow">Step 1</p><h3>Set Guardrails</h3><p>Apply preset or custom risk limits before enabling execution.</p></article>
         <article class="help-card"><p class="eyebrow">Step 2</p><h3>Curate Wallets</h3><p>Keep source and tracked wallets clean. Flagged rapid-dumper wallets are enforced.</p></article>
@@ -270,8 +309,12 @@ export class TradingOpsDashboard {
     </section>
 
     <section class="section" id="controls">
-      <h2>Web Control Surface</h2>
-      <p class="eyebrow">The same live backend can now be controlled from this website as well as Telegram admin commands.</p>
+      <div class="section-header">
+        <div class="section-header-copy">
+          <h2>Web Control Surface</h2>
+          <p class="section-subtitle">The same live backend can now be controlled from this website as well as Telegram admin commands.</p>
+        </div>
+      </div>
       <div id="control-status" class="control-status">Choose an action, submit a setting update, or manage tracked wallets directly from the dashboard.</div>
       <div class="control-grid">
         <article class="control-card">
@@ -401,20 +444,34 @@ export class TradingOpsDashboard {
     </section>
 
     <section class="section" id="profiles">
-      <h2>Source Wallet Profiles</h2>
-      <p class="eyebrow">Watchlist size ${watchlist.length} | Profile count ${safety.sourceWalletProfileCount || Object.keys(sourceProfiles).length}</p>
-      <div class="profiles">${profileCards || '<article class="mini-card"><p>No watchlisted wallets yet.</p></article>'}</div>
+      <div class="section-header">
+        <div class="section-header-copy">
+          <h2>Source Wallet Profiles</h2>
+          <p class="section-subtitle">Watchlist size ${watchlistCount} | Profile count ${profileCount}</p>
+        </div>
+      </div>
+      <div class="profiles">${profileCards || '<article class="empty-state"><strong>No watchlisted wallets yet.</strong><span>Add source wallets to start seeing profile cards, observed tokens, and attribution overlays.</span></article>'}</div>
     </section>
 
     <section class="section">
-      <h2>Profile Drift Alerts</h2>
-      <p class="eyebrow">Automatic drift checks for sudden quality degradation, risk increase, and rapid-dump spikes.</p>
+      <div class="section-header">
+        <div class="section-header-copy">
+          <h2>Profile Drift Alerts</h2>
+          <p class="section-subtitle">Automatic drift checks for sudden quality degradation, risk increase, and rapid-dump spikes.</p>
+        </div>
+        <div class="table-meta"><span class="badge">Active alerts: ${driftAlertCount}</span></div>
+      </div>
       <div class="control-form">${driftAlertHtml}</div>
     </section>
 
     <section class="section table-card" id="attribution">
-      <h2>Wallet Attribution</h2>
-      <p class="eyebrow">Execution quality attribution by source wallet.</p>
+      <div class="section-header">
+        <div class="section-header-copy">
+          <h2>Wallet Attribution</h2>
+          <p class="section-subtitle">Execution quality attribution by source wallet.</p>
+        </div>
+        <div class="table-meta"><span class="badge">Wallets: ${attributedWalletCount}</span><span class="badge">Journal rows: ${journalCount}</span></div>
+      </div>
       <table>
         <thead><tr><th>Source Wallet</th><th>Trades</th><th>Wins</th><th>Win Rate</th><th>Realized PnL</th><th>Avg Slippage</th><th>Lifecycle</th></tr></thead>
         <tbody>${attributionRows || '<tr><td colspan="7">No attribution data available yet.</td></tr>'}</tbody>
@@ -422,8 +479,13 @@ export class TradingOpsDashboard {
     </section>
 
     <section class="section table-card" id="exposure">
-      <h2>Token Exposure</h2>
-      <p class="eyebrow">Current observed token breadth per source wallet.</p>
+      <div class="section-header">
+        <div class="section-header-copy">
+          <h2>Token Exposure</h2>
+          <p class="section-subtitle">Current observed token breadth per source wallet.</p>
+        </div>
+        <div class="table-meta"><span class="badge">Wallets: ${tokenExposureCount}</span></div>
+      </div>
       <table>
         <thead><tr><th>Source Wallet</th><th>Distinct Tokens</th><th>Suggested Cap</th><th>Tokens</th></tr></thead>
         <tbody>${tokenExposureRows || '<tr><td colspan="4">No token exposure telemetry yet.</td></tr>'}</tbody>
@@ -431,7 +493,13 @@ export class TradingOpsDashboard {
     </section>
 
     <section class="section table-card">
-      <h2>Trade Journal</h2>
+      <div class="section-header">
+        <div class="section-header-copy">
+          <h2>Trade Journal</h2>
+          <p class="section-subtitle">Most recent execution and gating records visible to the operator.</p>
+        </div>
+        <div class="table-meta"><span class="badge">Entries: ${journalCount}</span></div>
+      </div>
       <table>
         <thead><tr><th>Time</th><th>Status</th><th>Action</th><th>Token</th><th>Source</th><th>Profile</th><th>Amount</th><th>Reason</th></tr></thead>
         <tbody>${journalRows || '<tr><td colspan="8">No journal entries yet.</td></tr>'}</tbody>
@@ -439,7 +507,13 @@ export class TradingOpsDashboard {
     </section>
 
     <section class="section table-card">
-      <h2>Dead Letters</h2>
+      <div class="section-header">
+        <div class="section-header-copy">
+          <h2>Dead Letters</h2>
+          <p class="section-subtitle">Signals that failed execution and may need replay or root-cause review.</p>
+        </div>
+        <div class="table-meta"><span class="badge">Queued: ${failureCount}</span></div>
+      </div>
       <table>
         <thead><tr><th>Signal ID</th><th>Status</th><th>Type</th><th>Source</th><th>Retries</th><th>Reason</th></tr></thead>
         <tbody>${failureRows || '<tr><td colspan="6">No failed signals queued.</td></tr>'}</tbody>
@@ -447,7 +521,13 @@ export class TradingOpsDashboard {
     </section>
 
     <section class="section table-card" id="decision-feed">
-      <h2>Decision Feed</h2>
+      <div class="section-header">
+        <div class="section-header-copy">
+          <h2>Decision Feed</h2>
+          <p class="section-subtitle">Recent acceptance, rejection, and safety-gate rationale for the receiver.</p>
+        </div>
+        <div class="table-meta"><span class="badge">Decisions: ${decisionCount}</span></div>
+      </div>
       <table>
         <thead><tr><th>Signal ID</th><th>Status</th><th>Type</th><th>Risk</th><th>Safety</th><th>Explanation</th></tr></thead>
         <tbody>${decisionRows || '<tr><td colspan="6">No decisions yet.</td></tr>'}</tbody>
@@ -455,8 +535,13 @@ export class TradingOpsDashboard {
     </section>
 
     <section class="section table-card" id="simulation">
-      <h2>Simulation Replay</h2>
-      <p class="eyebrow">Replay of recent decisions against current max risk gate (${maxRiskScore || 'n/a'}).</p>
+      <div class="section-header">
+        <div class="section-header-copy">
+          <h2>Simulation Replay</h2>
+          <p class="section-subtitle">Replay of recent decisions against current max risk gate (${maxRiskScore || 'n/a'}).</p>
+        </div>
+        <div class="table-meta"><span class="badge">Samples: ${replay.total}</span><span class="badge">Mismatches: ${replay.mismatchCount}</span></div>
+      </div>
       <div class="micro-grid">
         ${this.renderScoreCard('Replayed', replay.total)}
         ${this.renderScoreCard('Would Execute', replay.wouldExecute)}

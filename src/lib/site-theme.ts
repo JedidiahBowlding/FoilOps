@@ -388,6 +388,103 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         grid-template-columns: 1fr;
       }
 
+      .section {
+        display: grid;
+        gap: 14px;
+      }
+
+      .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: end;
+        gap: 14px;
+        flex-wrap: wrap;
+      }
+
+      .section-header-copy {
+        display: grid;
+        gap: 6px;
+      }
+
+      .section-subtitle {
+        margin: 0;
+        max-width: 78ch;
+      }
+
+      .signal-strip,
+      .table-meta {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .signal-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(129, 196, 255, 0.18);
+        background: rgba(7, 14, 34, 0.84);
+        color: var(--fx-ink);
+        font-size: 0.82rem;
+      }
+
+      .signal-pill strong {
+        color: var(--fx-primary);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-size: 0.7rem;
+      }
+
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+      }
+
+      .summary-tile {
+        padding: 14px 16px;
+        border-radius: 18px;
+        border: 1px solid rgba(129, 196, 255, 0.12);
+        background: linear-gradient(180deg, rgba(10, 17, 40, 0.84), rgba(8, 14, 33, 0.68));
+      }
+
+      .summary-tile-label {
+        margin: 0 0 6px;
+        color: var(--fx-muted);
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .summary-tile-value {
+        color: var(--fx-ink);
+        font-size: 1.15rem;
+        line-height: 1.25;
+      }
+
+      .summary-tile-copy {
+        margin: 8px 0 0;
+        color: var(--fx-muted);
+        font-size: 0.86rem;
+        line-height: 1.5;
+      }
+
+      .empty-state {
+        padding: 18px;
+        border-radius: 18px;
+        border: 1px dashed rgba(129, 196, 255, 0.22);
+        background: rgba(7, 13, 31, 0.52);
+      }
+
+      .empty-state strong {
+        display: block;
+        margin-bottom: 6px;
+        color: var(--fx-ink);
+      }
+
       .big {
         font-size: clamp(1.7rem, 3vw, 2.6rem);
         color: var(--fx-ink);

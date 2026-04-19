@@ -75,6 +75,12 @@ function renderGraphPage(wallet: string) {
         <span class="chip-legend-item"><span class="wallet-chip chip-source">Source</span><span>Source watchlist only</span></span>
         <span class="chip-legend-item"><span class="wallet-chip chip-both">Tracked + Source</span><span>Present in both pools</span></span>
       </div>
+      <div class="summary-grid" id="graph-summary">
+        <article class="summary-tile"><p class="summary-tile-label">Selected Wallet</p><div class="summary-tile-value mono" id="graph-summary-wallet">Waiting for selection</div><p class="summary-tile-copy">The wallet currently loaded into the graph canvas.</p></article>
+        <article class="summary-tile"><p class="summary-tile-label">Coverage</p><div class="summary-tile-value" id="graph-summary-coverage">Nodes 0 | Edges 0</div><p class="summary-tile-copy">Flow and cluster breadth currently rendered.</p></article>
+        <article class="summary-tile"><p class="summary-tile-label">Cluster Status</p><div class="summary-tile-value" id="graph-summary-cluster">Waiting for graph</div><p class="summary-tile-copy">Quick read of cluster score and risk for the current wallet.</p></article>
+        <article class="summary-tile"><p class="summary-tile-label">Analysis</p><div class="summary-tile-value" id="graph-summary-analysis">Idle</div><p class="summary-tile-copy">Analyst-side interpretation from the AI summary endpoint.</p></article>
+      </div>
       <div id="meta" class="meta">Loading...</div>
       <div id="analysis-summary" class="analysis-panel">Analysis loading...</div>
         </div>
@@ -118,6 +124,10 @@ function renderGraphPage(wallet: string) {
     const walletPopupClose = document.getElementById('wallet-popup-close')
     const walletPopupSolscan = document.getElementById('wallet-popup-solscan')
     const walletPopupAnalysis = document.getElementById('wallet-popup-analysis')
+    const graphSummaryWallet = document.getElementById('graph-summary-wallet')
+    const graphSummaryCoverage = document.getElementById('graph-summary-coverage')
+    const graphSummaryCluster = document.getElementById('graph-summary-cluster')
+    const graphSummaryAnalysis = document.getElementById('graph-summary-analysis')
     let selectedWalletAddress = ''
 
     function short(value) {
@@ -162,17 +172,45 @@ function renderGraphPage(wallet: string) {
     }
 
     async function loadWalletAnalysis(address, targetElement) {
+      if (graphSummaryAnalysis) {
+        graphSummaryAnalysis.textContent = 'Loading...'
+      }
       try {
         const response = await fetch('/api/graph/analyze/' + encodeURIComponent(address))
         if (!response.ok) {
           targetElement.textContent = 'Analysis unavailable for this wallet right now.'
+          if (graphSummaryAnalysis) {
+            graphSummaryAnalysis.textContent = 'Unavailable'
+          }
           return
         }
 
         const payload = await response.json()
         targetElement.textContent = payload.analysis || 'No analysis returned.'
+        if (graphSummaryAnalysis) {
+          graphSummaryAnalysis.textContent = 'Ready'
+        }
       } catch {
         targetElement.textContent = 'Analysis request failed.'
+        if (graphSummaryAnalysis) {
+          graphSummaryAnalysis.textContent = 'Request failed'
+        }
+      }
+    }
+
+    function updateGraphSummary(data) {
+      if (graphSummaryWallet) {
+        graphSummaryWallet.textContent = data && data.wallet ? short(data.wallet) : 'Waiting for selection'
+      }
+      if (graphSummaryCoverage) {
+        const nodes = Array.isArray(data?.nodes) ? data.nodes.length : 0
+        const edges = Array.isArray(data?.edges) ? data.edges.length : 0
+        graphSummaryCoverage.textContent = 'Nodes ' + nodes + ' | Edges ' + edges
+      }
+      if (graphSummaryCluster) {
+        graphSummaryCluster.textContent = data?.cluster
+          ? 'Score ' + data.cluster.score + ' | Risk ' + data.cluster.riskScore
+          : 'No cluster found'
       }
     }
 
@@ -342,14 +380,30 @@ function renderGraphPage(wallet: string) {
       const wallet = walletInput.value.trim()
       if (!wallet) {
         meta.textContent = 'Enter a wallet to load graph.'
+        updateGraphSummary(null)
         clearSvg()
         return
       }
 
       meta.textContent = 'Loading graph...'
+      if (graphSummaryWallet) {
+        graphSummaryWallet.textContent = short(wallet)
+      }
+      if (graphSummaryCoverage) {
+        graphSummaryCoverage.textContent = 'Loading...'
+      }
+      if (graphSummaryCluster) {
+        graphSummaryCluster.textContent = 'Loading...'
+      }
       const res = await fetch('/api/graph/' + encodeURIComponent(wallet))
       if (!res.ok) {
         meta.textContent = 'Failed to load graph data.'
+        if (graphSummaryCoverage) {
+          graphSummaryCoverage.textContent = 'Load failed'
+        }
+        if (graphSummaryCluster) {
+          graphSummaryCluster.textContent = 'Unavailable'
+        }
         clearSvg()
         return
       }
@@ -360,6 +414,7 @@ function renderGraphPage(wallet: string) {
         : 'no cluster found'
 
       meta.textContent = 'Nodes: ' + data.nodes.length + ' | Edges: ' + data.edges.length + ' | ' + clusterSummary
+  updateGraphSummary(data)
       draw(data)
       renderWalletList(data)
       analysisSummary.textContent = 'Analysis loading...'
