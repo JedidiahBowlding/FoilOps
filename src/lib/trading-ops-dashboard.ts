@@ -113,13 +113,35 @@ export class TradingOpsDashboard {
     const currentProfile = String(config.profile || config.profilePreset || 'conservative')
     const currentExecutionMode = String(data.metrics.executionMode || data.status.executionMode || 'paper')
     const observedTokensByWallet = this.buildObservedTokensByWallet(data.journal, data.failures, data.decisions)
+    const walletAttribution = this.buildWalletAttribution(data.journal, data.decisions)
+    const attributionRows = this.renderWalletAttributionRows(walletAttribution)
+    const driftAlerts = this.buildProfileDriftAlerts(sourceProfiles, walletAttribution)
+    const driftAlertHtml = driftAlerts.length
+      ? driftAlerts.map((alert) => `<div class="notice warning">${this.escapeHtml(alert)}</div>`).join('')
+      : '<div class="notice">No profile drift alerts detected from current telemetry.</div>'
+    const tokenExposureRows = this.renderTokenExposureRows(observedTokensByWallet)
+    const replay = this.buildReplaySimulation(data.decisions, Number(maxRiskScore) || 50)
+    const replayRows = replay.samples
+      .map(
+        (row) => `
+          <tr>
+            <td>${this.escapeHtml(row.signalId)}</td>
+            <td>${this.escapeHtml(row.actual)}</td>
+            <td>${this.escapeHtml(row.simulated)}</td>
+            <td>${this.escapeHtml(String(row.riskScore))}</td>
+            <td>${this.escapeHtml(row.reason)}</td>
+          </tr>
+        `,
+      )
+      .join('')
 
     const profileCards = watchlist
       .slice(0, 18)
       .map((wallet) => {
         const profile = sourceProfiles[String(wallet)] || {}
         const observedTokens = observedTokensByWallet.get(String(wallet)) || []
-        return this.renderSourceWalletProfileCard(String(wallet), profile, observedTokens)
+        const attribution = walletAttribution.get(String(wallet))
+        return this.renderSourceWalletProfileCard(String(wallet), profile, observedTokens, attribution)
       })
       .join('')
 
@@ -167,6 +189,7 @@ export class TradingOpsDashboard {
             <td>${entry.signalType || ''}</td>
             <td>${entry.riskScore ?? ''}</td>
             <td>${Array.isArray(entry.safetyReasons) ? entry.safetyReasons.join(', ') : ''}</td>
+            <td>${this.explainDecision(entry)}</td>
           </tr>
         `,
       )
@@ -264,6 +287,11 @@ export class TradingOpsDashboard {
             <div class="button-row">
               <button class="primary" type="submit">Apply Settings</button>
             </div>
+            <div class="button-row" id="safe-preset-buttons">
+              <button type="button" data-safe-preset="paper-test">Paper Test</button>
+              <button type="button" data-safe-preset="cautious-live">Cautious Live</button>
+              <button type="button" data-safe-preset="aggressive-live">Aggressive Live</button>
+            </div>
           </form>
         </article>
 
@@ -335,6 +363,30 @@ export class TradingOpsDashboard {
       <div class="profiles">${profileCards || '<article class="mini-card"><p>No watchlisted wallets yet.</p></article>'}</div>
     </section>
 
+    <section class="section">
+      <h2>Profile Drift Alerts</h2>
+      <p class="eyebrow">Automatic drift checks for sudden quality degradation, risk increase, and rapid-dump spikes.</p>
+      <div class="control-form">${driftAlertHtml}</div>
+    </section>
+
+    <section class="section table-card">
+      <h2>Wallet Attribution</h2>
+      <p class="eyebrow">Execution quality attribution by source wallet.</p>
+      <table>
+        <thead><tr><th>Source Wallet</th><th>Trades</th><th>Wins</th><th>Win Rate</th><th>Realized PnL</th><th>Avg Slippage</th><th>Lifecycle</th></tr></thead>
+        <tbody>${attributionRows || '<tr><td colspan="7">No attribution data available yet.</td></tr>'}</tbody>
+      </table>
+    </section>
+
+    <section class="section table-card">
+      <h2>Token Exposure</h2>
+      <p class="eyebrow">Current observed token breadth per source wallet.</p>
+      <table>
+        <thead><tr><th>Source Wallet</th><th>Distinct Tokens</th><th>Suggested Cap</th><th>Tokens</th></tr></thead>
+        <tbody>${tokenExposureRows || '<tr><td colspan="4">No token exposure telemetry yet.</td></tr>'}</tbody>
+      </table>
+    </section>
+
     <section class="section table-card">
       <h2>Trade Journal</h2>
       <table>
@@ -354,8 +406,23 @@ export class TradingOpsDashboard {
     <section class="section table-card">
       <h2>Decision Feed</h2>
       <table>
-        <thead><tr><th>Signal ID</th><th>Status</th><th>Type</th><th>Risk</th><th>Safety</th></tr></thead>
-        <tbody>${decisionRows || '<tr><td colspan="5">No decisions yet.</td></tr>'}</tbody>
+        <thead><tr><th>Signal ID</th><th>Status</th><th>Type</th><th>Risk</th><th>Safety</th><th>Explanation</th></tr></thead>
+        <tbody>${decisionRows || '<tr><td colspan="6">No decisions yet.</td></tr>'}</tbody>
+      </table>
+    </section>
+
+    <section class="section table-card">
+      <h2>Simulation Replay</h2>
+      <p class="eyebrow">Replay of recent decisions against current max risk gate (${maxRiskScore || 'n/a'}).</p>
+      <div class="micro-grid">
+        ${this.renderScoreCard('Replayed', replay.total)}
+        ${this.renderScoreCard('Would Execute', replay.wouldExecute)}
+        ${this.renderScoreCard('Would Block', replay.wouldBlock)}
+        ${this.renderScoreCard('Gate Mismatches', replay.mismatchCount)}
+      </div>
+      <table>
+        <thead><tr><th>Signal ID</th><th>Actual</th><th>Simulated</th><th>Risk</th><th>Reason</th></tr></thead>
+        <tbody>${replayRows || '<tr><td colspan="5">No decision history to replay.</td></tr>'}</tbody>
       </table>
     </section>
 
@@ -499,6 +566,64 @@ export class TradingOpsDashboard {
         }
       })
 
+      function applyPresetToForm(preset) {
+        const set = (name, value) => {
+          const field = tradingSettingsForm.querySelector('[name="' + name + '"]')
+          if (field) field.value = String(value)
+        }
+
+        if (preset === 'paper-test') {
+          set('executionMode', 'paper')
+          set('profile', 'conservative')
+          set('mode', 'signal_based')
+          set('buyAmountSol', '0.005')
+          set('maxRiskScore', '35')
+          set('slippage', '1')
+          set('minAlertQualityScore', '50')
+          set('minTraceAlerts', '1')
+          return
+        }
+
+        if (preset === 'cautious-live') {
+          set('executionMode', 'live')
+          set('profile', 'conservative')
+          set('mode', 'signal_based')
+          set('buyAmountSol', '0.01')
+          set('maxRiskScore', '45')
+          set('slippage', '2')
+          set('minAlertQualityScore', '60')
+          set('minTraceAlerts', '2')
+          return
+        }
+
+        if (preset === 'aggressive-live') {
+          set('executionMode', 'live')
+          set('profile', 'aggressive')
+          set('mode', 'copy_trade')
+          set('buyAmountSol', '0.02')
+          set('maxRiskScore', '60')
+          set('slippage', '3')
+          set('minAlertQualityScore', '35')
+          set('minTraceAlerts', '0')
+        }
+      }
+
+      document.querySelectorAll('[data-safe-preset]').forEach((button) => {
+        button.addEventListener('click', async () => {
+          const preset = button.getAttribute('data-safe-preset')
+          if (!preset) return
+
+          applyPresetToForm(preset)
+          setControlStatus('Preset ' + preset + ' loaded. Applying settings...')
+
+          try {
+            await tradingSettingsForm.requestSubmit()
+          } catch (error) {
+            setControlStatus('Failed to apply preset settings.', 'error')
+          }
+        })
+      })
+
       sourceWalletForm.addEventListener('submit', async (event) => {
         event.preventDefault()
         const formData = new FormData(sourceWalletForm)
@@ -581,6 +706,14 @@ export class TradingOpsDashboard {
     wallet: string,
     profile: Record<string, unknown>,
     observedTokens: string[],
+    attribution?: {
+      trades: number
+      wins: number
+      winRatePct: number
+      realizedPnl: number
+      avgSlippage: number | null
+      rapidDumpCount: number
+    },
   ): string {
     const earlyEntries = this.pickNumber(profile, [
       'earlyEntries',
@@ -599,6 +732,7 @@ export class TradingOpsDashboard {
     const avgExitDelay = this.pickNumber(profile, ['avgExitDelaySeconds', 'avg_exit_delay_seconds', 'exitDelayAvg'])
     const pnlPct = this.pickNumber(profile, ['avgPnlPct', 'avg_pnl_pct', 'averagePnlPct'])
     const rapidDumps = this.pickNumber(profile, ['rapidDumps', 'rapid_dump_count', 'rapidDumperEvents'])
+    const profileUpdatedAt = this.pickDate(profile, ['updatedAt', 'updated_at', 'lastUpdatedAt', 'last_updated_at'])
 
     const winRate = winRateRaw == null ? null : winRateRaw <= 1 ? Math.round(winRateRaw * 100) : Math.round(winRateRaw)
     const actions = Array.isArray(profile.allowedActions)
@@ -609,6 +743,28 @@ export class TradingOpsDashboard {
     const tokenHtml = tokens.length
       ? tokens.map((token) => `<span class="badge mono">${this.escapeHtml(token)}</span>`).join(' ')
       : '<span class="badge">Not available yet</span>'
+    const completeness = this.calculateProfileCompleteness([
+      earlyEntries,
+      totalEntries,
+      momentumHits,
+      totalSignals,
+      wins,
+      winRate,
+      avgRisk,
+      avgEntryDelay,
+      avgExitDelay,
+      pnlPct,
+      rapidDumps,
+    ])
+    const confidence = this.calculateProfileConfidence(completeness, attribution)
+    const lifecycle = this.deriveLifecycleState({
+      winRate,
+      avgRisk,
+      rapidDumps,
+      confidence,
+      trades: attribution?.trades ?? totalSignals,
+    })
+    const freshLabel = this.formatFreshness(profileUpdatedAt)
 
     return `
       <article class="mini-card">
@@ -616,6 +772,9 @@ export class TradingOpsDashboard {
         <p><strong>Preset:</strong> ${this.escapeHtml(profile.preset || 'none')}</p>
         <p><strong>Enabled:</strong> ${profile.enabled === false ? 'no' : 'yes'}</p>
         <p><strong>Actions:</strong> ${actions}</p>
+        <p><strong>Lifecycle:</strong> <span class="badge">${lifecycle}</span></p>
+        <p><strong>Freshness:</strong> ${freshLabel}</p>
+        <p><strong>Confidence:</strong> ${confidence}% | <strong>Completeness:</strong> ${completeness}%</p>
         <p><strong>Observed Tokens:</strong></p>
         <div class="wallet-list" style="margin: 6px 0 10px;">${tokenHtml}</div>
         <div class="micro-grid" style="margin-top:10px">
@@ -655,6 +814,264 @@ export class TradingOpsDashboard {
     }
 
     return null
+  }
+
+  private pickDate(source: Record<string, unknown>, keys: string[]): Date | null {
+    for (const key of keys) {
+      const value = source[key]
+      if (value instanceof Date && !Number.isNaN(value.getTime())) {
+        return value
+      }
+      if (typeof value === 'string' || typeof value === 'number') {
+        const date = new Date(value)
+        if (!Number.isNaN(date.getTime())) {
+          return date
+        }
+      }
+    }
+
+    return null
+  }
+
+  private calculateProfileCompleteness(values: Array<number | null>): number {
+    if (values.length === 0) return 0
+    const present = values.filter((value) => value != null).length
+    return Math.round((present / values.length) * 100)
+  }
+
+  private calculateProfileConfidence(
+    completeness: number,
+    attribution?: { trades: number; winRatePct: number; rapidDumpCount: number },
+  ): number {
+    const tradeBonus = attribution ? Math.min(25, attribution.trades * 2) : 0
+    const stabilityBonus = attribution && attribution.rapidDumpCount === 0 ? 10 : 0
+    const qualityBonus = attribution && attribution.winRatePct >= 55 ? 10 : 0
+    return Math.min(100, Math.round(completeness * 0.55 + tradeBonus + stabilityBonus + qualityBonus))
+  }
+
+  private deriveLifecycleState(input: {
+    winRate: number | null
+    avgRisk: number | null
+    rapidDumps: number | null
+    confidence: number
+    trades: number | null
+  }): string {
+    if ((input.rapidDumps || 0) >= 2 || (input.avgRisk || 0) >= 75) return 'BLOCKED'
+    if (input.confidence < 45 || (input.trades || 0) < 3) return 'CANDIDATE'
+    if ((input.winRate || 0) < 45 || (input.avgRisk || 0) > 60) return 'WATCH'
+    return 'ACTIVE'
+  }
+
+  private formatFreshness(updatedAt: Date | null): string {
+    if (!updatedAt) return 'Not available'
+    const diffMs = Date.now() - updatedAt.getTime()
+    if (diffMs < 60_000) return 'Updated just now'
+    const minutes = Math.floor(diffMs / 60_000)
+    if (minutes < 60) return `Updated ${minutes}m ago`
+    const hours = Math.floor(minutes / 60)
+    if (hours < 24) return `Updated ${hours}h ago`
+    const days = Math.floor(hours / 24)
+    return `Updated ${days}d ago`
+  }
+
+  private buildWalletAttribution(
+    journal: Array<Record<string, unknown>>,
+    decisions: Array<Record<string, unknown>>,
+  ): Map<string, {
+    trades: number
+    wins: number
+    winRatePct: number
+    realizedPnl: number
+    avgSlippage: number | null
+    rapidDumpCount: number
+  }> {
+    const map = new Map<string, {
+      trades: number
+      wins: number
+      winRatePct: number
+      realizedPnl: number
+      avgSlippage: number | null
+      rapidDumpCount: number
+    }>()
+
+    const ensure = (wallet: string) => {
+      const existing = map.get(wallet)
+      if (existing) return existing
+      const next = { trades: 0, wins: 0, winRatePct: 0, realizedPnl: 0, avgSlippage: null as number | null, rapidDumpCount: 0 }
+      map.set(wallet, next)
+      return next
+    }
+
+    for (const row of journal || []) {
+      const wallet = String(row.sourceWallet || '').trim()
+      if (!wallet) continue
+      const target = ensure(wallet)
+      target.trades += 1
+      const pnl = typeof row.pnlPct === 'number' ? row.pnlPct : typeof row.gainLossPct === 'number' ? row.gainLossPct : null
+      if (pnl != null) {
+        target.realizedPnl += pnl
+        if (pnl > 0) target.wins += 1
+      }
+      const reason = String(row.reason || '').toLowerCase()
+      if (/rapid[-\s]?dump|aggressive[-\s]?dump/.test(reason)) {
+        target.rapidDumpCount += 1
+      }
+    }
+
+    for (const row of decisions || []) {
+      const wallet = String(row.sourceWallet || '').trim()
+      if (!wallet) continue
+      const target = ensure(wallet)
+      const safetyReasons = Array.isArray(row.safetyReasons) ? row.safetyReasons.map((r) => String(r).toLowerCase()) : []
+      if (safetyReasons.some((reason) => reason.includes('rapid') && reason.includes('dump'))) {
+        target.rapidDumpCount += 1
+      }
+    }
+
+    for (const [, value] of map) {
+      value.winRatePct = value.trades > 0 ? Math.round((value.wins / value.trades) * 100) : 0
+    }
+
+    return map
+  }
+
+  private renderWalletAttributionRows(
+    attribution: Map<string, {
+      trades: number
+      wins: number
+      winRatePct: number
+      realizedPnl: number
+      avgSlippage: number | null
+      rapidDumpCount: number
+    }>,
+  ): string {
+    const rows = Array.from(attribution.entries())
+      .sort((a, b) => b[1].realizedPnl - a[1].realizedPnl)
+      .slice(0, 24)
+
+    return rows
+      .map(([wallet, value]) => {
+        const lifecycle = this.deriveLifecycleState({
+          winRate: value.winRatePct,
+          avgRisk: null,
+          rapidDumps: value.rapidDumpCount,
+          confidence: Math.min(100, 45 + value.trades * 4),
+          trades: value.trades,
+        })
+        return `
+          <tr>
+            <td>${this.escapeHtml(wallet)}</td>
+            <td>${value.trades}</td>
+            <td>${value.wins}</td>
+            <td>${value.winRatePct}%</td>
+            <td>${value.realizedPnl.toFixed(2)}%</td>
+            <td>${value.avgSlippage == null ? 'n/a' : `${value.avgSlippage.toFixed(2)}%`}</td>
+            <td>${lifecycle}</td>
+          </tr>
+        `
+      })
+      .join('')
+  }
+
+  private renderTokenExposureRows(observed: Map<string, string[]>): string {
+    return Array.from(observed.entries())
+      .sort((a, b) => b[1].length - a[1].length)
+      .slice(0, 24)
+      .map(([wallet, tokens]) => {
+        const cap = tokens.length > 6 ? 'tighten cap' : tokens.length > 3 ? 'moderate cap' : 'standard cap'
+        const tokenText = tokens.slice(0, 6).map((token) => this.escapeHtml(token)).join(', ')
+        return `
+          <tr>
+            <td>${this.escapeHtml(wallet)}</td>
+            <td>${tokens.length}</td>
+            <td>${cap}</td>
+            <td>${tokenText || 'n/a'}</td>
+          </tr>
+        `
+      })
+      .join('')
+  }
+
+  private buildProfileDriftAlerts(
+    profiles: Record<string, Record<string, unknown>>,
+    attribution: Map<string, { trades: number; winRatePct: number; rapidDumpCount: number }>,
+  ): string[] {
+    const alerts: string[] = []
+    for (const [wallet, profile] of Object.entries(profiles)) {
+      const avgRisk = this.pickNumber(profile, ['avgRiskScore', 'avg_risk_score', 'averageRiskScore'])
+      const rapidDumps = this.pickNumber(profile, ['rapidDumps', 'rapid_dump_count', 'rapidDumperEvents'])
+      const stats = attribution.get(wallet)
+
+      if ((rapidDumps || 0) >= 2 || (stats?.rapidDumpCount || 0) >= 2) {
+        alerts.push(`${wallet}: rapid-dump pressure increased. Move wallet to WATCH or BLOCKED.`)
+      }
+      if ((avgRisk || 0) >= 70) {
+        alerts.push(`${wallet}: risk profile is elevated (${avgRisk}). Tighten limits.`)
+      }
+      if ((stats?.trades || 0) >= 5 && (stats?.winRatePct || 0) < 35) {
+        alerts.push(`${wallet}: execution quality dropped to ${stats?.winRatePct}% win rate.`)
+      }
+    }
+
+    return alerts.slice(0, 12)
+  }
+
+  private buildReplaySimulation(
+    decisions: Array<Record<string, unknown>>,
+    maxRiskScore: number,
+  ): {
+    total: number
+    wouldExecute: number
+    wouldBlock: number
+    mismatchCount: number
+    samples: Array<{ signalId: string; actual: string; simulated: string; riskScore: number; reason: string }>
+  } {
+    let wouldExecute = 0
+    let wouldBlock = 0
+    let mismatchCount = 0
+
+    const samples = (decisions || []).slice(0, 20).map((row) => {
+      const riskScore = typeof row.riskScore === 'number' ? row.riskScore : Number(row.riskScore || 0)
+      const simulated = Number.isFinite(riskScore) && riskScore <= maxRiskScore ? 'executed' : 'blocked'
+      if (simulated === 'executed') {
+        wouldExecute += 1
+      } else {
+        wouldBlock += 1
+      }
+
+      const actual = String(row.status || 'unknown').toLowerCase()
+      if ((actual.includes('executed') ? 'executed' : 'blocked') !== simulated) {
+        mismatchCount += 1
+      }
+
+      return {
+        signalId: String(row.signalId || 'n/a'),
+        actual: String(row.status || 'unknown'),
+        simulated,
+        riskScore: Number.isFinite(riskScore) ? riskScore : 0,
+        reason:
+          simulated === 'blocked'
+            ? `risk ${Number.isFinite(riskScore) ? riskScore : 'n/a'} > max ${maxRiskScore}`
+            : 'passes risk gate',
+      }
+    })
+
+    return {
+      total: samples.length,
+      wouldExecute,
+      wouldBlock,
+      mismatchCount,
+      samples,
+    }
+  }
+
+  private explainDecision(entry: Record<string, unknown>): string {
+    const safety = Array.isArray(entry.safetyReasons) ? entry.safetyReasons.map((r) => String(r)) : []
+    if (safety.length === 0) {
+      return entry.status === 'executed' ? 'Passed configured gates' : 'No explicit gate reason provided'
+    }
+
+    return safety.join(' | ')
   }
 
   private buildObservedTokensByWallet(

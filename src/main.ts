@@ -342,6 +342,34 @@ class Main {
           return
         }
 
+        if (action === 'enable' || action === 'resume') {
+          const sourceResponse = await axios.get(`${this.tradingBotUrl}/trading/source-wallets`).catch(() => null)
+          const sourcePayload = (sourceResponse?.data || {}) as Record<string, unknown>
+          const watchlist = Array.isArray(sourcePayload.watchlist) ? sourcePayload.watchlist : []
+
+          const blockedWallets: string[] = []
+          for (const item of watchlist) {
+            const walletAddress = typeof item === 'string' ? item.trim() : ''
+            if (!walletAddress) {
+              continue
+            }
+
+            const scamWallet = await this.scamWalletRepository.getScamWalletByAddress(walletAddress)
+            const blocked = scamWallet?.isFlagged === true && this.isRapidDumperPattern(scamWallet.reason, scamWallet.events)
+            if (blocked) {
+              blockedWallets.push(walletAddress)
+            }
+          }
+
+          if (blockedWallets.length > 0) {
+            res.status(403).json({
+              message: `Refusing ${action}. Remove flagged rapid-dumper wallets from source watchlist first.`,
+              blockedWallets,
+            })
+            return
+          }
+        }
+
         const payload = action === 'retry-failed' ? { limit: Number(req.body?.limit) || 10 } : {}
         const response = await axios.post(`${this.tradingBotUrl}${path}`, payload)
         res.status(200).json(response.data)
@@ -396,6 +424,18 @@ class Main {
         if (!parsedWallet || parsedWallet.chain !== 'solana') {
           res.status(400).json({ message: 'Source wallet controls currently support Solana wallet addresses only.' })
           return
+        }
+
+        if (action !== 'remove') {
+          const scamWallet = await this.scamWalletRepository.getScamWalletByAddress(parsedWallet.address)
+          const doNotTrack = scamWallet?.isFlagged === true && this.isRapidDumperPattern(scamWallet.reason, scamWallet.events)
+          if (doNotTrack) {
+            res.status(403).json({
+              message: 'Source wallet is flagged with rapid-dumper pattern and is enforced as DO_NOT_TRACK.',
+              wallet: parsedWallet.address,
+            })
+            return
+          }
         }
 
         const payload: Record<string, unknown> = {
