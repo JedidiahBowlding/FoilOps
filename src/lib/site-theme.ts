@@ -22,7 +22,7 @@ const NAV_LINKS: SiteNavLink[] = [
   { key: 'trading', href: '/dashboard/trading-ops', label: 'Trading Ops' },
   { key: 'scam', href: '/dashboard/scam-wallets', label: 'Scam Intel' },
   { key: 'graph', href: '/graph', label: 'Graph' },
-  { key: 'foilops', href: '/dashboard/foilops', label: 'FoilOps' },
+  { key: 'foilops', href: '/dashboard/foilops', label: 'Intelligence' },
 ]
 
 function renderNav(activeNav?: SiteNavKey): string {
@@ -47,11 +47,11 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       :root {
         color-scheme: dark;
         --fx-bg-0: #080508;
-        --fx-bg-1: #110608;
-        --fx-bg-2: #180a0a;
-        --fx-panel: rgba(20, 5, 7, 0.78);
-        --fx-panel-strong: rgba(14, 4, 5, 0.92);
-        --fx-panel-soft: rgba(26, 8, 10, 0.72);
+        --fx-bg-1: #080508;
+        --fx-bg-2: #080508;
+        --fx-panel: rgba(20, 5, 7, 0.85);
+        --fx-panel-strong: rgba(20, 5, 7, 0.92);
+        --fx-panel-soft: rgba(20, 5, 7, 0.72);
         --fx-line: rgba(255, 40, 60, 0.16);
         --fx-line-strong: rgba(255, 50, 70, 0.34);
         --fx-ink: #f8eded;
@@ -61,7 +61,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         --fx-acid: #ff7744;
         --fx-danger: #ff4060;
         --fx-warning: #ffbc68;
-        --fx-shadow: 0 24px 80px rgba(24, 3, 5, 0.52);
+        --fx-shadow: 0 14px 36px rgba(8, 2, 3, 0.32);
       }
 
       * { box-sizing: border-box; }
@@ -73,22 +73,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         min-height: 100vh;
         color: var(--fx-ink);
         font-family: "Space Grotesk", "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
-        background:
-          radial-gradient(circle at 14% 8%, rgba(255, 30, 50, 0.16), transparent 30%),
-          radial-gradient(circle at 88% 18%, rgba(255, 119, 68, 0.1), transparent 34%),
-          linear-gradient(180deg, var(--fx-bg-0) 0%, var(--fx-bg-1) 56%, var(--fx-bg-2) 100%);
-        background-attachment: fixed;
-      }
-
-      body::before {
-        content: "";
-        position: fixed;
-        inset: 0;
-        pointer-events: none;
-        background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
-        background-size: 44px 44px;
-        mask-image: radial-gradient(circle at 45% 20%, black, transparent 72%);
+        background: var(--fx-bg-0);
       }
 
       a { color: inherit; }
@@ -107,7 +92,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       .fx-shell {
         max-width: 1280px;
         margin: 0 auto;
-        padding: 18px 20px 36px;
+        padding: 20px 24px 42px;
       }
 
       .fx-header {
@@ -115,64 +100,35 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         justify-content: space-between;
         align-items: center;
         gap: 20px;
-        margin-bottom: 20px;
-        padding: 12px 16px;
-        border: 1px solid var(--fx-line);
-        border-radius: 12px;
-        background: rgba(20, 6, 8, 0.9);
+        margin-bottom: 0;
+        padding: 0.75rem 2rem;
+        border-bottom: 1px solid var(--fx-line);
+        border-radius: 0;
+        background: var(--fx-panel);
         position: sticky;
-        top: 10px;
+        top: 0;
         z-index: 100;
-        box-shadow: 0 12px 36px rgba(8, 2, 3, 0.34);
-        backdrop-filter: blur(18px);
+        box-shadow: none;
+        backdrop-filter: blur(10px);
       }
 
-      .fx-brand {
-        display: flex;
+      .fx-header-left {
+        display: inline-flex;
         align-items: center;
-        gap: 14px;
-        min-width: 0;
       }
 
-      .fx-brand-mark {
-        width: 36px;
-        height: 36px;
-        display: grid;
-        place-items: center;
-        border-radius: 10px;
-        border: 1px solid rgba(255, 30, 50, 0.28);
-        background: linear-gradient(145deg, rgba(255, 30, 50, 0.18), rgba(180, 0, 20, 0.12));
+      .fx-logo {
+        text-decoration: none;
         color: var(--fx-primary);
-        font-size: 0.72rem;
-        font-weight: 700;
-        letter-spacing: 0.18em;
-        box-shadow: inset 0 0 18px rgba(255, 30, 50, 0.1);
-      }
-
-      .fx-brand-copy {
-        min-width: 0;
-      }
-
-      .fx-brand-kicker {
-        margin: 0;
-        color: var(--fx-primary);
-        font-size: 0.64rem;
-        letter-spacing: 0.16em;
-        text-transform: uppercase;
-      }
-
-      .fx-brand-title {
-        margin: 4px 0 0;
-        color: var(--fx-ink);
-        font-size: 0.88rem;
         font-weight: 800;
-        letter-spacing: 0.04em;
+        letter-spacing: 0.06em;
+        font-size: 1rem;
       }
 
       .fx-nav {
         display: flex;
         align-items: center;
-        justify-content: center;
+        justify-content: flex-end;
         gap: 8px;
         flex: 1;
         flex-wrap: wrap;
@@ -183,19 +139,18 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         border-radius: 7px;
         text-decoration: none;
         color: var(--fx-muted);
-        border: 1px solid rgba(255, 40, 60, 0.08);
+        border: 1px solid transparent;
         background: transparent;
         transition: 160ms ease;
-        font-size: 0.78rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
+        font-size: 0.8rem;
+        letter-spacing: 0.01em;
       }
 
       .fx-nav-link:hover,
       .fx-nav-link.active {
         color: var(--fx-ink);
-        border-color: rgba(255, 40, 60, 0.24);
-        background: rgba(255, 34, 51, 0.11);
+        border-color: var(--fx-line);
+        background: rgba(255, 255, 255, 0.02);
         box-shadow: none;
       }
 
@@ -213,6 +168,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       .fx-main {
         display: grid;
         gap: 16px;
+        margin-top: 18px;
       }
 
       .fx-hero,
@@ -248,10 +204,10 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       .mini {
         position: relative;
         border: 1px solid var(--fx-line);
-        border-radius: 12px;
-        background: rgba(20, 6, 8, 0.86);
-        box-shadow: 0 10px 28px rgba(8, 2, 3, 0.28);
-        backdrop-filter: blur(10px);
+        border-radius: 10px;
+        background: var(--fx-panel);
+        box-shadow: var(--fx-shadow);
+        backdrop-filter: blur(6px);
         overflow: hidden;
       }
 
@@ -269,11 +225,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       .intel::before,
       .step::before,
       .mini::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        pointer-events: none;
-        background: linear-gradient(120deg, rgba(255, 30, 50, 0.06), transparent 36%, transparent 62%, rgba(180, 0, 20, 0.06));
+        content: none;
       }
 
       .fx-card,
@@ -396,9 +348,9 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         display: grid;
         gap: 12px;
         border: 1px solid var(--fx-line);
-        border-radius: 12px;
-        background: rgba(20, 6, 8, 0.86);
-        box-shadow: 0 10px 28px rgba(8, 2, 3, 0.28);
+        border-radius: 10px;
+        background: var(--fx-panel);
+        box-shadow: var(--fx-shadow);
         overflow: hidden;
       }
 
@@ -803,6 +755,10 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
           align-items: flex-start;
         }
 
+        .fx-header {
+          padding: 14px 16px;
+        }
+
         .fx-hero-grid {
           grid-template-columns: 1fr;
         }
@@ -810,11 +766,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
 
       @media (max-width: 720px) {
         .fx-shell {
-          padding: 14px;
-        }
-
-        .fx-header {
-          padding: 14px;
+          padding: 14px 12px 26px;
         }
 
         h1,
@@ -840,18 +792,12 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
     </style>
   </head>
   <body class="${options.bodyClassName || ''}">
+    <header class="fx-header">
+      <div class="fx-header-left"><a class="fx-logo" href="/">FOILOPS</a></div>
+      <nav class="fx-nav">${renderNav(options.activeNav)}</nav>
+      ${renderActions(options.headerActionsHtml)}
+    </header>
     <div class="fx-shell">
-      <header class="fx-header">
-        <div class="fx-brand">
-          <a class="fx-brand-mark" href="/">FX</a>
-          <div class="fx-brand-copy">
-            <p class="fx-brand-kicker">FoilOps</p>
-            <p class="fx-brand-title">Wallet Intelligence Console</p>
-          </div>
-        </div>
-        <nav class="fx-nav">${renderNav(options.activeNav)}</nav>
-        ${renderActions(options.headerActionsHtml)}
-      </header>
       <main class="fx-main">
         ${options.heroHtml || ''}
         ${options.contentHtml}
