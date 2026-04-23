@@ -1244,14 +1244,22 @@ async function runMintDiscovery(mode) {
     tbody.innerHTML = rows.map((wallet) => {
       const whale = Number(wallet.usdSpent || 0) >= threshold
       return '<tr>' +
-        '<td><span class="addr" onclick="openWalletDetail(\'' + wallet.address + '\')">' + abbr(wallet.address) + '</span></td>' +
+        '<td><span class="addr" data-wallet="' + wallet.address + '">' + abbr(wallet.address) + '</span></td>' +
         '<td>' + fmtUsd(wallet.usdSpent) + '</td>' +
         '<td>' + Number(wallet.txCount || 0).toLocaleString() + '</td>' +
         '<td>' + fmtTokenAmount(wallet.tokenAcquired) + '</td>' +
         '<td>' + (whale ? '<span class="tag EARLY_ENTRANT">WHALE</span>' : '<span class="tag IGNORE">NO</span>') + '</td>' +
-        '<td><button onclick="openWalletDetail(\'' + wallet.address + '\')" style="background:none;border:1px solid var(--accent2);color:var(--accent2);border-radius:5px;padding:.18rem .45rem;cursor:pointer;font-size:.68rem">Detail</button></td>' +
+        '<td><button data-wallet="' + wallet.address + '" style="background:none;border:1px solid var(--accent2);color:var(--accent2);border-radius:5px;padding:.18rem .45rem;cursor:pointer;font-size:.68rem">Detail</button></td>' +
       '</tr>'
     }).join('')
+
+    tbody.querySelectorAll('[data-wallet]').forEach((element) => {
+      const walletAddress = element.getAttribute('data-wallet')
+      if (!walletAddress) {
+        return
+      }
+      element.addEventListener('click', () => openWalletDetail(walletAddress))
+    })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     if (statusPill) statusPill.textContent = 'Scan failed'
