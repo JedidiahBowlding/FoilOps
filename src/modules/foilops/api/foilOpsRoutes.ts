@@ -1123,7 +1123,7 @@ async function loadTopWallets(params) {
   }
   tbody.innerHTML = wallets.map(w => \`
     <tr>
-      <td><span class="addr" onclick="openWalletDetail('\${w.walletAddress}')">\${abbr(w.walletAddress)}</span></td>
+      <td><a class="addr" href="https://solscan.io/account/\${w.walletAddress}" target="_blank" rel="noopener noreferrer">\${abbr(w.walletAddress)}</a></td>
       <td>\${scoreBadge(w.opportunityScore, false)}</td>
       <td>\${scoreBadge(w.riskScore, true)}</td>
       <td>\${classBadge(w.classification)}</td>
@@ -1145,7 +1145,7 @@ async function loadHighRiskWallets() {
   }
   tbody.innerHTML = wallets.map(w => \`
     <tr>
-      <td><span class="addr" onclick="openWalletDetail('\${w.walletAddress}')">\${abbr(w.walletAddress)}</span></td>
+      <td><a class="addr" href="https://solscan.io/account/\${w.walletAddress}" target="_blank" rel="noopener noreferrer">\${abbr(w.walletAddress)}</a></td>
       <td>\${scoreBadge(w.riskScore, true)}</td>
       <td>\${scoreBadge(w.opportunityScore, false)}</td>
       <td>\${classBadge(w.classification)}</td>
@@ -1166,7 +1166,7 @@ async function loadHighRiskTokens() {
   }
   tbody.innerHTML = tokens.map(t => \`
     <tr>
-      <td><span class="addr" onclick="openTokenDetail('\${t.tokenAddress}')">\${abbr(t.tokenAddress)}</span></td>
+      <td><a class="addr" href="https://solscan.io/token/\${t.tokenAddress}" target="_blank" rel="noopener noreferrer">\${abbr(t.tokenAddress)}</a></td>
       <td>\${scoreBadge(t.riskScore, true)}</td>
       <td>\${classBadge(t.classification)}</td>
       <td style="color:var(--muted)">\${t.creatorHoldPercent != null ? t.creatorHoldPercent.toFixed(1)+'%' : '—'}</td>
@@ -1189,8 +1189,8 @@ async function loadFeed() {
   }
   tbody.innerHTML = launches.map(l => \`
     <tr>
-      <td><span class="addr" onclick="openTokenDetail('\${l.tokenAddress}')">\${abbr(l.tokenAddress)}</span></td>
-      <td><span class="addr" onclick="openWalletDetail('\${l.walletAddress}')">\${abbr(l.walletAddress)}</span></td>
+      <td><a class="addr" href="https://solscan.io/token/\${l.tokenAddress}" target="_blank" rel="noopener noreferrer">\${abbr(l.tokenAddress)}</a></td>
+      <td><a class="addr" href="https://solscan.io/account/\${l.walletAddress}" target="_blank" rel="noopener noreferrer">\${abbr(l.walletAddress)}</a></td>
       <td style="color:var(--muted);font-size:.72rem">\${l.platform || '—'}</td>
       <td>\${fmtDelay(l.entryDelaySeconds)}</td>
       <td>\${fmtDelay(l.exitDelaySeconds)}</td>
@@ -1268,7 +1268,7 @@ async function runMintDiscovery(mode) {
     tbody.innerHTML = rows.map((wallet) => {
       const whale = Number(wallet.usdSpent || 0) >= threshold
       return '<tr>' +
-        '<td><span class="addr" data-wallet="' + wallet.address + '">' + abbr(wallet.address) + '</span></td>' +
+        '<td><a class="addr" href="https://solscan.io/account/' + wallet.address + '" target="_blank" rel="noopener noreferrer">' + abbr(wallet.address) + '</a></td>' +
         '<td>' + fmtUsd(wallet.usdSpent) + '</td>' +
         '<td>' + Number(wallet.txCount || 0).toLocaleString() + '</td>' +
         '<td>' + fmtTokenAmount(wallet.tokenAcquired) + '</td>' +
@@ -1341,7 +1341,7 @@ async function openWalletDetail(addr) {
 
     const launchRows = (d.launchRecords || []).slice(0,20).map(l => \`
       <tr>
-        <td style="font-size:.72rem;font-family:monospace">\${abbr(l.tokenAddress)}</td>
+        <td style="font-size:.72rem;font-family:monospace"><a class="addr" href="https://solscan.io/token/\${l.tokenAddress}" target="_blank" rel="noopener noreferrer">\${abbr(l.tokenAddress)}</a></td>
         <td style="color:var(--muted)">\${l.platform||'—'}</td>
         <td>\${fmtDelay(l.entryDelaySeconds)}</td>
         <td>\${fmtDelay(l.exitDelaySeconds)}</td>
@@ -1350,7 +1350,7 @@ async function openWalletDetail(addr) {
 
     const clusterRows = (d.clusterEdges || []).slice(0,10).map(e => \`
       <tr>
-        <td style="font-size:.72rem;font-family:monospace">\${abbr(e.targetWallet !== addr ? e.targetWallet : e.sourceWallet)}</td>
+        <td style="font-size:.72rem;font-family:monospace"><a class="addr" href="https://solscan.io/account/\${e.targetWallet !== addr ? e.targetWallet : e.sourceWallet}" target="_blank" rel="noopener noreferrer">\${abbr(e.targetWallet !== addr ? e.targetWallet : e.sourceWallet)}</a></td>
         <td style="color:var(--muted)">\${e.linkType||'—'}</td>
         <td>\${scoreBadge(Math.round(e.confidence*100), true)}</td>
       </tr>\`).join('')
@@ -1425,7 +1425,7 @@ async function openTokenDetail(addr) {
     const eventRows = (d.events || []).slice(0,20).map(ev => \`
       <tr>
         <td style="color:var(--muted);font-size:.72rem">\${ev.eventType||'—'}</td>
-        <td style="font-size:.72rem;font-family:monospace">\${abbr(ev.walletAddress)}</td>
+        <td style="font-size:.72rem;font-family:monospace"><a class="addr" href="https://solscan.io/account/\${ev.walletAddress}" target="_blank" rel="noopener noreferrer">\${abbr(ev.walletAddress)}</a></td>
         <td style="color:var(--muted);font-size:.72rem">\${ev.details||'—'}</td>
         <td style="color:var(--muted);font-size:.72rem">\${fmtDate(new Date(ev.timestamp).toISOString())}</td>
       </tr>\`).join('')
