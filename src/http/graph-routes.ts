@@ -153,6 +153,33 @@ function renderGraphPage(wallet: string) {
     const graphSummaryAnalysis = document.getElementById('graph-summary-analysis')
     let selectedWalletAddress = ''
 
+    function getActiveWalletAddress() {
+      const selected = selectedWalletAddress && selectedWalletAddress.trim()
+      if (selected) return selected
+      const currentQuery = walletInput && walletInput.value ? walletInput.value.trim() : ''
+      return currentQuery
+    }
+
+    function syncWalletPopupActions() {
+      const wallet = getActiveWalletAddress()
+      const hasWallet = !!wallet
+
+      if (walletPopupAnalyze) {
+        walletPopupAnalyze.disabled = !hasWallet
+      }
+
+      if (walletPopupCopy) {
+        walletPopupCopy.disabled = !hasWallet
+      }
+
+      if (walletPopupSolscan) {
+        walletPopupSolscan.href = hasWallet
+          ? 'https://solscan.io/account/' + encodeURIComponent(wallet)
+          : '#'
+        walletPopupSolscan.setAttribute('aria-disabled', hasWallet ? 'false' : 'true')
+      }
+    }
+
     function short(value) {
       if (!value || value.length < 10) return value
       return value.slice(0, 5) + '...' + value.slice(-4)
@@ -161,6 +188,7 @@ function renderGraphPage(wallet: string) {
     function setCurrentQuery(wallet) {
       if (!graphCurrentQuery) return
       graphCurrentQuery.textContent = wallet ? wallet : 'none'
+      syncWalletPopupActions()
     }
 
     function formatTokenAmount(amount, decimals) {
@@ -227,7 +255,7 @@ function renderGraphPage(wallet: string) {
     function openWalletPopup(address) {
       selectedWalletAddress = address
       walletPopupValue.textContent = address
-      walletPopupSolscan.href = 'https://solscan.io/account/' + encodeURIComponent(address)
+      syncWalletPopupActions()
       walletPopupAnalysis.textContent = 'Analysis loading...'
       walletPopup.classList.add('active')
       loadWalletAnalysis(address, walletPopupAnalysis)
@@ -236,6 +264,7 @@ function renderGraphPage(wallet: string) {
     function closeWalletPopup() {
       walletPopup.classList.remove('active')
       selectedWalletAddress = ''
+      syncWalletPopupActions()
     }
 
     async function loadWalletAnalysis(address, targetElement) {
@@ -494,15 +523,26 @@ function renderGraphPage(wallet: string) {
 
     button.addEventListener('click', loadGraph)
     walletPopupCopy.addEventListener('click', () => {
-      if (selectedWalletAddress) {
-        copyWalletAddress(selectedWalletAddress)
+      const wallet = getActiveWalletAddress()
+      if (wallet) {
+        copyWalletAddress(wallet)
       }
     })
     walletPopupAnalyze.addEventListener('click', () => {
-      if (selectedWalletAddress) {
+      const wallet = getActiveWalletAddress()
+      if (wallet) {
         walletPopupAnalysis.textContent = 'Analysis loading...'
-        loadWalletAnalysis(selectedWalletAddress, walletPopupAnalysis)
+        loadWalletAnalysis(wallet, walletPopupAnalysis)
       }
+    })
+    walletPopupSolscan.addEventListener('click', (e) => {
+      const wallet = getActiveWalletAddress()
+      if (!wallet) {
+        e.preventDefault()
+        meta.textContent = 'Select or load a wallet first.'
+        return
+      }
+      walletPopupSolscan.href = 'https://solscan.io/account/' + encodeURIComponent(wallet)
     })
     walletPopupClose.addEventListener('click', closeWalletPopup)
     walletInput.addEventListener('keydown', (e) => {
@@ -514,6 +554,7 @@ function renderGraphPage(wallet: string) {
         walletInput.value = String(followed[0].wallet)
       }
       setCurrentQuery(walletInput.value.trim())
+      syncWalletPopupActions()
       loadGraph()
     })()
   </script>`,
