@@ -800,6 +800,30 @@ function renderFoilOpsDashboard(): string {
       border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle; margin-right: .4rem;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Mobile ── */
+    @media (max-width: 720px) {
+      .topbar { flex-wrap: wrap; padding: .65rem 1rem; gap: .4rem; }
+      .topbar nav { width: 100%; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+      .topbar nav::-webkit-scrollbar { display: none; }
+      .topbar nav a { margin-left: 0; margin-right: .9rem; }
+      .content { padding: 1rem .75rem 3rem; }
+      .filter-bar { flex-direction: column; }
+      .filter-bar .field { width: 100%; }
+      .filter-bar input[type=range],
+      .filter-bar select,
+      .filter-bar input[type=number] { width: 100%; }
+      .filter-bar .apply-btn { width: 100%; padding: .65rem; font-size: .85rem; }
+      .mint-discovery-controls { flex-direction: column; }
+      .mint-discovery-controls .field { min-width: 0; width: 100%; }
+      .mint-discovery-controls input { width: 100%; }
+      .mint-discovery-controls .actions { flex-wrap: wrap; }
+      .mint-discovery-controls .actions button { flex: 1 1 auto; padding: .65rem .75rem; min-height: 44px; }
+      .modal { padding: 1rem; }
+      .score-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+      table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .stat-card { min-width: 0; }
+    }
   </style>
 </head>
 <body>

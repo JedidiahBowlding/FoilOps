@@ -786,6 +786,82 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         .fx-stats {
           grid-template-columns: 1fr;
         }
+
+        /* Tables scroll horizontally instead of breaking layout */
+        table {
+          display: block;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        /* Hero cards with hardcoded min-width stop forcing overflow */
+        .card[style*="min-width"],
+        .panel[style*="min-width"] {
+          min-width: 0 !important;
+          width: 100%;
+        }
+
+        /* Section header stacks on narrow screens */
+        .section-header {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+      }
+
+      @media (max-width: 480px) {
+        /* Nav scrolls horizontally rather than wrapping into a tall block */
+        .fx-nav {
+          width: 100%;
+          overflow-x: auto;
+          flex-wrap: nowrap;
+          scrollbar-width: none;
+          padding-bottom: 4px;
+        }
+        .fx-nav::-webkit-scrollbar {
+          display: none;
+        }
+
+        /* Header actions wrap to a second row and fill available width */
+        .fx-header-actions,
+        .actions,
+        .nav-actions,
+        .cta-row {
+          flex-wrap: wrap;
+          width: 100%;
+        }
+        .fx-header-actions .fx-button,
+        .fx-header-actions a.fx-button,
+        .fx-header-actions button {
+          flex: 1 1 auto;
+          min-width: 0;
+        }
+
+        /* Button rows stack vertically so each button is full width */
+        .button-row {
+          flex-direction: column;
+        }
+        .button-row button,
+        .button-row a {
+          width: 100%;
+          justify-content: center;
+        }
+
+        /* Wallet popup action buttons stack vertically */
+        .wallet-popup-actions {
+          flex-direction: column;
+        }
+        .wallet-popup-actions button,
+        .wallet-popup-actions a {
+          width: 100%;
+          justify-content: center;
+        }
+
+        /* Larger touch targets */
+        .fx-button,
+        .button,
+        .fx-nav-link {
+          min-height: 48px;
+        }
       }
 
       ${options.extraStyles || ''}
