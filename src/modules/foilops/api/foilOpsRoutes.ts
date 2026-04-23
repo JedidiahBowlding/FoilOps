@@ -879,8 +879,8 @@ function renderFoilOpsDashboard(): string {
         <input id="mint-discovery-whale-threshold" type="number" min="1000" max="100000000" value="1000000" />
       </div>
       <div class="actions">
-        <button class="run-lite" id="mint-discovery-run-lite" onclick="runMintDiscovery('lite')">Run Lite</button>
-        <button class="run-full" id="mint-discovery-run-full" onclick="runMintDiscovery('full')">Run Full</button>
+        <button class="run-lite" id="mint-discovery-run-lite">Run Lite</button>
+        <button class="run-full" id="mint-discovery-run-full">Run Full</button>
       </div>
     </div>
     <div class="mint-meta" id="mint-discovery-meta">Ready to discover wallets by token mint.</div>
@@ -1263,6 +1263,11 @@ async function runMintDiscovery(mode) {
   }
 }
 
+if (typeof window !== 'undefined') {
+  // Keep compatibility with any stale inline handlers from cached markup.
+  window.runMintDiscovery = runMintDiscovery
+}
+
 // ── Wallet detail modal ─────────────────────────────────────────────
 
 async function openWalletDetail(addr) {
@@ -1429,6 +1434,16 @@ function applyFilters() {
 }
 
 // ── Init ───────────────────────────────────────────────────────────
+
+const mintRunLiteButton = document.getElementById('mint-discovery-run-lite')
+if (mintRunLiteButton) {
+  mintRunLiteButton.addEventListener('click', () => runMintDiscovery('lite'))
+}
+
+const mintRunFullButton = document.getElementById('mint-discovery-run-full')
+if (mintRunFullButton) {
+  mintRunFullButton.addEventListener('click', () => runMintDiscovery('full'))
+}
 
 loadSummary()
 loadTopWallets({ limit: 50 })
