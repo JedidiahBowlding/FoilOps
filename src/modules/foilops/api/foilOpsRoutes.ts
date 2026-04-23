@@ -1129,7 +1129,7 @@ async function loadTopWallets(params) {
       <td>\${classBadge(w.classification)}</td>
       <td>\${fmtDelay(w.entryTimingAvgSeconds)}</td>
       <td style="color:var(--muted);font-size:.72rem">\${w.lastSeenPlatform || '—'}</td>
-      <td><button onclick="openWalletDetail('\${w.walletAddress}')" style="background:none;border:1px solid var(--accent2);color:var(--accent2);border-radius:5px;padding:.18rem .45rem;cursor:pointer;font-size:.68rem">Detail</button></td>
+      <td><button onclick="openWalletDetail('\${w.walletAddress}')" style="background:none;border:1px solid var(--accent2);color:var(--accent2);border-radius:5px;padding:.18rem .45rem;cursor:pointer;font-size:.68rem">View</button></td>
     </tr>\`).join('')
 }
 
@@ -1150,7 +1150,7 @@ async function loadHighRiskWallets() {
       <td>\${scoreBadge(w.opportunityScore, false)}</td>
       <td>\${classBadge(w.classification)}</td>
       <td style="font-size:.7rem;color:var(--muted)">\${(w.tags||[]).slice(0,2).join(', ') || '—'}</td>
-      <td><button onclick="openWalletDetail('\${w.walletAddress}')" style="background:none;border:1px solid var(--accent);color:var(--accent);border-radius:5px;padding:.18rem .45rem;cursor:pointer;font-size:.68rem">Detail</button></td>
+      <td><button onclick="openWalletDetail('\${w.walletAddress}')" style="background:none;border:1px solid var(--accent);color:var(--accent);border-radius:5px;padding:.18rem .45rem;cursor:pointer;font-size:.68rem">View</button></td>
     </tr>\`).join('')
 }
 
@@ -1190,7 +1190,12 @@ async function loadFeed() {
   tbody.innerHTML = launches.map(l => \`
     <tr>
       <td><a class="addr" href="https://solscan.io/token/\${l.tokenAddress}" target="_blank" rel="noopener noreferrer">\${abbr(l.tokenAddress)}</a></td>
-      <td><a class="addr" href="https://solscan.io/account/\${l.walletAddress}" target="_blank" rel="noopener noreferrer">\${abbr(l.walletAddress)}</a></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap">
+          <a class="addr" href="https://solscan.io/account/\${l.walletAddress}" target="_blank" rel="noopener noreferrer">\${abbr(l.walletAddress)}</a>
+          <button onclick="openWalletDetail('\${l.walletAddress}')" style="background:none;border:1px solid var(--accent2);color:var(--accent2);border-radius:5px;padding:.14rem .4rem;cursor:pointer;font-size:.65rem">View</button>
+        </div>
+      </td>
       <td style="color:var(--muted);font-size:.72rem">\${l.platform || '—'}</td>
       <td>\${fmtDelay(l.entryDelaySeconds)}</td>
       <td>\${fmtDelay(l.exitDelaySeconds)}</td>
