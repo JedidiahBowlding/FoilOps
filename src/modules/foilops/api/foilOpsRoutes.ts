@@ -30,6 +30,272 @@ export type FoilOpsRouteDeps = {
   repository: FoilOpsRepository
 }
 
+type MintScanMode = 'lite' | 'full'
+
+type MintScanWallet = {
+  address: string
+  usdSpent: number
+  txCount: number
+  tokenAcquired: number
+}
+
+type MintDiscoveryResult = {
+  tokenMint: string
+  scanMode: MintScanMode
+  signaturesFetched: number
+  transactionsParsed: number
+  walletsCount: number
+  whaleThresholdUsd: number
+  whales: MintScanWallet[]
+  topWallets: MintScanWallet[]
+  solUsd: number
+  durationMs: number
+}
+
+const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
+const USDT_MINT = 'Es9vMFrzaCERmJfrF4H2FYD8w2k7cD2qQxQq4Yk9B2w'
+
+function parseRpcEndpoint(): string {
+  const configured = process.env.RPC_ENDPOINTS?.split(',')
+    .map((value) => value.trim())
+    .filter(Boolean)
+
+  if (configured && configured.length > 0) {
+    return configured[0]
+  }
+
+  const heliusKey = process.env.HELIUS_API_KEY?.trim()
+  if (heliusKey) {
+    return `https://mainnet.helius-rpc.com/?api-key=${heliusKey}`
+  }
+
+  throw new Error('RPC_ENDPOINTS or HELIUS_API_KEY is required for mint discovery')
+}
+
+function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) {
+    return fallback
+  }
+  return Math.max(min, Math.min(max, Math.round(parsed)))
+}
+
+async function heliusRpc<T>(rpcUrl: string, method: string, params: unknown[]): Promise<T> {
+  const response = await fetch(rpcUrl, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`RPC request failed with status ${response.status}`)
+  }
+
+  const payload = (await response.json()) as { error?: unknown; result?: T }
+  if (payload.error) {
+    throw new Error(`RPC error: ${JSON.stringify(payload.error)}`)
+  }
+
+  return payload.result as T
+}
+
+function getTokenAmount(balance: any): number {
+  const amount = Number(balance?.uiTokenAmount?.uiAmount)
+  return Number.isFinite(amount) ? amount : 0
+}
+
+function getAccountKey(accountKey: any): string {
+  if (!accountKey) {
+    return ''
+  }
+  if (typeof accountKey === 'string') {
+    return accountKey
+  }
+  if (typeof accountKey.pubkey === 'string') {
+    return accountKey.pubkey
+  }
+  return ''
+}
+
+async function getSolUsdPrice(): Promise<number> {
+  try {
+    const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd')
+    if (!response.ok) {
+      return 150
+    }
+    const payload = (await response.json()) as { solana?: { usd?: number } }
+    const usd = Number(payload?.solana?.usd)
+    return Number.isFinite(usd) && usd > 0 ? usd : 150
+  } catch {
+    return 150
+  }
+}
+
+async function discoverWalletsByMint(params: {
+  tokenMint: string
+  scanMode: MintScanMode
+  maxSignatures: number
+  top: number
+  whaleThresholdUsd: number
+}): Promise<MintDiscoveryResult> {
+  const startedAt = Date.now()
+  const rpcUrl = parseRpcEndpoint()
+  const solUsd = await getSolUsdPrice()
+
+  const signatures: string[] = []
+  let before: string | undefined
+  const pageSize = params.scanMode === 'lite' ? 250 : 1000
+
+  while (signatures.length < params.maxSignatures) {
+    const batch = await heliusRpc<any[]>(rpcUrl, 'getSignaturesForAddress', [
+      params.tokenMint,
+      { limit: pageSize, ...(before ? { before } : {}) },
+    ])
+    if (!Array.isArray(batch) || batch.length === 0) {
+      break
+    }
+
+    for (const row of batch) {
+      const signature = typeof row?.signature === 'string' ? row.signature : ''
+      if (signature) {
+        signatures.push(signature)
+      }
+      if (signatures.length >= params.maxSignatures) {
+        break
+      }
+    }
+
+    const lastSignature = batch[batch.length - 1]?.signature
+    before = typeof lastSignature === 'string' ? lastSignature : undefined
+    if (!before || batch.length < pageSize) {
+      break
+    }
+  }
+
+  const buyers: Record<string, MintScanWallet> = {}
+  let transactionsParsed = 0
+  const txBatchSize = params.scanMode === 'lite' ? 10 : 25
+
+  for (let index = 0; index < signatures.length; index += txBatchSize) {
+    const signatureChunk = signatures.slice(index, index + txBatchSize)
+
+    const transactions = await Promise.all(
+      signatureChunk.map(async (signature) => {
+        try {
+          return await heliusRpc<any | null>(rpcUrl, 'getTransaction', [
+            signature,
+            { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 },
+          ])
+        } catch {
+          return null
+        }
+      }),
+    )
+
+    for (const tx of transactions) {
+      if (!tx?.meta || !tx?.transaction?.message?.accountKeys) {
+        continue
+      }
+
+      transactionsParsed += 1
+      const preTokenBalances: any[] = Array.isArray(tx.meta.preTokenBalances) ? tx.meta.preTokenBalances : []
+      const postTokenBalances: any[] = Array.isArray(tx.meta.postTokenBalances) ? tx.meta.postTokenBalances : []
+      const preBalances: number[] = Array.isArray(tx.meta.preBalances) ? tx.meta.preBalances : []
+      const postBalances: number[] = Array.isArray(tx.meta.postBalances) ? tx.meta.postBalances : []
+      const accountKeys: any[] = Array.isArray(tx.transaction.message.accountKeys)
+        ? tx.transaction.message.accountKeys
+        : []
+
+      const gains: Array<{ owner: string; accountIndex: number; tokenGained: number }> = []
+      for (const postBalance of postTokenBalances) {
+        if (postBalance?.mint !== params.tokenMint) {
+          continue
+        }
+
+        const preBalance = preTokenBalances.find(
+          (row) => row?.mint === params.tokenMint && row?.accountIndex === postBalance?.accountIndex,
+        )
+
+        const diff = getTokenAmount(postBalance) - getTokenAmount(preBalance)
+        if (diff <= 0) {
+          continue
+        }
+
+        const ownerFromPost = typeof postBalance?.owner === 'string' ? postBalance.owner : ''
+        const ownerFromAccount = getAccountKey(accountKeys[postBalance.accountIndex])
+        const owner = ownerFromPost || ownerFromAccount
+        if (!owner) {
+          continue
+        }
+
+        gains.push({ owner, accountIndex: Number(postBalance.accountIndex), tokenGained: diff })
+      }
+
+      if (gains.length === 0) {
+        continue
+      }
+
+      for (const gain of gains) {
+        if (!buyers[gain.owner]) {
+          buyers[gain.owner] = {
+            address: gain.owner,
+            usdSpent: 0,
+            txCount: 0,
+            tokenAcquired: 0,
+          }
+        }
+
+        let usdSpent = 0
+        if (
+          Number.isInteger(gain.accountIndex) &&
+          gain.accountIndex >= 0 &&
+          gain.accountIndex < preBalances.length &&
+          gain.accountIndex < postBalances.length
+        ) {
+          const lamportsDelta = Number(preBalances[gain.accountIndex]) - Number(postBalances[gain.accountIndex])
+          if (Number.isFinite(lamportsDelta) && lamportsDelta > 0) {
+            usdSpent += (lamportsDelta / 1e9) * solUsd
+          }
+        }
+
+        for (const stableMint of [USDC_MINT, USDT_MINT]) {
+          const postRows = postTokenBalances.filter((row) => row?.mint === stableMint && row?.owner === gain.owner)
+          for (const postRow of postRows) {
+            const preRow = preTokenBalances.find(
+              (row) =>
+                row?.mint === stableMint && row?.owner === gain.owner && row?.accountIndex === postRow?.accountIndex,
+            )
+            const stableDelta = getTokenAmount(preRow) - getTokenAmount(postRow)
+            if (stableDelta > 0) {
+              usdSpent += stableDelta
+            }
+          }
+        }
+
+        buyers[gain.owner].usdSpent += usdSpent
+        buyers[gain.owner].txCount += 1
+        buyers[gain.owner].tokenAcquired += gain.tokenGained
+      }
+    }
+  }
+
+  const sortedWallets = Object.values(buyers).sort((left, right) => right.usdSpent - left.usdSpent)
+  const whales = sortedWallets.filter((wallet) => wallet.usdSpent >= params.whaleThresholdUsd)
+
+  return {
+    tokenMint: params.tokenMint,
+    scanMode: params.scanMode,
+    signaturesFetched: signatures.length,
+    transactionsParsed,
+    walletsCount: sortedWallets.length,
+    whaleThresholdUsd: params.whaleThresholdUsd,
+    whales,
+    topWallets: sortedWallets.slice(0, params.top),
+    solUsd,
+    durationMs: Date.now() - startedAt,
+  }
+}
+
 export function registerFoilOpsRoutes(app: Express, deps: FoilOpsRouteDeps): void {
   const { requireApiAuth, requirePageAuth, repository } = deps
 
@@ -74,6 +340,41 @@ export function registerFoilOpsRoutes(app: Express, deps: FoilOpsRouteDeps): voi
     } catch (error) {
       console.error('[FoilOps] /api/foilops/wallets/high-risk error', error)
       res.status(500).json({ message: 'Failed to fetch high-risk wallets' })
+    }
+  })
+
+  // ─── POST /api/foilops/wallets/discover-by-mint ─────────────────────────
+  app.post('/api/foilops/wallets/discover-by-mint', requireApiAuth, async (req: Request, res: Response) => {
+    try {
+      const rawMint = typeof req.body?.tokenMint === 'string' ? req.body.tokenMint.trim() : ''
+      const tokenMint = safeAddress(rawMint)
+      if (!tokenMint) {
+        res.status(400).json({ message: 'Valid tokenMint is required' })
+        return
+      }
+
+      const requestedMode = req.body?.scanMode
+      const scanMode: MintScanMode = requestedMode === 'full' ? 'full' : 'lite'
+      const maxSignatures =
+        scanMode === 'full'
+          ? clampNumber(req.body?.maxSignatures, 100, 10000, 5000)
+          : clampNumber(req.body?.maxSignatures, 25, 1500, 250)
+      const top = clampNumber(req.body?.top, 5, 100, 50)
+      const whaleThresholdUsd = clampNumber(req.body?.whaleThresholdUsd, 1000, 100000000, 1000000)
+
+      const discovery = await discoverWalletsByMint({
+        tokenMint,
+        scanMode,
+        maxSignatures,
+        top,
+        whaleThresholdUsd,
+      })
+
+      res.status(200).json(discovery)
+    } catch (error) {
+      console.error('[FoilOps] /api/foilops/wallets/discover-by-mint error', error)
+      const message = error instanceof Error ? error.message : 'Failed to discover wallets by mint'
+      res.status(500).json({ message })
     }
   })
 
@@ -398,6 +699,32 @@ function renderFoilOpsDashboard(): string {
       background: rgba(255,119,68,.15); color: var(--accent2); border: 1px solid rgba(255,119,68,.3);
     }
     .panel-header .pill.danger { background: rgba(255,45,45,.1); color: var(--accent); border-color: rgba(255,45,45,.3); }
+    .panel-header .pill.ok { background: rgba(0,230,118,.12); color: var(--success); border-color: rgba(0,230,118,.3); }
+
+    .mint-discovery-controls {
+      display: flex; flex-wrap: wrap; gap: .75rem; align-items: flex-end;
+      padding: .9rem 1rem; border-bottom: 1px solid var(--border);
+      background: rgba(0,0,0,.18);
+    }
+    .mint-discovery-controls .field { display: flex; flex-direction: column; gap: .35rem; min-width: 170px; }
+    .mint-discovery-controls label { font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+    .mint-discovery-controls input {
+      background: rgba(0,0,0,.3); border: 1px solid var(--border); border-radius: 6px;
+      color: var(--ink); font-size: .8rem; padding: .35rem .6rem; outline: none;
+    }
+    .mint-discovery-controls input:focus { border-color: var(--accent2); }
+    .mint-discovery-controls .actions { display: flex; gap: .55rem; }
+    .mint-discovery-controls .actions button {
+      border: none; border-radius: 7px; color: #fff; font-weight: 700; font-size: .78rem;
+      padding: .52rem .95rem; cursor: pointer;
+    }
+    .mint-discovery-controls .actions button[disabled] { opacity: .5; cursor: not-allowed; }
+    .mint-discovery-controls .run-lite { background: #ff7744; }
+    .mint-discovery-controls .run-full { background: #ff2233; }
+    .mint-meta {
+      padding: .7rem 1rem; color: var(--muted); font-size: .77rem; border-bottom: 1px solid rgba(255,255,255,.04);
+      display: flex; flex-wrap: wrap; gap: .8rem;
+    }
 
     /* ── Tables ── */
     .table-wrap { overflow-x: auto; max-height: 340px; overflow-y: auto; }
@@ -529,6 +856,49 @@ function renderFoilOpsDashboard(): string {
   </div>
 
   <!-- ── 2-col panels: Top Wallets + High-Risk Wallets ─────────── -->
+  <div class="launch-panel">
+    <div class="panel-header">
+      <h2>Mint Wallet Discovery (Helius)</h2>
+      <span class="pill ok" id="pill-mint-discovery">Idle</span>
+    </div>
+    <div class="mint-discovery-controls">
+      <div class="field" style="min-width:320px;flex:1">
+        <label>Token Mint</label>
+        <input id="mint-discovery-mint" type="text" placeholder="Enter token mint to discover wallets" />
+      </div>
+      <div class="field">
+        <label>Max Signatures (Lite)</label>
+        <input id="mint-discovery-lite-limit" type="number" min="25" max="1500" value="250" />
+      </div>
+      <div class="field">
+        <label>Max Signatures (Full)</label>
+        <input id="mint-discovery-full-limit" type="number" min="100" max="10000" value="5000" />
+      </div>
+      <div class="field">
+        <label>Whale Threshold (USD)</label>
+        <input id="mint-discovery-whale-threshold" type="number" min="1000" max="100000000" value="1000000" />
+      </div>
+      <div class="actions">
+        <button class="run-lite" id="mint-discovery-run-lite" onclick="runMintDiscovery('lite')">Run Lite</button>
+        <button class="run-full" id="mint-discovery-run-full" onclick="runMintDiscovery('full')">Run Full</button>
+      </div>
+    </div>
+    <div class="mint-meta" id="mint-discovery-meta">Ready to discover wallets by token mint.</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Wallet</th>
+          <th>USD Spent</th>
+          <th>Tx Count</th>
+          <th>Token Acquired</th>
+          <th>Whale</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="tbody-mint-discovery"><tr><td colspan="6" class="empty"><span>🧭</span>Run lite or full scan to load wallet candidates.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
   <div class="panels">
 
     <!-- Top Early Wallets -->
@@ -685,6 +1055,21 @@ document.querySelectorAll('.modal-overlay').forEach(el => {
   el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open') })
 })
 
+function fmtUsd(value) {
+  if (value == null || !Number.isFinite(Number(value))) return '—'
+  return '$' + Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })
+}
+
+function fmtTokenAmount(value) {
+  if (value == null || !Number.isFinite(Number(value))) return '—'
+  const n = Number(value)
+  if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B'
+  if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M'
+  if (n >= 1e3) return (n / 1e3).toFixed(2) + 'K'
+  if (n >= 1) return n.toLocaleString(undefined, { maximumFractionDigits: 3 })
+  return n.toLocaleString(undefined, { maximumFractionDigits: 8 })
+}
+
 // ── Data loaders ───────────────────────────────────────────────────
 
 async function loadSummary() {
@@ -787,6 +1172,95 @@ async function loadFeed() {
       <td>\${fmtDelay(l.exitDelaySeconds)}</td>
       <td style="color:var(--muted);font-size:.72rem">\${fmtDate(l.participatedAt)}</td>
     </tr>\`).join('')
+}
+
+async function runMintDiscovery(mode) {
+  const mintInput = document.getElementById('mint-discovery-mint')
+  const liteLimitInput = document.getElementById('mint-discovery-lite-limit')
+  const fullLimitInput = document.getElementById('mint-discovery-full-limit')
+  const whaleThresholdInput = document.getElementById('mint-discovery-whale-threshold')
+  const runLiteButton = document.getElementById('mint-discovery-run-lite')
+  const runFullButton = document.getElementById('mint-discovery-run-full')
+  const statusPill = document.getElementById('pill-mint-discovery')
+  const meta = document.getElementById('mint-discovery-meta')
+  const tbody = document.getElementById('tbody-mint-discovery')
+
+  const mint = (mintInput?.value || '').trim()
+  if (!/^[A-Za-z0-9:_-]{32,66}$/.test(mint)) {
+    if (meta) meta.textContent = 'Please enter a valid token mint.'
+    if (statusPill) statusPill.textContent = 'Invalid mint'
+    return
+  }
+
+  const maxSignatures = mode === 'full'
+    ? Number(fullLimitInput?.value || 5000)
+    : Number(liteLimitInput?.value || 250)
+  const whaleThresholdUsd = Number(whaleThresholdInput?.value || 1000000)
+
+  if (runLiteButton) runLiteButton.disabled = true
+  if (runFullButton) runFullButton.disabled = true
+  if (statusPill) statusPill.textContent = mode === 'full' ? 'Running full scan…' : 'Running lite scan…'
+  if (meta) meta.textContent = 'Scanning mint activity on Helius. This may take up to a minute for full scans.'
+  if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty"><span>⏳</span>Analyzing transactions…</td></tr>'
+
+  try {
+    const response = await fetch('/api/foilops/wallets/discover-by-mint', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ tokenMint: mint, scanMode: mode, maxSignatures, top: 50, whaleThresholdUsd }),
+    })
+
+    const payload = await response.json()
+    if (!response.ok) {
+      throw new Error(payload?.message || 'Discovery request failed')
+    }
+
+    const rows = Array.isArray(payload.topWallets) ? payload.topWallets : []
+    const threshold = Number(payload.whaleThresholdUsd || whaleThresholdUsd)
+
+    if (statusPill) {
+      statusPill.textContent = mode === 'full' ? 'Full scan complete' : 'Lite scan complete'
+    }
+    if (meta) {
+      const durationSeconds = Number(payload.durationMs || 0) / 1000
+      meta.textContent =
+        'Mint: ' + payload.tokenMint +
+        ' | Signatures: ' + Number(payload.signaturesFetched || 0).toLocaleString() +
+        ' | Parsed TX: ' + Number(payload.transactionsParsed || 0).toLocaleString() +
+        ' | Wallets: ' + Number(payload.walletsCount || 0).toLocaleString() +
+        ' | Whales: ' + Number((payload.whales || []).length).toLocaleString() +
+        ' | Time: ' + durationSeconds.toFixed(1) + 's'
+    }
+
+    if (!tbody) {
+      return
+    }
+
+    if (rows.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty"><span>📭</span>No wallet candidates found for this scan window.</td></tr>'
+      return
+    }
+
+    tbody.innerHTML = rows.map((wallet) => {
+      const whale = Number(wallet.usdSpent || 0) >= threshold
+      return '<tr>' +
+        '<td><span class="addr" onclick="openWalletDetail(\'' + wallet.address + '\')">' + abbr(wallet.address) + '</span></td>' +
+        '<td>' + fmtUsd(wallet.usdSpent) + '</td>' +
+        '<td>' + Number(wallet.txCount || 0).toLocaleString() + '</td>' +
+        '<td>' + fmtTokenAmount(wallet.tokenAcquired) + '</td>' +
+        '<td>' + (whale ? '<span class="tag EARLY_ENTRANT">WHALE</span>' : '<span class="tag IGNORE">NO</span>') + '</td>' +
+        '<td><button onclick="openWalletDetail(\'' + wallet.address + '\')" style="background:none;border:1px solid var(--accent2);color:var(--accent2);border-radius:5px;padding:.18rem .45rem;cursor:pointer;font-size:.68rem">Detail</button></td>' +
+      '</tr>'
+    }).join('')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (statusPill) statusPill.textContent = 'Scan failed'
+    if (meta) meta.textContent = 'Discovery failed: ' + message
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty"><span>⚠️</span>Discovery failed. Check RPC key and try again.</td></tr>'
+  } finally {
+    if (runLiteButton) runLiteButton.disabled = false
+    if (runFullButton) runFullButton.disabled = false
+  }
 }
 
 // ── Wallet detail modal ─────────────────────────────────────────────
