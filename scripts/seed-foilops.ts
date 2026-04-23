@@ -10,27 +10,27 @@ import { PrismaClient, WalletClassification, TokenClassification, ClusterLinkTyp
 
 const prisma = new PrismaClient()
 
-// ─── Sample Solana-style addresses ────────────────────────────────────────────
+// ─── Sample real Solana addresses ─────────────────────────────────────────────
 
 const WALLETS = [
-  'AaB1cD2eF3gH4iJ5kL6mN7oP8qR9sT0uV1wX2yZ3aA',
-  'BbC2dE3fG4hI5jK6lM7nO8pQ9rS0tU1vW2xY3zA4bB',
-  'CcD3eF4gH5iJ6kL7mN8oP9qR0sT1uV2wX3yZ4aA5cC',
-  'DdE4fG5hI6jK7lM8nO9pQ0rS1tU2vW3xY4zA5bB6dD',
-  'EeF5gH6iJ7kL8mN9oP0qR1sT2uV3wX4yZ5aA6cC7eE',
-  'FfG6hI7jK8lM9nO0pQ1rS2tU3vW4xY5zA6bB7dD8fF',
-  'GgH7iJ8kL9mN0oP1qR2sT3uV4wX5yZ6aA7cC8eE9gG',
-  'HhI8jK9lM0nO1pQ2rS3tU4vW5xY6zA7bB8dD9fF0hH',
-  'IiJ9kL0mN1oP2qR3sT4uV5wX6yZ7aA8cC9eE0gG1iI',
-  'JjK0lM1nO2pQ3rS4tU5vW6xY7zA8bB9dD0fF1hH2jJ',
+  '45Txh2SWXcHFbUUWG4YNNZgUmwtaHJYVWF5NEwi1ZwGS',
+  '11111111111111111111111111111111',
+  'Stake11111111111111111111111111111111111111',
+  'Vote111111111111111111111111111111111111111',
+  'Config1111111111111111111111111111111111111',
+  'AddressLookupTab1e1111111111111111111111111',
+  'ComputeBudget111111111111111111111111111111',
+  'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL',
+  'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+  'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr',
 ]
 
 const TOKENS = [
-  'TkN1aB2cD3eF4gH5iJ6kL7mN8oP9qR0sT1uV2wX3yZ',
-  'TkN2bC3dE4fG5hI6jK7lM8nO9pQ0rS1tU2vW3xY4zA',
-  'TkN3cD4eF5gH6iJ7kL8mN9oP0qR1sT2uV3wX4yZ5aA',
-  'TkN4dE5fG6hI7jK8lM9nO0pQ1rS2tU3vW4xY5zA6bB',
-  'TkN5eF6gH7iJ8kL9mN0oP1qR2sT3uV4wX5yZ6aA7cC',
+  'So11111111111111111111111111111111111111112',
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
+  'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
+  'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN',
 ]
 
 const PLATFORMS = ['pump.fun', 'raydium', 'jupiter', 'orca', 'meteora']
