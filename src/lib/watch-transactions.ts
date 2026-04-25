@@ -23,13 +23,16 @@ export class WatchTransaction extends EventEmitter {
   private prismaUserRepository: PrismaUserRepository
   private static readonly SOL_MINT = 'So11111111111111111111111111111111111111112'
   private static readonly userSendChains: Map<string, Promise<void>> = new Map()
-  private static readonly telegramSendConcurrency = Math.max(1, Number(process.env.TELEGRAM_SEND_CONCURRENCY || 3))
+  private static readonly telegramSendConcurrency = Math.max(1, Number(process.env.TELEGRAM_SEND_CONCURRENCY || 1))
   private static readonly telegramGlobalSendLimiter = pLimit(WatchTransaction.telegramSendConcurrency)
   private static readonly telegramMinSendIntervalMs = Math.max(
     0,
     Number(process.env.TELEGRAM_MIN_SEND_INTERVAL_MS || 700),
   )
   private static readonly telegramSendRetryAttempts = Math.max(1, Number(process.env.TELEGRAM_SEND_RETRY_ATTEMPTS || 4))
+  private static readonly minTransferAlertSol = Math.max(0, Number(process.env.MIN_TRANSFER_ALERT_SOL || 0.001))
+  private static readonly transferAlertCooldownMs = Math.max(0, Number(process.env.TRANSFER_ALERT_COOLDOWN_MS || 8000))
+  private static readonly transferAlertLastSentByWallet: Map<string, number> = new Map()
 
   constructor() {
     super()
@@ -142,6 +145,15 @@ export class WatchTransaction extends EventEmitter {
                 if (!parsed) {
                   return
                 }
+
+                if (parsed.solAmount < WatchTransaction.minTransferAlertSol) {
+                  return
+                }
+
+                if (this.isTransferAlertCoolingDown(walletAddress)) {
+                  return
+                }
+
                 console.log(parsed.description)
 
                 // await this.sendTransferMessageToUsers(wallet, parsed)
@@ -403,5 +415,20 @@ export class WatchTransaction extends EventEmitter {
 
   private async delay(ms: number): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, ms))
+  }
+
+  private isTransferAlertCoolingDown(walletAddress: string): boolean {
+    if (WatchTransaction.transferAlertCooldownMs <= 0) {
+      return false
+    }
+
+    const now = Date.now()
+    const lastSent = WatchTransaction.transferAlertLastSentByWallet.get(walletAddress) || 0
+    if (now - lastSent < WatchTransaction.transferAlertCooldownMs) {
+      return true
+    }
+
+    WatchTransaction.transferAlertLastSentByWallet.set(walletAddress, now)
+    return false
   }
 }
