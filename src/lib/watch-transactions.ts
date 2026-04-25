@@ -35,6 +35,10 @@ export class WatchTransaction extends EventEmitter {
   private static readonly minTransferAlertSol = Math.max(0, Number(process.env.MIN_TRANSFER_ALERT_SOL || 0.001))
   private static readonly transferAlertCooldownMs = Math.max(0, Number(process.env.TRANSFER_ALERT_COOLDOWN_MS || 8000))
   private static readonly transferAlertLastSentByWallet: Map<string, number> = new Map()
+  private static readonly parsedTxFetchTimeoutMs = Math.max(
+    1000,
+    Number(process.env.PARSED_TX_FETCH_TIMEOUT_MS || 8000),
+  )
   private static readonly watchlistRotateTransferThresholdPct = Math.min(
     0.99,
     Math.max(0.5, Number(process.env.WATCHLIST_ROTATE_TRANSFER_THRESHOLD_PCT || 0.75)),
@@ -497,9 +501,17 @@ export class WatchTransaction extends EventEmitter {
       let lastErrorReason = ''
 
       try {
-        const transactionDetails = await connection.getParsedTransactions([transactionSignature], {
-          maxSupportedTransactionVersion: 0,
-        })
+        const transactionDetails = (await Promise.race([
+          connection.getParsedTransactions([transactionSignature], {
+            maxSupportedTransactionVersion: 0,
+          }),
+          new Promise<null>((_, reject) => {
+            setTimeout(
+              () => reject(new Error(`PARSED_TX_TIMEOUT_${WatchTransaction.parsedTxFetchTimeoutMs}ms`)),
+              WatchTransaction.parsedTxFetchTimeoutMs,
+            )
+          }),
+        ])) as Awaited<ReturnType<Connection['getParsedTransactions']>>
 
         if (transactionDetails && transactionDetails[0] !== null) {
           return transactionDetails
@@ -514,7 +526,9 @@ export class WatchTransaction extends EventEmitter {
           RpcConnectionManager.markEndpointUnhealthy(endpointUrl, lastErrorReason)
         }
 
-        console.error(`Attempt ${attempt}: Error fetching transaction details via endpoint ${endpointUrl}`, error)
+        console.error(
+          `Attempt ${attempt}: Error fetching transaction details via endpoint ${endpointUrl}. reason=${lastErrorReason}`,
+        )
       }
 
       // Delay before retrying
@@ -533,9 +547,14 @@ export class WatchTransaction extends EventEmitter {
     return (
       reason.includes('econnreset') ||
       reason.includes('fetch failed') ||
+      reason.includes('und_err_socket') ||
+      reason.includes('socketerror') ||
+      reason.includes('other side closed') ||
       reason.includes('tls') ||
       reason.includes('client network socket disconnected') ||
+      reason.includes('terminated') ||
       reason.includes('etimedout') ||
+      reason.includes('parsed_tx_timeout') ||
       reason.includes('socket hang up') ||
       reason.includes('429') ||
       reason.includes('too many requests')
