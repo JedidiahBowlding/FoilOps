@@ -220,6 +220,23 @@ class Main {
       }
     })
 
+    this.app.post('/api/token-investigation', this.dashboardAuth.requireApiAuth, async (req, res) => {
+      try {
+        const tokenMint = typeof req.body?.tokenMint === 'string' ? req.body.tokenMint.trim() : ''
+        if (!tokenMint) {
+          res.status(400).json({ message: 'Token mint is required' })
+          return
+        }
+
+        const investigation = await this.runTokenInvestigation(tokenMint)
+        res.status(200).json(investigation)
+      } catch (error) {
+        console.error('Token investigation form API error', error)
+        const message = error instanceof Error ? error.message : 'Failed to investigate token contract'
+        res.status(message === 'Unable to resolve developer wallet for token' ? 404 : 500).json({ message })
+      }
+    })
+
     this.app.get('/api/control/tracked-wallets', this.dashboardAuth.requireApiAuth, async (_req, res) => {
       try {
         const adminUserId = this.getDashboardAdminUserId()
