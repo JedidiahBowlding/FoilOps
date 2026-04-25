@@ -1,5 +1,6 @@
 import dotenv from 'dotenv'
 import axios from 'axios'
+import { PublicKey } from '@solana/web3.js'
 import { bot } from './providers/telegram'
 import { StartCommand } from './bot/commands/start-command'
 import { AddCommand } from './bot/commands/add-command'
@@ -306,6 +307,149 @@ class Main {
       } catch (error) {
         console.error('Token investigations list API error', error)
         res.status(500).json({ message: 'Failed to load token investigations' })
+      }
+    })
+
+    this.app.get('/api/scam-wallets/mixer-routes', this.dashboardAuth.requireApiAuth, async (req, res) => {
+      try {
+        const parsePositiveInt = (value: unknown, defaultValue: number, maxValue: number) => {
+          const parsed = Number(value)
+          if (!Number.isFinite(parsed)) return defaultValue
+          return Math.max(1, Math.min(maxValue, Math.floor(parsed)))
+        }
+
+        const toDate = (value: unknown): Date | undefined => {
+          if (typeof value !== 'string' || !value.trim()) return undefined
+          const parsed = new Date(value)
+          return Number.isNaN(parsed.getTime()) ? undefined : parsed
+        }
+
+        const groupedBySourceWallet = await this.scamWalletRepository.getMixerRouteAudit({
+          sourceWallet: typeof req.query.sourceWallet === 'string' ? req.query.sourceWallet : undefined,
+          mixerWallet: typeof req.query.mixerWallet === 'string' ? req.query.mixerWallet : undefined,
+          startDate: toDate(req.query.startDate),
+          endDate: toDate(req.query.endDate),
+        })
+
+        const page = parsePositiveInt(req.query.page, 1, 100000)
+        const pageSize = parsePositiveInt(req.query.pageSize, 25, 100)
+        const total = groupedBySourceWallet.length
+        const startIndex = (page - 1) * pageSize
+        const rows = groupedBySourceWallet.slice(startIndex, startIndex + pageSize)
+
+        res.status(200).json({
+          rows,
+          pagination: {
+            page,
+            pageSize,
+            total,
+            totalPages: Math.max(1, Math.ceil(total / pageSize)),
+            hasNextPage: startIndex + pageSize < total,
+          },
+          count: rows.length,
+        })
+      } catch (error) {
+        console.error('Fallback mixer route API error', error)
+        res.status(500).json({ message: 'Failed to build mixer route audit' })
+      }
+    })
+
+    this.app.get('/api/scam-wallets/mixer-routes/export', this.dashboardAuth.requireApiAuth, async (req, res) => {
+      try {
+        const toDate = (value: unknown): Date | undefined => {
+          if (typeof value !== 'string' || !value.trim()) return undefined
+          const parsed = new Date(value)
+          return Number.isNaN(parsed.getTime()) ? undefined : parsed
+        }
+
+        const groupedBySourceWallet = await this.scamWalletRepository.getMixerRouteAudit({
+          sourceWallet: typeof req.query.sourceWallet === 'string' ? req.query.sourceWallet : undefined,
+          mixerWallet: typeof req.query.mixerWallet === 'string' ? req.query.mixerWallet : undefined,
+          startDate: toDate(req.query.startDate),
+          endDate: toDate(req.query.endDate),
+        })
+
+        const format = req.query.format === 'json' ? 'json' : 'csv'
+        if (format === 'json') {
+          res.setHeader('Content-Type', 'application/json; charset=utf-8')
+          res.setHeader('Content-Disposition', 'attachment; filename="mixer-route-audit.json"')
+          res
+            .status(200)
+            .send(JSON.stringify({ rows: groupedBySourceWallet, count: groupedBySourceWallet.length }, null, 2))
+          return
+        }
+
+        const escapeCsv = (value: string) => `"${value.replace(/"/g, '""')}"`
+        const header = ['sourceWallet', 'latestTraceAt', 'mixerWallets', 'downstreamWallets']
+        const lines = groupedBySourceWallet.map((row) => {
+          return [
+            escapeCsv(row.sourceWallet),
+            escapeCsv(row.latestTraceAt || ''),
+            escapeCsv(row.mixerWallets.join('|')),
+            escapeCsv(row.downstreamWallets.join('|')),
+          ].join(',')
+        })
+
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+        res.setHeader('Content-Disposition', 'attachment; filename="mixer-route-audit.csv"')
+        res.status(200).send([header.join(','), ...lines].join('\n'))
+      } catch (error) {
+        console.error('Fallback mixer route export API error', error)
+        res.status(500).json({ message: 'Failed to export mixer route audit' })
+      }
+    })
+
+    // Keep retrace available even if graph-routes deployment is behind.
+    this.app.post('/api/graph/retrace', this.dashboardAuth.requireApiAuth, async (req, res) => {
+      try {
+        const wallet = typeof req.body?.wallet === 'string' ? req.body.wallet.trim() : ''
+        if (!wallet) {
+          res.status(400).json({ message: 'wallet is required' })
+          return
+        }
+
+        try {
+          new PublicKey(wallet)
+        } catch {
+          res.status(400).json({ message: 'Invalid wallet address' })
+          return
+        }
+
+        const maxHopsRaw = Number(req.body?.maxHops)
+        const signaturesPerHopRaw = Number(req.body?.signaturesPerHop)
+        const maxVisitedWalletsRaw = Number(req.body?.maxVisitedWallets)
+
+        const maxHops = Number.isFinite(maxHopsRaw) ? Math.max(1, Math.min(12, Math.floor(maxHopsRaw))) : 8
+        const signaturesPerHop = Number.isFinite(signaturesPerHopRaw)
+          ? Math.max(1, Math.min(50, Math.floor(signaturesPerHopRaw)))
+          : 20
+        const maxVisitedWallets = Number.isFinite(maxVisitedWalletsRaw)
+          ? Math.max(50, Math.min(2000, Math.floor(maxVisitedWalletsRaw)))
+          : 500
+
+        const followAllRecipients = req.body?.followAllRecipients !== false
+        const traceAllFirstHopRecipients = req.body?.traceAllFirstHopRecipients === true
+
+        const trace = await this.fundFlowTracer.traceWalletFlow(wallet, maxHops, signaturesPerHop, {
+          followAllRecipients,
+          traceAllFirstHopRecipients,
+          maxVisitedWallets,
+        })
+
+        res.status(200).json({
+          wallet,
+          config: {
+            maxHops,
+            signaturesPerHop,
+            maxVisitedWallets,
+            followAllRecipients,
+            traceAllFirstHopRecipients,
+          },
+          trace,
+        })
+      } catch (error) {
+        console.error('Fallback graph retrace API error', error)
+        res.status(500).json({ message: 'Failed to run deep retrace' })
       }
     })
 
