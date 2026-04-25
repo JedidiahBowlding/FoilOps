@@ -1,4 +1,4 @@
-import { Connection, PublicKey, LogsFilter, Logs } from '@solana/web3.js'
+import { Connection, PublicKey, LogsFilter, Logs, ParsedTransactionWithMeta } from '@solana/web3.js'
 import { ValidTransactions } from './valid-transactions'
 import EventEmitter from 'events'
 import { TransactionParser } from '../parsers/transaction-parser'
@@ -11,6 +11,7 @@ import { RpcConnectionManager } from '../providers/solana'
 import pLimit from 'p-limit'
 import { CronJobs } from './cron-jobs'
 import { PrismaUserRepository } from '../repositories/prisma/user'
+import { PrismaWalletRepository } from '../repositories/prisma/wallet'
 import { WalletPool } from '../config/wallet-pool'
 import TelegramBot from 'node-telegram-bot-api'
 import { tradeSignalEmitter } from './trade-signal-emitter'
@@ -21,6 +22,7 @@ export class WatchTransaction extends EventEmitter {
   private rateLimit: RateLimit
 
   private prismaUserRepository: PrismaUserRepository
+  private prismaWalletRepository: PrismaWalletRepository
   private static readonly SOL_MINT = 'So11111111111111111111111111111111111111112'
   private static readonly userSendChains: Map<string, Promise<void>> = new Map()
   private static readonly telegramSendConcurrency = Math.max(1, Number(process.env.TELEGRAM_SEND_CONCURRENCY || 1))
@@ -33,6 +35,15 @@ export class WatchTransaction extends EventEmitter {
   private static readonly minTransferAlertSol = Math.max(0, Number(process.env.MIN_TRANSFER_ALERT_SOL || 0.001))
   private static readonly transferAlertCooldownMs = Math.max(0, Number(process.env.TRANSFER_ALERT_COOLDOWN_MS || 8000))
   private static readonly transferAlertLastSentByWallet: Map<string, number> = new Map()
+  private static readonly watchlistRotateTransferThresholdPct = Math.min(
+    0.99,
+    Math.max(0.5, Number(process.env.WATCHLIST_ROTATE_TRANSFER_THRESHOLD_PCT || 0.75)),
+  )
+  private static readonly watchlistRotateCooldownMs = Math.max(
+    0,
+    Number(process.env.WATCHLIST_ROTATE_COOLDOWN_MS || 120000),
+  )
+  private static readonly watchlistRotateLastByWallet: Map<string, number> = new Map()
 
   constructor() {
     super()
@@ -44,6 +55,7 @@ export class WatchTransaction extends EventEmitter {
     this.rateLimit = new RateLimit(WalletPool.subscriptions)
 
     this.prismaUserRepository = new PrismaUserRepository()
+    this.prismaWalletRepository = new PrismaWalletRepository()
   }
 
   public async watchSocket(wallets: WalletWithUsers[]): Promise<void> {
@@ -146,6 +158,8 @@ export class WatchTransaction extends EventEmitter {
                   return
                 }
 
+                await this.autoRotateWatchlistFromLargeTransfer(walletAddress, parsed, transactionDetails, wallet)
+
                 if (parsed.solAmount < WatchTransaction.minTransferAlertSol) {
                   return
                 }
@@ -194,17 +208,23 @@ export class WatchTransaction extends EventEmitter {
       platform: SwapType
     },
   ): Promise<void> {
-    const direction = parsed.type === 'sell' ? 'sell' : parsed.type === 'buy' ? 'buy' : null
+    const isDeployEvent = parsed.platform === 'mint_pumpfun'
+    const direction = parsed.type === 'sell' ? 'sell' : parsed.type === 'buy' ? 'buy' : isDeployEvent ? 'buy' : null
     if (!direction) {
       return
     }
 
-    const tokenMint =
+    let tokenMint =
       direction === 'buy'
         ? parsed.tokenTransfers.tokenInMint
         : direction === 'sell'
           ? parsed.tokenTransfers.tokenOutMint
           : ''
+
+    // Some deploy transactions report the new mint on tokenOutMint. Fall back to keep auto-buy reliable.
+    if (direction === 'buy' && (!tokenMint || tokenMint === WatchTransaction.SOL_MINT)) {
+      tokenMint = parsed.tokenTransfers.tokenOutMint
+    }
 
     if (!tokenMint || tokenMint === WatchTransaction.SOL_MINT) {
       return
@@ -223,11 +243,252 @@ export class WatchTransaction extends EventEmitter {
         metadata: {
           source: 'wallet-watcher',
           platform: parsed.platform,
+          autoBuyOnDeploy: isDeployEvent,
         },
       })
     } catch (error) {
       console.log('COPY_TRADE_SIGNAL_EMIT_ERROR', error)
     }
+  }
+
+  private async autoRotateWatchlistFromLargeTransfer(
+    trackedWallet: string,
+    parsed: {
+      fromAddress: string
+      toAddress: string
+      lamportsAmount: number
+      solAmount: number
+      signature: string
+    },
+    transactionDetails: (ParsedTransactionWithMeta | null)[],
+    trackedWalletRecord: WalletWithUsers,
+  ): Promise<void> {
+    if (parsed.fromAddress !== trackedWallet) {
+      return
+    }
+
+    const destinationWallet = parsed.toAddress.trim()
+    if (!destinationWallet || destinationWallet === trackedWallet) {
+      return
+    }
+
+    if (!this.isValidSolanaAddress(destinationWallet)) {
+      return
+    }
+
+    const sourcePreTransferLamports = this.getWalletPreTransferLamports(transactionDetails, trackedWallet)
+    if (!sourcePreTransferLamports || sourcePreTransferLamports <= 0) {
+      return
+    }
+
+    const transferRatio = parsed.lamportsAmount / sourcePreTransferLamports
+    if (transferRatio < WatchTransaction.watchlistRotateTransferThresholdPct) {
+      return
+    }
+
+    if (this.isWatchlistRotationCoolingDown(trackedWallet)) {
+      return
+    }
+
+    const sourceWatchlistRotated = await this.rotateSourceWatchlistWallet(trackedWallet, destinationWallet)
+    const dbTrackedWalletsRotated = await this.rotateDbTrackedWallets(
+      trackedWallet,
+      destinationWallet,
+      trackedWalletRecord,
+    )
+
+    if (!sourceWatchlistRotated && !dbTrackedWalletsRotated) {
+      return
+    }
+
+    console.log(
+      `SOURCE_WALLET_ROTATED from=${trackedWallet} to=${destinationWallet} ratio=${(transferRatio * 100).toFixed(
+        2,
+      )}% sig=${parsed.signature} amount=${parsed.solAmount}`,
+    )
+  }
+
+  private async rotateDbTrackedWallets(
+    fromWallet: string,
+    toWallet: string,
+    trackedWalletRecord: WalletWithUsers,
+  ): Promise<boolean> {
+    const userWallets = trackedWalletRecord.userWallets || []
+    if (userWallets.length === 0) {
+      return false
+    }
+
+    const createdWalletIds = new Set<string>()
+    let changed = false
+
+    for (const userWallet of userWallets) {
+      const created = await this.prismaWalletRepository.create(
+        userWallet.userId,
+        toWallet,
+        userWallet.name || '',
+        userWallet.status,
+      )
+
+      if (created?.id) {
+        createdWalletIds.add(created.id)
+      }
+
+      const deleted = await this.prismaWalletRepository.deleteWallet(userWallet.userId, fromWallet)
+      if (deleted?.walletId) {
+        changed = true
+      }
+    }
+
+    if (!changed) {
+      return false
+    }
+
+    const oldSubscriptionId = WalletPool.subscriptions.get(fromWallet)
+    if (typeof oldSubscriptionId === 'number') {
+      try {
+        await RpcConnectionManager.logConnection.removeOnLogsListener(oldSubscriptionId)
+      } catch {
+        // Listener may already be removed; continue cleanup.
+      }
+      WalletPool.subscriptions.delete(fromWallet)
+    }
+
+    WalletPool.wallets = WalletPool.wallets.filter((wallet) => wallet.address !== fromWallet)
+    this.walletTransactions.delete(fromWallet)
+
+    const walletsToSubscribe: WalletWithUsers[] = []
+    for (const walletId of createdWalletIds) {
+      const refetchedWallet = await this.prismaWalletRepository.getWalletByIdForArray(walletId)
+      if (!refetchedWallet) {
+        continue
+      }
+
+      const existingWalletIndex = WalletPool.wallets.findIndex((wallet) => wallet.address === refetchedWallet.address)
+      if (existingWalletIndex >= 0) {
+        WalletPool.wallets[existingWalletIndex] = refetchedWallet
+      } else {
+        WalletPool.wallets.push(refetchedWallet)
+      }
+
+      walletsToSubscribe.push(refetchedWallet)
+    }
+
+    if (walletsToSubscribe.length > 0) {
+      await this.watchSocket(walletsToSubscribe)
+    }
+
+    return true
+  }
+
+  private getWalletPreTransferLamports(
+    transactionDetails: (ParsedTransactionWithMeta | null)[],
+    walletAddress: string,
+  ): number | null {
+    const tx = transactionDetails?.[0]
+    if (!tx) {
+      return null
+    }
+
+    const keys = tx.transaction.message.accountKeys
+    const keyIndex = keys.findIndex((entry) => entry.pubkey.toString() === walletAddress)
+    if (keyIndex < 0) {
+      return null
+    }
+
+    const preBalances = tx.meta?.preBalances
+    const pre = preBalances?.[keyIndex]
+    return typeof pre === 'number' ? pre : null
+  }
+
+  private isValidSolanaAddress(address: string): boolean {
+    try {
+      return new PublicKey(address).toBase58() === address
+    } catch {
+      return false
+    }
+  }
+
+  private isWatchlistRotationCoolingDown(walletAddress: string): boolean {
+    if (WatchTransaction.watchlistRotateCooldownMs <= 0) {
+      return false
+    }
+
+    const now = Date.now()
+    const last = WatchTransaction.watchlistRotateLastByWallet.get(walletAddress) || 0
+    if (now - last < WatchTransaction.watchlistRotateCooldownMs) {
+      return true
+    }
+
+    WatchTransaction.watchlistRotateLastByWallet.set(walletAddress, now)
+    return false
+  }
+
+  private resolveTradingControlBaseUrl(): string {
+    const signalEndpoint = process.env.TRADE_SIGNAL_ENDPOINT || 'http://127.0.0.1:8787/signals'
+    try {
+      const parsed = new URL(signalEndpoint)
+      return parsed.origin
+    } catch {
+      return 'http://127.0.0.1:8787'
+    }
+  }
+
+  private async postSourceWalletControl(payload: Record<string, unknown>): Promise<boolean> {
+    const baseUrl = this.resolveTradingControlBaseUrl()
+    try {
+      const response = await fetch(`${baseUrl}/trading/source-wallets`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      })
+
+      return response.ok
+    } catch {
+      return false
+    }
+  }
+
+  private async rotateSourceWatchlistWallet(fromWallet: string, toWallet: string): Promise<boolean> {
+    const baseUrl = this.resolveTradingControlBaseUrl()
+    let sourceCap: number | undefined
+    let sourceProfile: { preset?: string; notes?: string } | undefined
+
+    try {
+      const controlsResponse = await fetch(`${baseUrl}/trading/source-wallets`)
+      if (controlsResponse.ok) {
+        const controls = (await controlsResponse.json()) as {
+          caps?: Record<string, number>
+          profiles?: Record<string, { preset?: string; notes?: string }>
+        }
+        sourceCap = controls.caps?.[fromWallet]
+        sourceProfile = controls.profiles?.[fromWallet]
+      }
+    } catch {
+      // Continue without cap/profile carry-over.
+    }
+
+    const addOk = await this.postSourceWalletControl({ action: 'add', wallet: toWallet })
+    if (!addOk) {
+      return false
+    }
+
+    if (typeof sourceCap === 'number' && sourceCap > 0) {
+      await this.postSourceWalletControl({ action: 'cap', wallet: toWallet, max_position_size_sol: sourceCap })
+    }
+
+    if (sourceProfile?.preset) {
+      await this.postSourceWalletControl({
+        action: 'profile',
+        wallet: toWallet,
+        preset: sourceProfile.preset,
+        notes: sourceProfile.notes || `Auto-migrated from ${fromWallet}`,
+      })
+    }
+
+    const removeOk = await this.postSourceWalletControl({ action: 'remove', wallet: fromWallet })
+    return removeOk
   }
 
   public async getParsedTransaction(transactionSignature: string, retries = 4) {
