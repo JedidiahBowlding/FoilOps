@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "snapshots": [
+    {
+      "timestamp": "2026-04-23T12:32:15.133Z",
+      "executionEnabled": false,
+      "maxRiskScore": null,
+      "deadLetterCount": 0,
+      "receivedTotal": 0,
+      "executedTotal": 0,
+      "blockedTotal": 0,
+      "failedTotal": 0,
+      "watchlistSize": 0,
+      "trackedWalletCount": 0,
+      "avgWalletWinRate": null,
+      "avgWalletPnl": null
+    }
+  ]
+}

@@ -15,6 +15,20 @@ type ScamEventInput = {
   metadata?: Prisma.InputJsonValue
 }
 
+export type MixerRouteAuditGroup = {
+  sourceWallet: string
+  latestTraceAt: string | null
+  mixerWallets: string[]
+  downstreamWallets: string[]
+}
+
+export type MixerRouteAuditFilters = {
+  sourceWallet?: string
+  mixerWallet?: string
+  startDate?: Date
+  endDate?: Date
+}
+
 export class PrismaScamWalletRepository {
   async ensureWallet(address: string) {
     const existingWallet = await prisma.wallet.findFirst({
@@ -243,6 +257,14 @@ export class PrismaScamWalletRepository {
         tracedAt: trace.tracedAt,
         maxHops: trace.maxHops,
         steps: trace.steps,
+        alerts: trace.alerts,
+        terminalWallets: trace.terminalWallets,
+        mixerTrace: trace.mixerTrace,
+        platformTrace: trace.platformTrace,
+        bridgeRouteAttribution: trace.bridgeRouteAttribution,
+        crossChainContinuation: trace.crossChainContinuation,
+        riskConfidenceModel: trace.riskConfidenceModel,
+        cexDepositHeuristics: trace.cexDepositHeuristics,
       },
     })
 
@@ -295,6 +317,90 @@ export class PrismaScamWalletRepository {
     })
 
     return latestFlowEvent
+  }
+
+  async getMixerRouteAudit(filters: MixerRouteAuditFilters = {}): Promise<MixerRouteAuditGroup[]> {
+    const sourceWalletFilter = filters.sourceWallet?.trim().toLowerCase()
+    const mixerWalletFilter = filters.mixerWallet?.trim().toLowerCase()
+    const flowEvents = await prisma.scamWalletEvent.findMany({
+      where: {
+        eventType: ScamEventType.FLOW_TRACE,
+        scamWallet: {
+          isFlagged: true,
+        },
+        createdAt:
+          filters.startDate || filters.endDate
+            ? {
+                ...(filters.startDate ? { gte: filters.startDate } : {}),
+                ...(filters.endDate ? { lte: filters.endDate } : {}),
+              }
+            : undefined,
+      },
+      select: {
+        createdAt: true,
+        metadata: true,
+        scamWallet: {
+          select: {
+            address: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    })
+
+    const grouped = new Map<string, MixerRouteAuditGroup>()
+
+    for (const event of flowEvents) {
+      const sourceWallet = event.scamWallet.address
+      if (sourceWalletFilter && !sourceWallet.toLowerCase().includes(sourceWalletFilter)) {
+        continue
+      }
+
+      const metadata = (event.metadata ?? {}) as {
+        mixerTrace?: {
+          mixerWallets?: unknown[]
+          downstreamWallets?: unknown[]
+        }
+      }
+
+      const mixerWallets = Array.isArray(metadata.mixerTrace?.mixerWallets)
+        ? metadata.mixerTrace!.mixerWallets.filter((value): value is string => typeof value === 'string')
+        : []
+
+      const downstreamWallets = Array.isArray(metadata.mixerTrace?.downstreamWallets)
+        ? metadata.mixerTrace!.downstreamWallets.filter((value): value is string => typeof value === 'string')
+        : []
+
+      if (
+        mixerWalletFilter &&
+        !mixerWallets.some((wallet) => wallet.toLowerCase().includes(mixerWalletFilter)) &&
+        !downstreamWallets.some((wallet) => wallet.toLowerCase().includes(mixerWalletFilter))
+      ) {
+        continue
+      }
+
+      if (mixerWallets.length === 0 && downstreamWallets.length === 0) {
+        continue
+      }
+
+      const existing = grouped.get(sourceWallet)
+      if (!existing) {
+        grouped.set(sourceWallet, {
+          sourceWallet,
+          latestTraceAt: event.createdAt.toISOString(),
+          mixerWallets: Array.from(new Set(mixerWallets)).sort(),
+          downstreamWallets: Array.from(new Set(downstreamWallets)).sort(),
+        })
+        continue
+      }
+
+      existing.mixerWallets = Array.from(new Set([...existing.mixerWallets, ...mixerWallets])).sort()
+      existing.downstreamWallets = Array.from(new Set([...existing.downstreamWallets, ...downstreamWallets])).sort()
+    }
+
+    return Array.from(grouped.values()).sort((a, b) => a.sourceWallet.localeCompare(b.sourceWallet))
   }
 
   async getDashboardRows() {

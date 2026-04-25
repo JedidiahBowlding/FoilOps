@@ -14,7 +14,17 @@ export class WhaleWalletSelector {
   private static readonly DEFAULT_PROGRAM_ID = '6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P'
 
   private isEnabled(): boolean {
-    return process.env.WHALE_AUTO_TRACK_ENABLED !== 'false'
+    return process.env.WHALE_AUTO_TRACK_ENABLED === 'true'
+  }
+
+  private getManualWallets(): string[] {
+    const configured = process.env.WHALE_MANUAL_WALLETS?.split(',').map((value) => value.trim()) ?? []
+    return configured.filter((value) => this.isValidPublicKey(value))
+  }
+
+  private getExcludedWallets(): Set<string> {
+    const configured = process.env.WHALE_EXCLUDE_WALLETS?.split(',').map((value) => value.trim()) ?? []
+    return new Set(configured.filter((value) => this.isValidPublicKey(value)))
   }
 
   private getMinBalanceUsd(): number {
@@ -35,6 +45,11 @@ export class WhaleWalletSelector {
   private getMinActivityHits(): number {
     const parsed = Number(process.env.WHALE_MIN_ACTIVITY_HITS || '2')
     return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 2
+  }
+
+  private getMaxActivityHits(): number {
+    const parsed = Number(process.env.WHALE_MAX_ACTIVITY_HITS || '10')
+    return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 10
   }
 
   private getMaxBalanceChecks(): number {
@@ -59,6 +74,15 @@ export class WhaleWalletSelector {
     return null
   }
 
+  private isValidPublicKey(value: string): boolean {
+    try {
+      new PublicKey(value)
+      return true
+    } catch {
+      return false
+    }
+  }
+
   private async getSolPriceUsd(): Promise<number | null> {
     const price = await TokenUtils.getSolPriceGecko()
     if (!price) {
@@ -72,7 +96,14 @@ export class WhaleWalletSelector {
   }
 
   public async selectTopActiveWhales(): Promise<string[]> {
+    const manualWallets = this.getManualWallets()
+    if (manualWallets.length > 0) {
+      console.log(`WHALE_SELECTOR: using ${manualWallets.length} manual wallets from WHALE_MANUAL_WALLETS`)
+      return manualWallets
+    }
+
     if (!this.isEnabled()) {
+      console.log('WHALE_SELECTOR: auto-track disabled (set WHALE_AUTO_TRACK_ENABLED=true to enable)')
       return []
     }
 
@@ -112,9 +143,20 @@ export class WhaleWalletSelector {
       const selected: string[] = []
       const minUsd = this.getMinBalanceUsd()
       const minHits = this.getMinActivityHits()
+      const maxHits = this.getMaxActivityHits()
+      const excluded = this.getExcludedWallets()
 
       for (const [wallet, hits] of sortedByActivity) {
+        if (excluded.has(wallet)) {
+          continue
+        }
+
         if (hits < minHits) {
+          continue
+        }
+
+        // Extremely high repeat signer frequency on a hot program is commonly bot-like.
+        if (hits > maxHits) {
           continue
         }
 
@@ -131,7 +173,7 @@ export class WhaleWalletSelector {
       }
 
       console.log(
-        `WHALE_SELECTOR: selected ${selected.length} high-balance active wallets (threshold=$${minUsd.toLocaleString()})`,
+        `WHALE_SELECTOR: selected ${selected.length} high-balance active wallets (threshold=$${minUsd.toLocaleString()}, hits=${minHits}-${maxHits})`,
       )
 
       return selected

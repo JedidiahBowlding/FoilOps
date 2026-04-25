@@ -23,3 +23,19 @@ MIGRATION PHASES STATUS:
    - TODO: Enable live mode with guardrails
    - TODO: Staged risk rollout
    - TODO: Emergency kill switches
+
+EXTRA INTELLIGENCE SOURCES TODO (RUG FLOW ATTRIBUTION):
+[x] Add mixer path intelligence summary to deep traces (encountered mixers + downstream wallets)
+[x] Add exchange and bridge path intelligence summary to deep traces
+[x] Add CEX deposit-pattern heuristics (amount bucketing + timing windows + repeated exchange target scoring)
+[x] Add CEX deposit cluster intelligence output (exchange label clusters + memo signal summary)
+[x] Add cross-chain bridge continuation scaffolding (bridge tx handoff metadata for next-chain resolver)
+[x] Add canonical bridge route attribution pack (Wormhole/deBridge relayers + bridge contract families)
+[ ] Add external label ingestion pipeline (scheduled pull + merge + confidence weighting)
+[ ] Add off-chain event intelligence ingestion (Telegram/Discord/X launch + domain/deployer OPSEC artifacts)
+[ ] Add device/infrastructure fingerprint correlation model (if infra telemetry is available)
+[x] Add risk confidence model that degrades after mixer/CEX boundaries
+[ ] Add case export format for compliance handoff (wallet cluster, signatures, path confidence)
+[ ] Add exchange compliance collaboration workflow (internal case IDs + export bundles for escalation)
+[ ] Add UI cards in Graph for mixer/exchange/bridge trace summaries (beyond raw JSON)
+[ ] Add regression tests for deep retrace endpoint parameter bounds and response shape

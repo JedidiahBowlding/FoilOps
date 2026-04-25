@@ -1,0 +1,1512 @@
+
+ RUN  v4.1.4 /Users/blockdev/Downloads/handi-cat_wallet-tracker
+
+(node:45170) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+stdout | tests/mixer-route-dashboard.test.ts
+LOADED 1 RPC ENDPOINTS
+
+ ❯ tests/mixer-route-dashboard.test.ts (2 tests | 1 failed) 38ms
+     ✓ renders configurable bulk controls and source export actions 25ms
+     × renders view export and capped bulk-open controls in the dashboard script 12ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/mixer-route-dashboard.test.ts > mixer route dashboard > renders view export and capped bulk-open controls in the dashboard script
+AssertionError: expected '<!doctype html>\n<html lang="en">\n  …' to contain 'mixer-route-mixer-wallets-page-'
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- mixer-route-mixer-wallets-page-[39m
+[31m+ <!doctype html>[39m
+[31m+ <html lang="en">[39m
+[31m+   <head>[39m
+[31m+     <meta charset="UTF-8" />[39m
+[31m+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />[39m
+[31m+     <title>FoilOps Mixer Route Audit</title>[39m
+[31m+     <style>[39m
+[31m+       :root {[39m
+[31m+         color-scheme: dark;[39m
+[31m+         --fx-bg-0: #080508;[39m
+[31m+         --fx-bg-1: #080508;[39m
+[31m+         --fx-bg-2: #080508;[39m
+[31m+         --fx-panel: rgba(20, 5, 7, 0.85);[39m
+[31m+         --fx-panel-strong: rgba(20, 5, 7, 0.92);[39m
+[31m+         --fx-panel-soft: rgba(20, 5, 7, 0.72);[39m
+[31m+         --fx-line: rgba(255, 40, 60, 0.16);[39m
+[31m+         --fx-line-strong: rgba(255, 50, 70, 0.34);[39m
+[31m+         --fx-ink: #f8eded;[39m
+[31m+         --fx-muted: #b89898;[39m
+[31m+         --fx-primary: #ff2233;[39m
+[31m+         --fx-secondary: #cc0820;[39m
+[31m+         --fx-acid: #ff7744;[39m
+[31m+         --fx-danger: #ff4060;[39m
+[31m+         --fx-warning: #ffbc68;[39m
+[31m+         --fx-shadow: 0 14px 36px rgba(8, 2, 3, 0.32);[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       * { box-sizing: border-box; }[39m
+[31m+[39m
+[31m+       html { min-height: 100%; }[39m
+[31m+[39m
+[31m+       body {[39m
+[31m+         margin: 0;[39m
+[31m+         min-height: 100vh;[39m
+[31m+         color: var(--fx-ink);[39m
+[31m+         font-family: "Space Grotesk", "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;[39m
+[31m+         background: var(--fx-bg-0);[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       a { color: inherit; }[39m
+[31m+[39m
+[31m+       button,[39m
+[31m+       input,[39m
+[31m+       select,[39m
+[31m+       textarea {[39m
+[31m+         font: inherit;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       button {[39m
+[31m+         cursor: pointer;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .fx-shell {[39m
+[31m+         max-width: 1280px;[39m
+[31m+         margin: 0 auto;[39m
+[31m+         padding: 20px 24px 42px;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .fx-header {[39m
+[31m+         display: flex;[39m
+[31m+         justify-content: space-between;[39m
+[31m+         align-items: center;[39m
+[31m+         gap: 20px;[39m
+[31m+         margin-bottom: 0;[39m
+[31m+         padding: 0.75rem 2rem;[39m
+[31m+         border-bottom: 1px solid var(--fx-line);[39m
+[31m+         border-radius: 0;[39m
+[31m+         background: var(--fx-panel);[39m
+[31m+         position: sticky;[39m
+[31m+         top: 0;[39m
+[31m+         z-index: 100;[39m
+[31m+         box-shadow: none;[39m
+[31m+         backdrop-filter: blur(10px);[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .fx-header-left {[39m
+[31m+         display: inline-flex;[39m
+[31m+         align-items: center;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .fx-logo {[39m
+[31m+         text-decoration: none;[39m
+[31m+         color: var(--fx-primary);[39m
+[31m+         font-weight: 800;[39m
+[31m+         letter-spacing: 0.06em;[39m
+[31m+         font-size: 1rem;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .fx-nav {[39m
+[31m+         display: flex;[39m
+[31m+         align-items: center;[39m
+[31m+         justify-content: flex-end;[39m
+[31m+         gap: 8px;[39m
+[31m+         flex: 1;[39m
+[31m+         flex-wrap: wrap;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .fx-nav-link {[39m
+[31m+         padding: 8px 11px;[39m
+[31m+         border-radius: 7px;[39m
+[31m+         text-decoration: none;[39m
+[31m+         color: var(--fx-muted);[39m
+[31m+         border: 1px solid transparent;[39m
+[31m+         background: transparent;[39m
+[31m+         transition: 160ms ease;[39m
+[31m+         font-size: 0.8rem;[39m
+[31m+         letter-spacing: 0.01em;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .fx-nav-link:hover,[39m
+[31m+       .fx-nav-link.active {[39m
+[31m+         color: var(--fx-ink);[39m
+[31m+         border-color: var(--fx-line);[39m
+[31m+         background: rgba(255, 255, 255, 0.02);[39m
+[31m+         box-shadow: none;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .fx-header-actions,[39m
+[31m+       .actions,[39m
+[31m+       .nav-actions,[39m
+[31m+       .cta-row,[39m
+[31m+       .button-row,[39m
+[31m+       .wallet-popup-actions {[39m
+[31m+         display: flex;[39m
+[31m+         gap: 10px;[39m
+[31m+         flex-wrap: wrap;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .fx-main {[39m
+[31m+         display: grid;[39m
+[31m+         gap: 16px;[39m
+[31m+         margin-top: 18px;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .fx-hero,[39m
+[31m+       .hero,[39m
+[31m+       .page-header,[39m
+[31m+       .topbar {[39m
+[31m+         display: flex;[39m
+[31m+         justify-content: space-between;[39m
+[31m+         align-items: flex-end;[39m
+[31m+         gap: 18px;[39m
+[31m+         flex-wrap: wrap;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .fx-hero-grid {[39m
+[31m+         display: grid;[39m
+[31m+         grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);[39m
+[31m+         gap: 20px;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .fx-card,[39m
+[31m+       .fx-panel,[39m
+[31m+       .panel,[39m
+[31m+       .card,[39m
+[31m+       .mini-card,[39m
+[31m+       .table-card,[39m
+[31m+       .control-shell,[39m
+[31m+       .control-card,[39m
+[31m+       .tracked-wallet-item,[39m
+[31m+       .wallet-popup,[39m
+[31m+       .timeline,[39m
+[31m+       .intel,[39m
+[31m+       .step,[39m
+[31m+       .mini {[39m
+[31m+         position: relative;[39m
+[31m+         border: 1px solid var(--fx-line);[39m
+[31m+         border-radius: 10px;[39m
+[31m+         background: var(--fx-panel);[39m
+[31m+         box-shadow: var(--fx-shadow);[39m
+[31m+         backdrop-filter: blur(6px);[39m
+[31m+         overflow: hidden;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .fx-card::before,[39m
+[31m+       .fx-panel::before,[39m
+[31m+       .panel::before,[39m
+[31m+       .card::before,[39m
+[31m+       .mini-card::before,[39m
+[31m+       .table-card::before,[39m
+[31m+       .control-shell::before,[39m
+[31m+       .control-card::before,[39m
+[31m+       .tracked-wallet-item::before,[39m
+[31m+       .wallet-popup::before,[39m
+[31m+       .timeline::before,[39m
+[31m+       .intel::before,[39m
+[31m+       .step::before,[39m
+[31m+       .mini::before {[39m
+[31m+         content: none;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .fx-card,[39m
+[31m+       .panel,[39m
+[31m+       .card,[39m
+[31m+       .mini-card,[39m
+[31m+       .control-shell,[39m
+[31m+       .control-card,[39m
+[31m+       .timeline,[39m
+[31m+       .intel,[39m
+[31m+       .step,[39m
+[31m+       .mini {[39m
+[31m+         padding: 16px;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .table-card,[39m
+[31m+       .wallet-popup {[39m
+[31m+         padding: 12px;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .fx-eyebrow,[39m
+[31m+       .eyebrow,[39m
+[31m+       .kicker,[39m
+[31m+       .brand-mark,[39m
+[31m+       .section-kicker {[39m
+[31m+         margin: 0 0 10px;[39m
+[31m+         color: var(--fx-primary);[39m
+[31m+         font-size: 0.74rem;[39m
+[31m+         font-weight: 700;[39m
+[31m+         letter-spacing: 0.2em;[39m
+[31m+         text-transform: uppercase;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       h1,[39m
+[31m+       .fx-title,[39m
+[31m+       .page-title {[39m
+[31m+         margin: 0;[39m
+[31m+         line-height: 0.95;[39m
+[31m+         font-size: clamp(1.8rem, 4.8vw, 3.4rem);[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       h2 {[39m
+[31m+         margin: 0 0 10px;[39m
+[31m+         font-size: clamp(1.1rem, 2.6vw, 1.8rem);[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       h3 {[39m
+[31m+         margin: 0 0 8px;[39m
+[31m+         font-size: 1rem;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       p,[39m
+[31m+       li,[39m
+[31m+       td,[39m
+[31m+       .lead,[39m
+[31m+       .page-subtitle,[39m
+[31m+       .meta,[39m
+[31m+       .subtle,[39m
+[31m+       .section-copy {[39m
+[31m+         color: var(--fx-muted);[39m
+[31m+         line-height: 1.7;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .fx-lead {[39m
+[31m+         max-width: 72ch;[39m
+[31m+         font-size: 1rem;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .fx-stats,[39m
+[31m+       .stats,[39m
+[31m+       .profiles,[39m
+[31m+       .grid,[39m
+[31m+       .cards,[39m
+[31m+       .steps,[39m
+[31m+       .timeline-grid,[39m
+[31m+       .intel-grid,[39m
+[31m+       .control-grid,[39m
+[31m+       .wallet-list,[39m
+[31m+       .micro-grid,[39m
+[31m+       .help-grid,[39m
+[31m+       .quick-nav {[39m
+[31m+         display: grid;[39m
+[31m+         gap: 16px;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .fx-stats,[39m
+[31m+       .stats {[39m
+[31m+         grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .grid,[39m
+[31m+       .cards,[39m
+[31m+       .steps,[39m
+[31m+       .control-grid,[39m
+[31m+       .profiles,[39m
+[31m+       .wallet-list,[39m
+[31m+       .micro-grid,[39m
+[31m+       .help-grid {[39m
+[31m+         grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .quick-nav {[39m
+[31m+         grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));[39m
+[31m+         margin-top: 14px;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .help-card {[39m
+[31m+         border: 1px solid var(--fx-line);[39m
+[31m+         border-radius: 18px;[39m
+[31m+         padding: 14px;[39m
+[31m+         background: linear-gradient(180deg, rgba(20, 7, 9, 0.9), rgba(16, 5, 7, 0.72));[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .timeline-grid,[39m
+[31m+       .intel-grid {[39m
+[31m+         grid-template-columns: 1fr;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .section {[39m
+[31m+         display: grid;[39m
+[31m+         gap: 12px;[39m
+[31m+         border: 1px solid var(--fx-line);[39m
+[31m+         border-radius: 10px;[39m
+[31m+         background: var(--fx-panel);[39m
+[31m+         box-shadow: var(--fx-shadow);[39m
+[31m+         overflow: hidden;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .section > * {[39m
+[31m+         padding-inline: 14px;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .section > :last-child {[39m
+[31m+         padding-bottom: 14px;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .section-header {[39m
+[31m+         display: flex;[39m
+[31m+         justify-content: space-between;[39m
+[31m+         align-items: end;[39m
+[31m+         gap: 14px;[39m
+[31m+         flex-wrap: wrap;[39m
+[31m+         padding-top: 12px;[39m
+[31m+         padding-bottom: 12px;[39m
+[31m+         border-bottom: 1px solid rgba(255, 40, 60, 0.16);[39m
+[31m+         background: rgba(12, 4, 6, 0.62);[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .section-header-copy {[39m
+[31m+         display: grid;[39m
+[31m+         gap: 6px;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .section-subtitle {[39m
+[31m+         margin: 0;[39m
+[31m+         max-width: 78ch;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .signal-strip,[39m
+[31m+       .table-meta {[39m
+[31m+         display: flex;[39m
+[31m+         gap: 10px;[39m
+[31m+         flex-wrap: wrap;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .signal-pill {[39m
+[31m+         display: inline-flex;[39m
+[31m+         align-items: center;[39m
+[31m+         gap: 8px;[39m
+[31m+         padding: 10px 14px;[39m
+[31m+         border-radius: 999px;[39m
+[31m+         border: 1px solid rgba(255, 40, 60, 0.18);[39m
+[31m+         background: rgba(14, 5, 7, 0.84);[39m
+[31m+         color: var(--fx-ink);[39m
+[31m+         font-size: 0.82rem;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .signal-pill strong {[39m
+[31m+         color: var(--fx-primary);[39m
+[31m+         letter-spacing: 0.08em;[39m
+[31m+         text-transform: uppercase;[39m
+[31m+         font-size: 0.7rem;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .summary-grid {[39m
+[31m+         display: grid;[39m
+[31m+         grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));[39m
+[31m+         gap: 12px;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .summary-tile {[39m
+[31m+         padding: 14px 16px;[39m
+[31m+         border-radius: 18px;[39m
+[31m+         border: 1px solid rgba(255, 40, 60, 0.12);[39m
+[31m+         background: linear-gradient(180deg, rgba(18, 5, 8, 0.84), rgba(14, 4, 5, 0.68));[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .summary-tile-label {[39m
+[31m+         margin: 0 0 6px;[39m
+[31m+         color: var(--fx-muted);[39m
+[31m+         font-size: 0.72rem;[39m
+[31m+         font-weight: 700;[39m
+[31m+         letter-spacing: 0.16em;[39m
+[31m+         text-transform: uppercase;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .summary-tile-value {[39m
+[31m+         color: var(--fx-ink);[39m
+[31m+         font-size: 1.15rem;[39m
+[31m+         line-height: 1.25;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .summary-tile-copy {[39m
+[31m+         margin: 8px 0 0;[39m
+[31m+         color: var(--fx-muted);[39m
+[31m+         font-size: 0.86rem;[39m
+[31m+         line-height: 1.5;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .empty-state {[39m
+[31m+         padding: 18px;[39m
+[31m+         border-radius: 18px;[39m
+[31m+         border: 1px dashed rgba(255, 40, 60, 0.22);[39m
+[31m+         background: rgba(14, 4, 5, 0.52);[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .empty-state strong {[39m
+[31m+         display: block;[39m
+[31m+         margin-bottom: 6px;[39m
+[31m+         color: var(--fx-ink);[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .big {[39m
+[31m+         font-size: clamp(1.7rem, 3vw, 2.6rem);[39m
+[31m+         color: var(--fx-ink);[39m
+[31m+         margin: 8px 0 6px;[39m
+[31m+         text-shadow: 0 0 24px rgba(255, 30, 50, 0.20);[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .pill,[39m
+[31m+       .risk,[39m
+[31m+       .badge,[39m
+[31m+       .tag,[39m
+[31m+       .step-number {[39m
+[31m+         display: inline-flex;[39m
+[31m+         align-items: center;[39m
+[31m+         gap: 6px;[39m
+[31m+         padding: 6px 11px;[39m
+[31m+         border-radius: 999px;[39m
+[31m+         background: rgba(255, 30, 50, 0.12);[39m
+[31m+         border: 1px solid rgba(255, 30, 50, 0.18);[39m
+[31m+         color: var(--fx-primary);[39m
+[31m+         font-size: 0.74rem;[39m
+[31m+         font-weight: 700;[39m
+[31m+         letter-spacing: 0.06em;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .risk {[39m
+[31m+         background: rgba(255, 90, 122, 0.1);[39m
+[31m+         border-color: rgba(255, 90, 122, 0.24);[39m
+[31m+         color: #ff9cb0;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .step-number {[39m
+[31m+         width: 40px;[39m
+[31m+         height: 40px;[39m
+[31m+         justify-content: center;[39m
+[31m+         padding: 0;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .fx-button,[39m
+[31m+       .button,[39m
+[31m+       .button-secondary,[39m
+[31m+       .actions a,[39m
+[31m+       .actions button,[39m
+[31m+       .logout-button,[39m
+[31m+       .wallet-popup-actions a,[39m
+[31m+       .wallet-popup-actions button,[39m
+[31m+       .button-row button {[39m
+[31m+         display: inline-flex;[39m
+[31m+         align-items: center;[39m
+[31m+         justify-content: center;[39m
+[31m+         gap: 8px;[39m
+[31m+         min-height: 44px;[39m
+[31m+         padding: 12px 16px;[39m
+[31m+         border-radius: 999px;[39m
+[31m+         text-decoration: none;[39m
+[31m+         color: var(--fx-ink);[39m
+[31m+         border: 1px solid var(--fx-line);[39m
+[31m+         background: linear-gradient(180deg, rgba(28, 8, 10, 0.88), rgba(18, 5, 7, 0.88));[39m
+[31m+         box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .fx-button.primary,[39m
+[31m+       .button,[39m
+[31m+       .button-row button.primary,[39m
+[31m+       .control-form button,[39m
+[31m+       .actions .primary {[39m
+[31m+         border-color: rgba(255, 30, 50, 0.30);[39m
+[31m+         background: linear-gradient(135deg, rgba(255, 30, 50, 0.32), rgba(180, 0, 20, 0.24));[39m
+[31m+         box-shadow: 0 0 32px rgba(255, 30, 50, 0.18);[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .fx-button.secondary,[39m
+[31m+       .button-secondary {[39m
+[31m+         background: rgba(255, 255, 255, 0.03);[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .fx-button.danger,[39m
+[31m+       .button-row button.danger {[39m
+[31m+         background: linear-gradient(135deg, rgba(255, 90, 122, 0.28), rgba(124, 114, 255, 0.12));[39m
+[31m+         border-color: rgba(255, 90, 122, 0.28);[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .fx-button:hover,[39m
+[31m+       .button:hover,[39m
+[31m+       .button-secondary:hover,[39m
+[31m+       .actions a:hover,[39m
+[31m+       .actions button:hover,[39m
+[31m+       .logout-button:hover,[39m
+[31m+       .wallet-popup-actions a:hover,[39m
+[31m+       .wallet-popup-actions button:hover,[39m
+[31m+       .button-row button:hover {[39m
+[31m+         transform: translateY(-1px);[39m
+[31m+         box-shadow: 0 0 30px rgba(255, 30, 50, 0.18);[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       input,[39m
+[31m+       select,[39m
+[31m+       textarea,[39m
+[31m+       .wallet-chip,[39m
+[31m+       .analysis-panel,[39m
+[31m+       svg {[39m
+[31m+         width: 100%;[39m
+[31m+         border: 1px solid rgba(255, 40, 60, 0.18);[39m
+[31m+         border-radius: 16px;[39m
+[31m+         background: rgba(12, 4, 5, 0.88);[39m
+[31m+         color: var(--fx-ink);[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       input,[39m
+[31m+       select,[39m
+[31m+       textarea {[39m
+[31m+         padding: 13px 14px;[39m
+[31m+         outline: none;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       input:focus,[39m
+[31m+       select:focus,[39m
+[31m+       textarea:focus {[39m
+[31m+         border-color: var(--fx-line-strong);[39m
+[31m+         box-shadow: 0 0 0 3px rgba(255, 30, 50, 0.1);[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       textarea {[39m
+[31m+         min-height: 110px;[39m
+[31m+         resize: vertical;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       table {[39m
+[31m+         width: 100%;[39m
+[31m+         border-collapse: collapse;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       th,[39m
+[31m+       td {[39m
+[31m+         text-align: left;[39m
+[31m+         padding: 10px 8px;[39m
+[31m+         border-bottom: 1px solid rgba(255, 40, 60, 0.1);[39m
+[31m+         vertical-align: top;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       tbody tr:nth-child(even) {[39m
+[31m+         background: rgba(255, 255, 255, 0.015);[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       tbody tr:hover {[39m
+[31m+         background: rgba(255, 30, 50, 0.06);[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       th {[39m
+[31m+         color: var(--fx-muted);[39m
+[31m+         font-size: 0.66rem;[39m
+[31m+         text-transform: uppercase;[39m
+[31m+         letter-spacing: 0.08em;[39m
+[31m+         background: rgba(14, 4, 6, 0.95);[39m
+[31m+         position: sticky;[39m
+[31m+         top: 0;[39m
+[31m+         z-index: 1;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .control-form,[39m
+[31m+       form.control-form {[39m
+[31m+         display: grid;[39m
+[31m+         gap: 12px;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       label {[39m
+[31m+         display: grid;[39m
+[31m+         gap: 8px;[39m
+[31m+         color: var(--fx-muted);[39m
+[31m+         font-size: 0.88rem;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .control-status,[39m
+[31m+       .control-result,[39m
+[31m+       .notice {[39m
+[31m+         padding: 14px 16px;[39m
+[31m+         border-radius: 18px;[39m
+[31m+         border: 1px solid rgba(255, 40, 60, 0.14);[39m
+[31m+         background: rgba(255, 255, 255, 0.03);[39m
+[31m+         color: var(--fx-muted);[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .control-status.error,[39m
+[31m+       .notice.error {[39m
+[31m+         border-color: rgba(255, 90, 122, 0.24);[39m
+[31m+         color: #ffacbe;[39m
+[31m+         background: rgba(255, 90, 122, 0.08);[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .control-status.success,[39m
+[31m+       .notice.success {[39m
+[31m+         border-color: rgba(76, 255, 193, 0.24);[39m
+[31m+         color: #baffea;[39m
+[31m+         background: rgba(76, 255, 193, 0.08);[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .control-status.warning,[39m
+[31m+       .notice.warning {[39m
+[31m+         border-color: rgba(255, 188, 104, 0.24);[39m
+[31m+         color: #ffd9a3;[39m
+[31m+         background: rgba(255, 188, 104, 0.08);[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .trend-toolbar {[39m
+[31m+         align-items: end;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .chart-legend {[39m
+[31m+         display: flex;[39m
+[31m+         flex-wrap: wrap;[39m
+[31m+         gap: 8px;[39m
+[31m+         margin: 8px 0 10px;[39m
+[31m+         min-height: 30px;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .legend-chip {[39m
+[31m+         display: inline-flex;[39m
+[31m+         align-items: center;[39m
+[31m+         gap: 8px;[39m
+[31m+         padding: 6px 10px;[39m
+[31m+         border-radius: 999px;[39m
+[31m+         border: 1px solid rgba(255, 40, 60, 0.14);[39m
+[31m+         background: rgba(255, 255, 255, 0.03);[39m
+[31m+         color: var(--fx-muted);[39m
+[31m+         font-size: 0.78rem;[39m
+[31m+         letter-spacing: 0.04em;[39m
+[31m+         text-transform: uppercase;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .legend-chip.muted {[39m
+[31m+         opacity: 0.75;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .legend-swatch {[39m
+[31m+         width: 10px;[39m
+[31m+         height: 10px;[39m
+[31m+         border-radius: 50%;[39m
+[31m+         box-shadow: 0 0 12px currentColor;[39m
+[31m+         flex: 0 0 auto;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .mono,[39m
+[31m+       .wallet-chip,[39m
+[31m+       .wallet-popup-value,[39m
+[31m+       .wallet-popup-analysis,[39m
+[31m+       .analysis-panel,[39m
+[31m+       .token,[39m
+[31m+       .addr {[39m
+[31m+         font-family: "IBM Plex Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .wallet-popup,[39m
+[31m+       .wallet-popup.active {[39m
+[31m+         color: var(--fx-ink);[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .wallet-popup-value,[39m
+[31m+       .wallet-popup-analysis,[39m
+[31m+       .analysis-panel {[39m
+[31m+         padding: 10px;[39m
+[31m+         max-height: 220px;[39m
+[31m+         overflow: auto;[39m
+[31m+         white-space: pre-wrap;[39m
+[31m+         overflow-wrap: anywhere;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .wallet-chip,[39m
+[31m+       .tracked-wallet-item,[39m
+[31m+       .tracked-wallet-meta strong,[39m
+[31m+       .tracked-wallet-meta span {[39m
+[31m+         overflow-wrap: anywhere;[39m
+[31m+         word-break: break-word;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .footer-cta {[39m
+[31m+         display: flex;[39m
+[31m+         justify-content: space-between;[39m
+[31m+         gap: 20px;[39m
+[31m+         align-items: center;[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .fx-divider {[39m
+[31m+         height: 1px;[39m
+[31m+         background: linear-gradient(90deg, transparent, rgba(255, 40, 60, 0.18), transparent);[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       @media (max-width: 1080px) {[39m
+[31m+         .fx-header,[39m
+[31m+         .fx-hero,[39m
+[31m+         .hero,[39m
+[31m+         .page-header,[39m
+[31m+         .topbar,[39m
+[31m+         .footer-cta {[39m
+[31m+           flex-direction: column;[39m
+[31m+           align-items: flex-start;[39m
+[31m+         }[39m
+[31m+[39m
+[31m+         .fx-header {[39m
+[31m+           padding: 14px 16px;[39m
+[31m+         }[39m
+[31m+[39m
+[31m+         .fx-hero-grid {[39m
+[31m+           grid-template-columns: 1fr;[39m
+[31m+         }[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       @media (max-width: 720px) {[39m
+[31m+         .fx-shell {[39m
+[31m+           padding: 14px 12px 26px;[39m
+[31m+         }[39m
+[31m+[39m
+[31m+         h1,[39m
+[31m+         .fx-title,[39m
+[31m+         .page-title {[39m
+[31m+           font-size: clamp(2rem, 12vw, 3.2rem);[39m
+[31m+         }[39m
+[31m+[39m
+[31m+         .grid,[39m
+[31m+         .cards,[39m
+[31m+         .steps,[39m
+[31m+         .control-grid,[39m
+[31m+         .profiles,[39m
+[31m+         .wallet-list,[39m
+[31m+         .micro-grid,[39m
+[31m+         .stats,[39m
+[31m+         .fx-stats {[39m
+[31m+           grid-template-columns: 1fr;[39m
+[31m+         }[39m
+[31m+[39m
+[31m+         /* Tables scroll horizontally instead of breaking layout */[39m
+[31m+         table {[39m
+[31m+           display: block;[39m
+[31m+           overflow-x: auto;[39m
+[31m+           -webkit-overflow-scrolling: touch;[39m
+[31m+         }[39m
+[31m+[39m
+[31m+         /* Hero cards with hardcoded min-width stop forcing overflow */[39m
+[31m+         .card[style*="min-width"],[39m
+[31m+         .panel[style*="min-width"] {[39m
+[31m+           min-width: 0 !important;[39m
+[31m+           width: 100%;[39m
+[31m+         }[39m
+[31m+[39m
+[31m+         /* Section header stacks on narrow screens */[39m
+[31m+         .section-header {[39m
+[31m+           flex-direction: column;[39m
+[31m+           align-items: flex-start;[39m
+[31m+         }[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       @media (max-width: 480px) {[39m
+[31m+         /* Nav scrolls horizontally rather than wrapping into a tall block */[39m
+[31m+         .fx-nav {[39m
+[31m+           width: 100%;[39m
+[31m+           overflow-x: auto;[39m
+[31m+           flex-wrap: nowrap;[39m
+[31m+           scrollbar-width: none;[39m
+[31m+           padding-bottom: 4px;[39m
+[31m+         }[39m
+[31m+         .fx-nav::-webkit-scrollbar {[39m
+[31m+           display: none;[39m
+[31m+         }[39m
+[31m+[39m
+[31m+         /* Header actions wrap to a second row and fill available width */[39m
+[31m+         .fx-header-actions,[39m
+[31m+         .actions,[39m
+[31m+         .nav-actions,[39m
+[31m+         .cta-row {[39m
+[31m+           flex-wrap: wrap;[39m
+[31m+           width: 100%;[39m
+[31m+         }[39m
+[31m+         .fx-header-actions .fx-button,[39m
+[31m+         .fx-header-actions a.fx-button,[39m
+[31m+         .fx-header-actions button {[39m
+[31m+           flex: 1 1 auto;[39m
+[31m+           min-width: 0;[39m
+[31m+         }[39m
+[31m+[39m
+[31m+         /* Button rows stack vertically so each button is full width */[39m
+[31m+         .button-row {[39m
+[31m+           flex-direction: column;[39m
+[31m+         }[39m
+[31m+         .button-row button,[39m
+[31m+         .button-row a {[39m
+[31m+           width: 100%;[39m
+[31m+           justify-content: center;[39m
+[31m+         }[39m
+[31m+[39m
+[31m+         /* Wallet popup action buttons stack vertically */[39m
+[31m+         .wallet-popup-actions {[39m
+[31m+           flex-direction: column;[39m
+[31m+         }[39m
+[31m+         .wallet-popup-actions button,[39m
+[31m+         .wallet-popup-actions a {[39m
+[31m+           width: 100%;[39m
+[31m+           justify-content: center;[39m
+[31m+         }[39m
+[31m+[39m
+[31m+         /* Larger touch targets */[39m
+[31m+         .fx-button,[39m
+[31m+         .button,[39m
+[31m+         .fx-nav-link {[39m
+[31m+           min-height: 48px;[39m
+[31m+         }[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       .mixer-toolbar { display:grid; grid-template-columns: repeat(5, minmax(0, 1fr)) auto auto; gap:12px; align-items:end; } .mixer-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:14px; } .mixer-card { border:1px solid rgba(255,90,122,.22); } .mixer-lists { display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:12px; } .mixer-list { border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:12px; background: rgba(0,0,0,.18); min-height: 150px; } .mixer-list h3 { margin:0 0 8px; font-size:.95rem; display:flex; justify-content:space-between; gap:10px; align-items:center; } .mixer-wallet-row { display:inline-flex; align-items:center; gap:6px; margin:0 8px 8px 0; position:relative; } .mixer-wallet-chip { display:inline-flex; padding:6px 10px; border-radius:999px; border:1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.03); color:#f2dede; font-size:.76rem; word-break:break-all; text-decoration:none; } .mixer-wallet-copy { border:1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.04); color:#f8dede; border-radius:999px; padding:5px 8px; font-size:.72rem; } .mixer-wallet-copy:hover, .mixer-summary-card.is-clickable:hover, .mixer-bulk-actions .fx-button:hover { border-color: rgba(255,119,68,.4); background: rgba(255,119,68,.08); } .mixer-copy-toast { position:absolute; top:-26px; right:0; padding:3px 8px; border-radius:999px; background: rgba(255,119,68,.95); color:#160b08; font-size:.68rem; font-weight:700; pointer-events:none; opacity:0; transform: translateY(4px); transition: opacity .16s ease, transform .16s ease; } .mixer-copy-toast.is-visible { opacity:1; transform: translateY(0); } .mixer-meta { color:#caa; font-size:.82rem; } .mixer-summary-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-top:12px; } .mixer-summary-card { border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:14px; background: rgba(0,0,0,.16); } .mixer-summary-card.is-clickable { cursor:pointer; } .mixer-summary-card.is-active { border-color: rgba(255,119,68,.42); box-shadow: 0 0 0 1px rgba(255,119,68,.18) inset; } .mixer-card-header { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; } .mixer-header-actions { display:inline-flex; gap:6px; align-items:center; flex-wrap:wrap; position:relative; } .mixer-bulk-actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; } .mixer-bulk-count { display:inline-flex; align-items:center; justify-content:center; min-width:42px; padding:5px 10px; border-radius:999px; border:1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.05); color:#f6d7cf; font-size:.78rem; } .mixer-cap-label { display:inline-flex; align-items:center; gap:8px; color:#f6d7cf; font-size:.78rem; } .mixer-cap-label input { width:82px; } .mixer-table-empty { color:#caa; } @media (max-width: 1120px) { .mixer-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); } } @media (max-width: 720px) { .mixer-toolbar, .mixer-lists { grid-template-columns: 1fr; } }[39m
+[31m+     </style>[39m
+[31m+   </head>[39m
+[31m+   <body class="">[39m
+[31m+     <header class="fx-header">[39m
+[31m+       <div class="fx-header-left"><a class="fx-logo" href="/">FOILOPS</a></div>[39m
+[31m+       <nav class="fx-nav"><a class="fx-nav-link" href="/">Overview</a><a class="fx-nav-link" href="/dashboard/trading-ops">Trading Ops</a><a class="fx-nav-link active" href="/dashboard/scam-wallets">Scam Intel</a><a class="fx-nav-link" href="/graph">Graph</a><a class="fx-nav-link" href="/dashboard/foilops">Intelligence</a></nav>[39m
+[31m+       <div class="fx-header-actions"><form class="logout-form" method="post" action="/logout"><button class="fx-button" type="submit">Logout</button></form></div>[39m
+[31m+     </header>[39m
+[31m+     <div class="fx-shell">[39m
+[31m+       <main class="fx-main">[39m
+[31m+         [39m
+[31m+       <section class="topbar">[39m
+[31m+         <div class="topbar-copy">[39m
+[31m+           <p class="fx-eyebrow">Mixer exposure map</p>[39m
+[31m+           <h1>Mixer Route Audit</h1>[39m
+[31m+           <p class="fx-lead">Review every flagged source wallet that touched a mixer, inspect downstream recipients after mixer hops, filter by wallet and date, and export grouped audit rows as CSV.</p>[39m
+[31m+         </div>[39m
+[31m+         <div class="card" style="min-width:300px">[39m
+[31m+           <p class="eyebrow">Exports</p>[39m
+[31m+           <div class="big" id="mixer-route-source-count">0</div>[39m
+[31m+           <p><span id="mixer-route-mixer-count">0</span> mixer wallets and <span id="mixer-route-downstream-count">0</span> downstream wallets in the current filtered view.</p>[39m
+[31m+         </div>[39m
+[31m+       </section>[39m
+[31m+     [39m
+[31m+         [39m
+[31m+       <section class="section control-shell">[39m
+[31m+         <div class="section-header">[39m
+[31m+           <div class="section-header-copy">[39m
+[31m+             <p class="fx-eyebrow">Filter set</p>[39m
+[31m+             <h2>Scoped audit query</h2>[39m
+[31m+             <p class="section-subtitle">Use partial wallet matches and a trace-date window to tighten the grouped mixer route view before exporting.</p>[39m
+[31m+           </div>[39m
+[31m+         </div>[39m
+[31m+         <form id="mixer-route-filter-form" class="mixer-toolbar">[39m
+[31m+           <label>Source wallet[39m
+[31m+             <input id="filter-source-wallet" name="sourceWallet" type="text" placeholder="Partial source wallet" />[39m
+[31m+           </label>[39m
+[31m+           <label>Mixer or downstream wallet[39m
+[31m+             <input id="filter-mixer-wallet" name="mixerWallet" type="text" placeholder="Partial mixer or recipient wallet" />[39m
+[31m+           </label>[39m
+[31m+           <label>Start date[39m
+[31m+             <input id="filter-start-date" name="startDate" type="date" />[39m
+[31m+           </label>[39m
+[31m+           <label>End date[39m
+[31m+             <input id="filter-end-date" name="endDate" type="date" />[39m
+[31m+           </label>[39m
+[31m+           <button class="fx-button primary" type="submit">Apply Filters</button>[39m
+[31m+           <button class="fx-button secondary" id="mixer-route-clear" type="button">Clear</button>[39m
+[31m+           <a class="fx-button secondary" id="mixer-route-export-json" href="/api/scam-wallets/mixer-routes/export?format=json">Export JSON</a>[39m
+[31m+           <a class="fx-button secondary" id="mixer-route-export-csv" href="/api/scam-wallets/mixer-routes/export?format=csv">Export CSV</a>[39m
+[31m+         </form>[39m
+[31m+         <div id="mixer-route-status" class="control-status">Loading mixer route audit...</div>[39m
+[31m+       </section>[39m
+[31m+       <section class="section panel">[39m
+[31m+         <div class="section-header">[39m
+[31m+           <div class="section-header-copy">[39m
+[31m+             <p class="fx-eyebrow">Current totals</p>[39m
+[31m+             <h2>Filtered summary</h2>[39m
+[31m+           </div>[39m
+[31m+         </div>[39m
+[31m+         <div id="mixer-route-summary" class="mixer-summary-grid"></div>[39m
+[31m+       </section>[39m
+[31m+       <section class="section panel">[39m
+[31m+         <div class="section-header">[39m
+[31m+           <div class="section-header-copy">[39m
+[31m+             <p class="fx-eyebrow">Grouped output</p>[39m
+[31m+             <h2>Source wallets and their mixer paths</h2>[39m
+[31m+           </div>[39m
+[31m+           <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">[39m
+[31m+             <div class="mixer-bulk-actions">[39m
+[31m+               <span class="mixer-bulk-count" id="mixer-route-bulk-count">0 targets</span>[39m
+[31m+               <label class="mixer-cap-label">Tab cap[39m
+[31m+                 <input id="mixer-route-bulk-tab-cap" type="number" min="1" max="100" step="1" value="25" />[39m
+[31m+               </label>[39m
+[31m+               <button class="fx-button secondary" id="mixer-route-bulk-copy" type="button">Copy View Wallets</button>[39m
+[31m+               <button class="fx-button secondary" id="mixer-route-source-export-json" type="button">Export Source JSON</button>[39m
+[31m+               <button class="fx-button secondary" id="mixer-route-source-export-csv" type="button">Export Source CSV</button>[39m
+[31m+               <button class="fx-button secondary" id="mixer-route-bulk-export-json" type="button">Export View JSON</button>[39m
+[31m+               <button class="fx-button secondary" id="mixer-route-bulk-export-csv" type="button">Export View CSV</button>[39m
+[31m+               <button class="fx-button secondary" id="mixer-route-bulk-open" type="button">Open View As Graph Tabs</button>[39m
+[31m+             </div>[39m
+[31m+             <label>Rows per page[39m
+[31m+               <select id="mixer-route-page-size">[39m
+[31m+                 <option value="10">10</option>[39m
+[31m+                 <option value="25" selected>25</option>[39m
+[31m+                 <option value="50">50</option>[39m
+[31m+                 <option value="100">100</option>[39m
+[31m+               </select>[39m
+[31m+             </label>[39m
+[31m+             <div id="mixer-route-pagination-meta" class="mixer-meta">Page 1 of 1</div>[39m
+[31m+             <button class="fx-button secondary" id="mixer-route-prev" type="button">Previous</button>[39m
+[31m+             <button class="fx-button secondary" id="mixer-route-next" type="button">Next</button>[39m
+[31m+           </div>[39m
+[31m+         </div>[39m
+[31m+         <div id="mixer-route-results" class="mixer-grid"></div>[39m
+[31m+       </section>[39m
+[31m+     [39m
+[31m+       </main>[39m
+[31m+     </div>[39m
+[31m+     <script>[39m
+[31m+       const filterForm = document.getElementById('mixer-route-filter-form')[39m
+[31m+       const sourceInput = document.getElementById('filter-source-wallet')[39m
+[31m+       const mixerInput = document.getElementById('filter-mixer-wallet')[39m
+[31m+       const startInput = document.getElementById('filter-start-date')[39m
+[31m+       const endInput = document.getElementById('filter-end-date')[39m
+[31m+       const clearButton = document.getElementById('mixer-route-clear')[39m
+[31m+       const exportJsonLink = document.getElementById('mixer-route-export-json')[39m
+[31m+       const exportCsvLink = document.getElementById('mixer-route-export-csv')[39m
+[31m+       const pageSizeInput = document.getElementById('mixer-route-page-size')[39m
+[31m+       const bulkCountEl = document.getElementById('mixer-route-bulk-count')[39m
+[31m+       const bulkTabCapInput = document.getElementById('mixer-route-bulk-tab-cap')[39m
+[31m+       const bulkCopyButton = document.getElementById('mixer-route-bulk-copy')[39m
+[31m+       const sourceExportJsonButton = document.getElementById('mixer-route-source-export-json')[39m
+[31m+       const sourceExportCsvButton = document.getElementById('mixer-route-source-export-csv')[39m
+[31m+       const bulkExportJsonButton = document.getElementById('mixer-route-bulk-export-json')[39m
+[31m+       const bulkExportCsvButton = document.getElementById('mixer-route-bulk-export-csv')[39m
+[31m+       const bulkOpenButton = document.getElementById('mixer-route-bulk-open')[39m
+[31m+       const prevButton = document.getElementById('mixer-route-prev')[39m
+[31m+       const nextButton = document.getElementById('mixer-route-next')[39m
+[31m+       const paginationMeta = document.getElementById('mixer-route-pagination-meta')[39m
+[31m+       const statusEl = document.getElementById('mixer-route-status')[39m
+[31m+       const summaryEl = document.getElementById('mixer-route-summary')[39m
+[31m+       const resultsEl = document.getElementById('mixer-route-results')[39m
+[31m+       const sourceCountEl = document.getElementById('mixer-route-source-count')[39m
+[31m+       const mixerCountEl = document.getElementById('mixer-route-mixer-count')[39m
+[31m+       const downstreamCountEl = document.getElementById('mixer-route-downstream-count')[39m
+[31m+       const BULK_OPEN_CONFIRM_THRESHOLD = 10[39m
+[31m+       const DEFAULT_BULK_OPEN_CAP = 25[39m
+[31m+       let currentPage = 1[39m
+[31m+       let currentView = 'all'[39m
+[31m+       let currentBulkWallets = [][39m
+[31m+       let currentSourceWallets = [][39m
+[31m+[39m
+[31m+       function getStateFromUrl() {[39m
+[31m+         const params = new URLSearchParams(window.location.search)[39m
+[31m+         const sourceWallet = params.get('sourceWallet') || ''[39m
+[31m+         const mixerWallet = params.get('mixerWallet') || ''[39m
+[31m+         const startDate = params.get('startDate') || ''[39m
+[31m+         const endDate = params.get('endDate') || ''[39m
+[31m+         const page = Math.max(1, Number(params.get('page') || '1'))[39m
+[31m+         const pageSize = params.get('pageSize') || '25'[39m
+[31m+         const tabCap = params.get('tabCap') || String(DEFAULT_BULK_OPEN_CAP)[39m
+[31m+         const view = params.get('view') || 'all'[39m
+[31m+         return { sourceWallet, mixerWallet, startDate, endDate, page, pageSize, tabCap, view }[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       function applyStateFromUrl() {[39m
+[31m+         const state = getStateFromUrl()[39m
+[31m+         sourceInput.value = state.sourceWallet[39m
+[31m+         mixerInput.value = state.mixerWallet[39m
+[31m+         startInput.value = state.startDate[39m
+[31m+         endInput.value = state.endDate[39m
+[31m+         pageSizeInput.value = ['10', '25', '50', '100'].includes(state.pageSize) ? state.pageSize : '25'[39m
+[31m+         bulkTabCapInput.value = String(Math.max(1, Math.min(100, Number(state.tabCap) || DEFAULT_BULK_OPEN_CAP)))[39m
+[31m+         currentPage = state.page[39m
+[31m+         currentView = ['all', 'mixer', 'downstream'].includes(state.view) ? state.view : 'all'[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       function persistStateToUrl() {[39m
+[31m+         const params = new URLSearchParams()[39m
+[31m+         if (sourceInput.value.trim()) params.set('sourceWallet', sourceInput.value.trim())[39m
+[31m+         if (mixerInput.value.trim()) params.set('mixerWallet', mixerInput.value.trim())[39m
+[31m+         if (startInput.value) params.set('startDate', startInput.value)[39m
+[31m+         if (endInput.value) params.set('endDate', endInput.value)[39m
+[31m+         if (currentPage > 1) params.set('page', String(currentPage))[39m
+[31m+         if ((pageSizeInput.value || '25') !== '25') params.set('pageSize', String(pageSizeInput.value || '25'))[39m
+[31m+         if ((bulkTabCapInput.value || String(DEFAULT_BULK_OPEN_CAP)) !== String(DEFAULT_BULK_OPEN_CAP)) params.set('tabCap', String(bulkTabCapInput.value || DEFAULT_BULK_OPEN_CAP))[39m
+[31m+         if (currentView !== 'all') params.set('view', currentView)[39m
+[31m+         const nextUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '')[39m
+[31m+         window.history.replaceState(null, '', nextUrl)[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       function escapeHtml(value) {[39m
+[31m+         return String(value)[39m
+[31m+           .replace(/&/g, '&amp;')[39m
+[31m+           .replace(/</g, '&lt;')[39m
+[31m+           .replace(/>/g, '&gt;')[39m
+[31m+           .replace(/"/g, '&quot;')[39m
+[31m+           .replace(/'/g, '&#39;')[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       function buildQueryString() {[39m
+[31m+         const params = new URLSearchParams()[39m
+[31m+         if (sourceInput.value.trim()) params.set('sourceWallet', sourceInput.value.trim())[39m
+[31m+         if (mixerInput.value.trim()) params.set('mixerWallet', mixerInput.value.trim())[39m
+[31m+         if (startInput.value) params.set('startDate', startInput.value)[39m
+[31m+         if (endInput.value) params.set('endDate', endInput.value)[39m
+[31m+         params.set('page', String(currentPage))[39m
+[31m+         params.set('pageSize', String(pageSizeInput.value || '25'))[39m
+[31m+         return params.toString()[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       function updateExportLink() {[39m
+[31m+         const query = buildQueryString()[39m
+[31m+         exportJsonLink.href = '/api/scam-wallets/mixer-routes/export?format=json' + (query ? '&' + query : '')[39m
+[31m+         exportCsvLink.href = '/api/scam-wallets/mixer-routes/export?format=csv' + (query ? '&' + query : '')[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       function renderSummary(payload) {[39m
+[31m+         const summary = payload.summary || {}[39m
+[31m+         sourceCountEl.textContent = String(summary.totalSourceWalletCount || summary.sourceWalletCount || 0)[39m
+[31m+         mixerCountEl.textContent = String(summary.mixerWalletCount || 0)[39m
+[31m+         downstreamCountEl.textContent = String(summary.downstreamWalletCount || 0)[39m
+[31m+[39m
+[31m+         summaryEl.innerHTML = [[39m
+[31m+           ['Matched source wallets', summary.totalSourceWalletCount || summary.sourceWalletCount || 0, 'all'],[39m
+[31m+           ['Shown this page', summary.sourceWalletCount || 0, 'all'],[39m
+[31m+           ['Mixer wallets', summary.mixerWalletCount || 0, 'mixer'],[39m
+[31m+           ['Downstream wallets', summary.downstreamWalletCount || 0, 'downstream'],[39m
+[31m+         ].map(([label, value, view]) => {[39m
+[31m+           const activeClass = currentView === view ? ' is-active' : ''[39m
+[31m+           const clickableClass = view === 'all' && label === 'Shown this page' ? '' : ' is-clickable'[39m
+[31m+           const attrs = view === 'all' && label === 'Shown this page' ? '' : ' data-view="' + escapeHtml(view) + '"'[39m
+[31m+           return '<article class="mixer-summary-card' + clickableClass + activeClass + '"' + attrs + '><p class="eyebrow">' + escapeHtml(label) + '</p><div class="big">' + escapeHtml(value) + '</div></article>'[39m
+[31m+         }).join('')[39m
+[31m+[39m
+[31m+         summaryEl.querySelectorAll('[data-view]').forEach(function(card) {[39m
+[31m+           card.addEventListener('click', function() {[39m
+[31m+             const nextView = card.getAttribute('data-view') || 'all'[39m
+[31m+             currentView = nextView[39m
+[31m+             currentPage = 1[39m
+[31m+             persistStateToUrl()[39m
+[31m+             loadAudit()[39m
+[31m+           })[39m
+[31m+         })[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       function graphLink(wallet) {[39m
+[31m+         return '/graph/' + encodeURIComponent(wallet)[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       function getSubviewLabel() {[39m
+[31m+         if (currentView === 'mixer') return 'Mixer'[39m
+[31m+         if (currentView === 'downstream') return 'Downstream'[39m
+[31m+         return 'Visible'[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       function getSubviewKey() {[39m
+[31m+         return getSubviewLabel().toLowerCase()[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       function getSourceWalletsForCurrentPage(groups) {[39m
+[31m+         return Array.from(new Set(groups.map(function(group) { return group.sourceWallet }).filter(Boolean)))[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       function getBulkOpenCap() {[39m
+[31m+         const parsed = Number(bulkTabCapInput.value || String(DEFAULT_BULK_OPEN_CAP))[39m
+[31m+         return Math.max(1, Math.min(100, Number.isFinite(parsed) ? Math.floor(parsed) : DEFAULT_BULK_OPEN_CAP))[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       function getBulkExportBaseName() {[39m
+[31m+         const dateStamp = new Date().toISOString().slice(0, 10)[39m
+[31m+         return 'mixer-route-' + getSubviewKey() + '-wallets-page-' + currentPage + '-' + dateStamp[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       function getSourceExportBaseName() {[39m
+[31m+         const dateStamp = new Date().toISOString().slice(0, 10)[39m
+[31m+         return 'mixer-route-source-wallets-page-' + currentPage + '-' + dateStamp[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       function downloadBlob(content, fileName, type) {[39m
+[31m+         const blob = new Blob([content], { type })[39m
+[31m+         const url = URL.createObjectURL(blob)[39m
+[31m+         const link = document.createElement('a')[39m
+[31m+         link.href = url[39m
+[31m+         link.download = fileName[39m
+[31m+         document.body.appendChild(link)[39m
+[31m+         link.click()[39m
+[31m+         link.remove()[39m
+[31m+         URL.revokeObjectURL(url)[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       function showCopyToast(target, message) {[39m
+[31m+         const host = target.closest('.mixer-wallet-row, .mixer-header-actions') || target.parentElement[39m
+[31m+         if (!host) return[39m
+[31m+         let toast = host.querySelector('.mixer-copy-toast')[39m
+[31m+         if (!toast) {[39m
+[31m+           toast = document.createElement('span')[39m
+[31m+           toast.className = 'mixer-copy-toast'[39m
+[31m+           host.appendChild(toast)[39m
+[31m+         }[39m
+[31m+         toast.textContent = message[39m
+[31m+         toast.classList.add('is-visible')[39m
+[31m+         window.clearTimeout(toast._hideTimer)[39m
+[31m+         toast._hideTimer = window.setTimeout(function() {[39m
+[31m+           toast.classList.remove('is-visible')[39m
+[31m+         }, 1200)[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       function getWalletsForCurrentView(groups) {[39m
+[31m+         const wallets = groups.flatMap((group) => {[39m
+[31m+           if (currentView === 'mixer') return Array.isArray(group.mixerWallets) ? group.mixerWallets : [][39m
+[31m+           if (currentView === 'downstream') return Array.isArray(group.downstreamWallets) ? group.downstreamWallets : [][39m
+[31m+           return [[39m
+[31m+             ...(Array.isArray(group.mixerWallets) ? group.mixerWallets : []),[39m
+[31m+             ...(Array.isArray(group.downstreamWallets) ? group.downstreamWallets : []),[39m
+[31m+           ][39m
+[31m+         })[39m
+[31m+[39m
+[31m+         return Array.from(new Set(wallets.filter(Boolean)))[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       function exportWalletSet(wallets, mode, fileNameBase, metadata) {[39m
+[31m+         if (mode === 'json') {[39m
+[31m+           downloadBlob([39m
+[31m+             JSON.stringify({ ...metadata, count: wallets.length, wallets }, null, 2),[39m
+[31m+             fileNameBase + '.json',[39m
+[31m+             'application/json;charset=utf-8',[39m
+[31m+           )[39m
+[31m+           return[39m
+[31m+         }[39m
+[31m+[39m
+[31m+         const csvLines = ['wallet', ...wallets.map(function(wallet) { return '"' + String(wallet).replace(/"/g, '""') + '"' })][39m
+[31m+         downloadBlob(csvLines.join('[39m
+[31m+ '), fileNameBase + '.csv', 'text/csv;charset=utf-8')[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       function updateBulkActions() {[39m
+[31m+         const subviewEnabled = currentBulkWallets.length > 0 && currentView !== 'all'[39m
+[31m+         const sourceEnabled = currentSourceWallets.length > 0 && currentView === 'all'[39m
+[31m+         const activeCount = currentView === 'all' ? currentSourceWallets.length : currentBulkWallets.length[39m
+[31m+         const activeLabel = currentView === 'all' ? 'source targets' : getSubviewKey() + ' targets'[39m
+[31m+         bulkCountEl.textContent = activeCount + ' ' + activeLabel[39m
+[31m+         bulkCopyButton.disabled = !subviewEnabled[39m
+[31m+         sourceExportJsonButton.disabled = !sourceEnabled[39m
+[31m+         sourceExportCsvButton.disabled = !sourceEnabled[39m
+[31m+         bulkExportJsonButton.disabled = !subviewEnabled[39m
+[31m+         bulkExportCsvButton.disabled = !subviewEnabled[39m
+[31m+         bulkOpenButton.disabled = !subviewEnabled[39m
+[31m+         bulkCopyButton.textContent = subviewEnabled[39m
+[31m+           ? 'Copy ' + getSubviewLabel() + ' Wallets (' + currentBulkWallets.length + ')'[39m
+[31m+           : 'Copy View Wallets'[39m
+[31m+         sourceExportJsonButton.textContent = sourceEnabled[39m
+[31m+           ? 'Export Source JSON (' + currentSourceWallets.length + ')'[39m
+[31m+           : 'Export Source JSON'[39m
+[31m+         sourceExportCsvButton.textContent = sourceEnabled[39m
+[31m+           ? 'Export Source CSV (' + currentSourceWallets.length + ')'[39m
+[31m+           : 'Export Source CSV'[39m
+[31m+         bulkExportJsonButton.textContent = subviewEnabled[39m
+[31m+           ? 'Export ' + getSubviewLabel() + ' JSON'[39m
+[31m+           : 'Export View JSON'[39m
+[31m+         bulkExportCsvButton.textContent = subviewEnabled[39m
+[31m+           ? 'Export ' + getSubviewLabel() + ' CSV'[39m
+[31m+           : 'Export View CSV'[39m
+[31m+         bulkOpenButton.textContent = subviewEnabled[39m
+[31m+           ? 'Open ' + getSubviewLabel() + ' As Graph Tabs'[39m
+[31m+           : 'Open View As Graph Tabs'[39m
+[31m+         bulkCountEl.title = currentView === 'all'[39m
+[31m+           ? currentSourceWallets.length + ' unique source wallets are currently visible in the all view on this page'[39m
+[31m+           : currentBulkWallets.length + ' unique wallets are currently visible in the ' + getSubviewKey() + ' subview on this page'[39m
+[31m+         bulkTabCapInput.title = 'Maximum number of graph tabs to open at once for the current subview'[39m
+[31m+         bulkCopyButton.title = subviewEnabled[39m
+[31m+           ? 'Copy all wallets shown in the current ' + getSubviewLabel().toLowerCase() + ' subview'[39m
+[31m+           : 'Switch to Mixer wallets or Downstream wallets to bulk copy visible addresses'[39m
+[31m+         sourceExportJsonButton.title = sourceEnabled[39m
+[31m+           ? 'Export only the source wallets shown on this page as JSON'[39m
+[31m+           : 'Switch back to the all view to export visible source wallets'[39m
+[31m+         sourceExportCsvButton.title = sourceEnabled[39m
+[31m+           ? 'Export only the source wallets shown on this page as CSV'[39m
+[31m+           : 'Switch back to the all view to export visible source wallets'[39m
+[31m+         bulkExportJsonButton.title = subviewEnabled[39m
+[31m+           ? 'Export only the currently visible ' + getSubviewKey() + ' wallets on this page as JSON'[39m
+[31m+           : 'Switch to Mixer wallets or Downstream wallets to export visible wallet addresses'[39m
+[31m+         bulkExportCsvButton.title = subviewEnabled[39m
+[31m+           ? 'Export only the currently visible ' + getSubviewKey() + ' wallets on this page as CSV'[39m
+[31m+           : 'Switch to Mixer wallets or Downstream wallets to export visible wallet addresses'[39m
+[31m+         bulkOpenButton.title = subviewEnabled[39m
+[31m+           ? 'Open graph tabs for all wallets shown in the current ' + getSubviewLabel().toLowerCase() + ' subview'[39m
+[31m+           : 'Switch to Mixer wallets or Downstream wallets to open visible wallet graphs'[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       function copyButton(wallet) {[39m
+[31m+         return '<button class="mixer-wallet-copy" type="button" data-copy-wallet="' + escapeHtml(wallet) + '" title="Copy wallet address">Copy</button>'[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       function walletChips(wallets) {[39m
+[31m+         if (!Array.isArray(wallets) || wallets.length === 0) {[39m
+[31m+           return '<p class="mixer-table-empty">None in this filtered view.</p>'[39m
+[31m+         }[39m
+[31m+         return wallets.map((wallet) => '<span class="mixer-wallet-row"><a class="mixer-wallet-chip" href="' + graphLink(wallet) + '" title="Open graph for ' + escapeHtml(wallet) + '">' + escapeHtml(wallet) + '</a>' + copyButton(wallet) + '</span>').join('')[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       function renderPagination(payload) {[39m
+[31m+         const pagination = payload.pagination || {}[39m
+[31m+         const page = Number(pagination.page || 1)[39m
+[31m+         const totalPages = Number(pagination.totalPages || 1)[39m
+[31m+         paginationMeta.textContent = 'Page ' + page + ' of ' + totalPages[39m
+[31m+         prevButton.disabled = !pagination.hasPreviousPage[39m
+[31m+         nextButton.disabled = !pagination.hasNextPage[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       function renderResults(payload) {[39m
+[31m+         const groups = Array.isArray(payload.groupedBySourceWallet) ? payload.groupedBySourceWallet : [][39m
+[31m+         if (groups.length === 0) {[39m
+[31m+           currentBulkWallets = [][39m
+[31m+           currentSourceWallets = [][39m
+[31m+           updateBulkActions()[39m
+[31m+           resultsEl.innerHTML = '<article class="card"><p class="mixer-table-empty">No mixer-route groups matched the current filters.</p></article>'[39m
+[31m+           return[39m
+[31m+         }[39m
+[31m+[39m
+[31m+         const displayGroups = groups.filter((group) => {[39m
+[31m+           if (currentView === 'mixer') return Array.isArray(group.mixerWallets) && group.mixerWallets.length > 0[39m
+[31m+           if (currentView === 'downstream') return Array.isArray(group.downstreamWallets) && group.downstreamWallets.length > 0[39m
+[31m+           return true[39m
+[31m+         })[39m
+[31m+[39m
+[31m+         if (displayGroups.length === 0) {[39m
+[31m+           currentBulkWallets = [][39m
+[31m+           currentSourceWallets = [][39m
+[31m+           updateBulkActions()[39m
+[31m+           resultsEl.innerHTML = '<article class="card"><p class="mixer-table-empty">No groups matched the current subview.</p></article>'[39m
+[31m+           return[39m
+[31m+         }[39m
+[31m+[39m
+[31m+         currentSourceWallets = getSourceWalletsForCurrentPage(displayGroups)[39m
+[31m+         currentBulkWallets = getWalletsForCurrentView(displayGroups)[39m
+[31m+         updateBulkActions()[39m
+[31m+[39m
+[31m+         resultsEl.innerHTML = displayGroups.map((group) => {[39m
+[31m+           const latestTrace = group.latestTraceAt ? new Date(group.latestTraceAt).toLocaleString() : 'n/a'[39m
+[31m+           return '<article class="card mixer-card">'[39m
+[31m+             + '<header class="mixer-card-header"><div><h3><a href="' + graphLink(group.sourceWallet) + '">' + escapeHtml(group.sourceWallet) + '</a></h3><div class="mixer-header-actions">' + copyButton(group.sourceWallet) + '</div></div><span class="risk">' + escapeHtml(group.mixerWallets.length) + ' mixers</span></header>'[39m
+[31m+             + '<p class="mixer-meta"><strong>Latest trace:</strong> ' + escapeHtml(latestTrace) + ' • <strong>Downstream wallets:</strong> ' + escapeHtml(group.downstreamWallets.length) + '</p>'[39m
+[31m+             + '<div class="mixer-lists">'[39m
+[31m+             + (currentView !== 'downstream' ? '<section class="mixer-list"><h3><span>Mixer wallets touched</span><span class="mixer-meta">' + escapeHtml(group.mixerWallets.length) + '</span></h3>' + walletChips(group.mixerWallets) + '</section>' : '')[39m
+[31m+             + (currentView !== 'mixer' ? '<section class="mixer-list"><h3><span>Downstream after mixer hops</span><span class="mixer-meta">' + escapeHtml(group.downstreamWallets.length) + '</span></h3>' + walletChips(group.downstreamWallets) + '</section>' : '')[39m
+[31m+             + '</div>'[39m
+[31m+             + '</article>'[39m
+[31m+         }).join('')[39m
+[31m+[39m
+[31m+         resultsEl.querySelectorAll('[data-copy-wallet]').forEach(function(button) {[39m
+[31m+           button.addEventListener('click', async function(event) {[39m
+[31m+             event.preventDefault()[39m
+[31m+             event.stopPropagation()[39m
+[31m+             const wallet = button.getAttribute('data-copy-wallet') || ''[39m
+[31m+             try {[39m
+[31m+               await navigator.clipboard.writeText(wallet)[39m
+[31m+               statusEl.textContent = 'Copied wallet: ' + wallet[39m
+[31m+               showCopyToast(button, 'Copied')[39m
+[31m+             } catch {[39m
+[31m+               statusEl.textContent = 'Failed to copy wallet: ' + wallet[39m
+[31m+               statusEl.classList.add('error')[39m
+[31m+               showCopyToast(button, 'Failed')[39m
+[31m+             }[39m
+[31m+           })[39m
+[31m+         })[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       async function loadAudit() {[39m
+[31m+         persistStateToUrl()[39m
+[31m+         updateExportLink()[39m
+[31m+         statusEl.textContent = 'Loading mixer route audit...'[39m
+[31m+         statusEl.classList.remove('error')[39m
+[31m+[39m
+[31m+         try {[39m
+[31m+           const query = buildQueryString()[39m
+[31m+           const response = await fetch('/api/scam-wallets/mixer-routes' + (query ? '?' + query : ''))[39m
+[31m+           const payload = await response.json().catch(() => ({ message: 'Unexpected response' }))[39m
+[31m+           if (!response.ok) {[39m
+[31m+             throw new Error(payload.message || 'Failed to load mixer route audit')[39m
+[31m+           }[39m
+[31m+[39m
+[31m+           renderSummary(payload)[39m
+[31m+           renderPagination(payload)[39m
+[31m+           renderResults(payload)[39m
+[31m+           statusEl.textContent = 'Loaded page ' + String(payload.pagination?.page || 1) + ' with ' + String(payload.summary?.sourceWalletCount || 0) + ' grouped source wallets shown in ' + currentView + ' view.'[39m
+[31m+         } catch (error) {[39m
+[31m+           summaryEl.innerHTML = ''[39m
+[31m+           resultsEl.innerHTML = '<article class="card"><p class="mixer-table-empty">Mixer route audit failed to load.</p></article>'[39m
+[31m+           paginationMeta.textContent = 'Page 1 of 1'[39m
+[31m+           prevButton.disabled = true[39m
+[31m+           nextButton.disabled = true[39m
+[31m+           statusEl.textContent = error.message || 'Failed to load mixer route audit.'[39m
+[31m+           statusEl.classList.add('error')[39m
+[31m+         }[39m
+[31m+       }[39m
+[31m+[39m
+[31m+       filterForm.addEventListener('submit', function(event) {[39m
+[31m+         event.preventDefault()[39m
+[31m+         currentPage = 1[39m
+[31m+         loadAudit()[39m
+[31m+       })[39m
+[31m+[39m
+[31m+       clearButton.addEventListener('click', function() {[39m
+[31m+         filterForm.reset()[39m
+[31m+         currentPage = 1[39m
+[31m+         loadAudit()[39m
+[31m+       })[39m
+[31m+[39m
+[31m+       pageSizeInput.addEventListener('change', function() {[39m
+[31m+         currentPage = 1[39m
+[31m+         loadAudit()[39m
+[31m+       })[39m
+[31m+[39m
+[31m+       bulkTabCapInput.addEventListener('change', function() {[39m
+[31m+         bulkTabCapInput.value = String(getBulkOpenCap())[39m
+[31m+         persistStateToUrl()[39m
+[31m+       })[39m
+[31m+[39m
+[31m+       prevButton.addEventListener('click', function() {[39m
+[31m+         currentPage = Math.max(1, currentPage - 1)[39m
+[31m+         loadAudit()[39m
+[31m+       })[39m
+[31m+[39m
+[31m+       nextButton.addEventListener('click', function() {[39m
+[31m+         currentPage += 1[39m
+[31m+         loadAudit()[39m
+[31m+       })[39m
+[31m+[39m
+[31m+       bulkCopyButton.addEventListener('click', async function() {[39m
+[31m+         if (currentView === 'all' || currentBulkWallets.length === 0) {[39m
+[31m+           statusEl.textContent = 'Switch to Mixer wallets or Downstream wallets to bulk copy visible addresses.'[39m
+[31m+           statusEl.classList.add('error')[39m
+[31m+           return[39m
+[31m+         }[39m
+[31m+[39m
+[31m+         statusEl.classList.remove('error')[39m
+[31m+         try {[39m
+[31m+           await navigator.clipboard.writeText(currentBulkWallets.join('[39m
+[31m+ '))[39m
+[31m+           statusEl.textContent = 'Copied ' + currentBulkWallets.length + ' ' + getSubviewLabel().toLowerCase() + ' wallets from this page.'[39m
+[31m+         } catch {[39m
+[31m+           statusEl.textContent = 'Failed to bulk copy visible wallets.'[39m
+[31m+           statusEl.classList.add('error')[39m
+[31m+         }[39m
+[31m+       })[39m
+[31m+[39m
+[31m+       sourceExportJsonButton.addEventListener('click', function() {[39m
+[31m+         if (currentView !== 'all' || currentSourceWallets.length === 0) {[39m
+[31m+           statusEl.textContent = 'Switch to the all view to export visible source wallets.'[39m
+[31m+           statusEl.classList.add('error')[39m
+[31m+           return[39m
+[31m+         }[39m
+[31m+[39m
+[31m+         statusEl.classList.remove('error')[39m
+[31m+         exportWalletSet(currentSourceWallets, 'json', getSourceExportBaseName(), {[39m
+[31m+           view: 'all',[39m
+[31m+           page: currentPage,[39m
+[31m+           pageSize: Number(pageSizeInput.value || '25'),[39m
+[31m+           walletType: 'source',[39m
+[31m+         })[39m
+[31m+         statusEl.textContent = 'Exported ' + currentSourceWallets.length + ' visible source wallets as JSON.'[39m
+[31m+       })[39m
+[31m+[39m
+[31m+       sourceExportCsvButton.addEventListener('click', function() {[39m
+[31m+         if (currentView !== 'all' || currentSourceWallets.length === 0) {[39m
+[31m+           statusEl.textContent = 'Switch to the all view to export visible source wallets.'[39m
+[31m+           statusEl.classList.add('error')[39m
+[31m+           return[39m
+[31m+         }[39m
+[31m+[39m
+[31m+         statusEl.classList.remove('error')[39m
+[31m+         exportWalletSet(currentSourceWallets, 'csv', getSourceExportBaseName(), {[39m
+[31m+           view: 'all',[39m
+[31m+           page: currentPage,[39m
+[31m+           pageSize: Number(pageSizeInput.value || '25'),[39m
+[31m+           walletType: 'source',[39m
+[31m+         })[39m
+[31m+         statusEl.textContent = 'Exported ' + currentSourceWallets.length + ' visible source wallets as CSV.'[39m
+[31m+       })[39m
+[31m+[39m
+[31m+       bulkExportJsonButton.addEventListener('click', function() {[39m
+[31m+         if (currentView === 'all' || currentBulkWallets.length === 0) {[39m
+[31m+           statusEl.textContent = 'Switch to Mixer wallets or Downstream wallets to export visible wallet addresses.'[39m
+[31m+           statusEl.classList.add('error')[39m
+[31m+           return[39m
+[31m+         }[39m
+[31m+[39m
+[31m+         statusEl.classList.remove('error')[39m
+[31m+         exportWalletSet(currentBulkWallets, 'json', getBulkExportBaseName(), {[39m
+[31m+           view: currentView,[39m
+[31m+           page: currentPage,[39m
+[31m+           pageSize: Number(pageSizeInput.value || '25'),[39m
+[31m+           walletType: getSubviewKey(),[39m
+[31m+         })[39m
+[31m+         statusEl.textContent = 'Exported ' + currentBulkWallets.length + ' visible ' + getSubviewKey() + ' wallets as JSON.'[39m
+[31m+       })[39m
+[31m+[39m
+[31m+       bulkExportCsvButton.addEventListener('click', function() {[39m
+[31m+         if (currentView === 'all' || currentBulkWallets.length === 0) {[39m
+[31m+           statusEl.textContent = 'Switch to Mixer wallets or Downstream wallets to export visible wallet addresses.'[39m
+[31m+           statusEl.classList.add('error')[39m
+[31m+           return[39m
+[31m+         }[39m
+[31m+[39m
+[31m+         statusEl.classList.remove('error')[39m
+[31m+         exportWalletSet(currentBulkWallets, 'csv', getBulkExportBaseName(), {[39m
+[31m+           view: currentView,[39m
+[31m+           page: currentPage,[39m
+[31m+           pageSize: Number(pageSizeInput.value || '25'),[39m
+[31m+           walletType: getSubviewKey(),[39m
+[31m+         })[39m
+[31m+         statusEl.textContent = 'Exported ' + currentBulkWallets.length + ' visible ' + getSubviewKey() + ' wallets as CSV.'[39m
+[31m+       })[39m
+[31m+[39m
+[31m+       bulkOpenButton.addEventListener('click', function() {[39m
+[31m+         if (currentView === 'all' || currentBulkWallets.length === 0) {[39m
+[31m+           statusEl.textContent = 'Switch to Mixer wallets or Downstream wallets to open visible wallet graphs.'[39m
+[31m+           statusEl.classList.add('error')[39m
+[31m+           return[39m
+[31m+         }[39m
+[31m+[39m
+[31m+         statusEl.classList.remove('error')[39m
+[31m+         let walletsToOpen = currentBulkWallets[39m
+[31m+         const bulkOpenCap = getBulkOpenCap()[39m
+[31m+         if (walletsToOpen.length > bulkOpenCap) {[39m
+[31m+           const confirmedCappedOpen = window.confirm([39m
+[31m+             'This action targets ' + walletsToOpen.length + ' wallets. For safety, bulk graph open is capped at ' + bulkOpenCap + ' tabs. Open only the first ' + bulkOpenCap + ' tabs?'[39m
+[31m+           )[39m
+[31m+           if (!confirmedCappedOpen) {[39m
+[31m+             statusEl.textContent = 'Bulk graph open cancelled.'[39m
+[31m+             return[39m
+[31m+           }[39m
+[31m+           walletsToOpen = walletsToOpen.slice(0, bulkOpenCap)[39m
+[31m+         } else if (walletsToOpen.length >= BULK_OPEN_CONFIRM_THRESHOLD) {[39m
+[31m+           const confirmedLargeOpen = window.confirm([39m
+[31m+             'Open ' + walletsToOpen.length + ' graph tabs for the current ' + getSubviewKey() + ' subview?'[39m
+[31m+           )[39m
+[31m+           if (!confirmedLargeOpen) {[39m
+[31m+             statusEl.textContent = 'Bulk graph open cancelled.'[39m
+[31m+             return[39m
+[31m+           }[39m
+[31m+         }[39m
+[31m+[39m
+[31m+         let openedCount = 0[39m
+[31m+         walletsToOpen.forEach(function(wallet) {[39m
+[31m+           const newTab = window.open(graphLink(wallet), '_blank', 'noopener,noreferrer')[39m
+[31m+           if (newTab) openedCount += 1[39m
+[31m+         })[39m
+[31m+[39m
+[31m+         if (openedCount === 0) {[39m
+[31m+           statusEl.textContent = 'Graph tabs were blocked by the browser. Allow pop-ups for this page to use bulk open.'[39m
+[31m+           statusEl.classList.add('error')[39m
+[31m+           return[39m
+[31m+         }[39m
+[31m+[39m
+[31m+         statusEl.textContent = 'Opened ' + openedCount + ' graph tabs for the current ' + getSubviewKey() + ' subview.'[39m
+[31m+       })[39m
+[31m+[39m
+[31m+       applyStateFromUrl()[39m
+[31m+       updateBulkActions()[39m
+[31m+       loadAudit()[39m
+[31m+     </script>[39m
+[31m+   </body>[39m
+[31m+ </html>[39m
+
+ ❯ tests/mixer-route-dashboard.test.ts:53:27
+     51|     expect(response.text).toContain('This action targets ')
+     52|     expect(response.text).toContain('bulk graph open is capped at ')
+     53|     expect(response.text).toContain('mixer-route-mixer-wallets-page-')
+       |                           ^
+     54|   })
+     55| })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  16:04:49
+   Duration  818ms (transform 134ms, setup 0ms, import 528ms, tests 38ms, environment 0ms)
+

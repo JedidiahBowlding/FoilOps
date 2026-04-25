@@ -209,6 +209,34 @@ SIGNAL_MAX_TIMESTAMP_SKEW_SECONDS=120
 
 `TRADE_SIGNAL_AUTH_SECRET` and `SIGNAL_AUTH_SECRET` must match.
 
+### Whale Auto-Tracking (Credit Safe Defaults)
+
+Auto whale discovery is now opt-in to prevent accidental RPC credit drain.
+
+```env
+# Recommended: keep auto discovery off unless you are actively tuning it
+WHALE_AUTO_TRACK_ENABLED=false
+
+# Preferred: provide curated human-like whales manually (comma-separated)
+WHALE_MANUAL_WALLETS=wallet1,wallet2,wallet3
+
+# Optional exclusions if you detect bot wallets
+WHALE_EXCLUDE_WALLETS=botWallet1,botWallet2
+
+# Only used when WHALE_AUTO_TRACK_ENABLED=true
+WHALE_MIN_BALANCE_USD=1000000
+WHALE_TOP_ACTIVE_WALLETS=5
+WHALE_ACTIVITY_SIGNATURE_LIMIT=120
+WHALE_MIN_ACTIVITY_HITS=2
+WHALE_MAX_ACTIVITY_HITS=10
+WHALE_MAX_BALANCE_CHECKS=40
+```
+
+Notes:
+
+- `WHALE_MANUAL_WALLETS` takes priority over auto-discovery.
+- `WHALE_MAX_ACTIVITY_HITS` filters out hyper-active wallets that are often bot-driven.
+
 ### Receiver Health + Auth/Dedupe Self-Test
 
 The receiver exposes a health endpoint:

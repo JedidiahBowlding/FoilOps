@@ -119,7 +119,7 @@ export class TokenInvestigator {
       this.withTimeout(this.getDeveloperTokenHistory(developer.wallet, tokenMint), 15_000, [tokenMint]),
       this.withTimeout(
         this.fundFlowTracer.traceWalletFlow(developer.wallet, 4, 12, {
-          followAllRecipients: false,
+          followAllRecipients: true,
           maxVisitedWallets: 120,
         }),
         30_000,
@@ -133,7 +133,7 @@ export class TokenInvestigator {
     if (poolAddress && poolAddress !== developer.wallet) {
       poolTrace = await this.withTimeout(
         this.fundFlowTracer.traceWalletFlow(poolAddress, 3, 10, {
-          followAllRecipients: false,
+          followAllRecipients: true,
           maxVisitedWallets: 80,
         }),
         20_000,
@@ -682,6 +682,64 @@ export class TokenInvestigator {
       maxHops,
       steps: [],
       alerts: ['Flow trace fallback used due to timeout'],
+      terminalWallets: [],
+      mixerTrace: {
+        encountered: false,
+        mixerWallets: [],
+        downstreamWallets: [],
+      },
+      platformTrace: {
+        exchange: {
+          encountered: false,
+          wallets: [],
+          downstreamWallets: [],
+        },
+        bridge: {
+          encountered: false,
+          wallets: [],
+          downstreamWallets: [],
+        },
+      },
+      bridgeRouteAttribution: {
+        encountered: false,
+        canonicalFamilies: [],
+        canonicalPrograms: [],
+        relayerWallets: [],
+        handoffWallets: [],
+        handoffs: [],
+      },
+      crossChainContinuation: {
+        encountered: false,
+        bridgeFamilies: [],
+        recommendedNextChains: [],
+        continuationCandidates: [],
+        unresolvedHandoffs: [],
+        notes: ['Flow trace fallback used due to timeout'],
+      },
+      riskConfidenceModel: {
+        modelVersion: '1.0.0',
+        baseConfidence: 0,
+        attenuation: 0,
+        adjustedConfidence: 0,
+        degradationLevel: 'LOW',
+        boundariesCrossed: [],
+        events: [],
+        notes: ['Flow trace fallback used due to timeout'],
+      },
+      cexDepositHeuristics: {
+        detected: false,
+        confidence: 0,
+        exchangeWalletCount: 0,
+        exchangeTransferCount: 0,
+        totalExchangeOutflowSol: 0,
+        exchangeClusters: [],
+        memoSignals: {
+          memoTransferCount: 0,
+          memoSignatureCount: 0,
+          memoSamples: [],
+        },
+        evidence: [],
+      },
     }
   }
 

@@ -26,6 +26,12 @@ TRADE_SIGNAL_REQUIRE_AUTH=false           # Phase 3: Later require auth
 TRADING_MODE=ultra_conservative            # Start conservative!
 TRADING_ENABLED=false                      # Must explicitly enable
 TRADING_PAUSED=false
+
+# Whale auto-watch (credit protection)
+WHALE_AUTO_TRACK_ENABLED=false             # Keep off unless intentionally tuning auto-discovery
+WHALE_MANUAL_WALLETS=                       # Comma-separated curated wallets (recommended)
+WHALE_EXCLUDE_WALLETS=                      # Comma-separated bot wallets to force-exclude
+WHALE_MAX_ACTIVITY_HITS=10                  # Ignore hyper-active wallets (often bots)
 ```
 
 ### 2. Start the Rust Signal Receiver

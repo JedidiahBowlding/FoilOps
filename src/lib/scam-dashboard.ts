@@ -112,6 +112,16 @@ export class ScamDashboard {
       extraStyles:
         '.control-form { grid-template-columns:minmax(0,1fr) auto; align-items:end; } .card.flagged { border-color: rgba(255,90,122,.36); } .card.unflagged { border-color: rgba(76,255,193,.2); } .investigation-card { border-color: rgba(255,30,50,.26); } @media (max-width: 720px) { .control-form { grid-template-columns:1fr; } }',
       contentHtml: `
+        <section class="section panel">
+          <div class="section-header">
+            <div class="section-header-copy">
+              <p class="fx-eyebrow">New audit surface</p>
+              <h2>Mixer Route Audit</h2>
+              <p class="section-subtitle">Open the grouped mixer-trace dashboard to review every flagged source wallet that touched a mixer, filter by wallet/date, and export the current view as CSV.</p>
+            </div>
+            <a class="fx-button secondary" href="/dashboard/mixer-routes">Open Mixer Route Audit</a>
+          </div>
+        </section>
         <section class="section control-shell">
       <div class="section-header">
         <div class="section-header-copy">

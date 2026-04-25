@@ -527,6 +527,17 @@ export class ScamWalletCommand {
           matchedPlatforms: string[]
           linkedToLaunchPattern: boolean
         }>
+        terminalWallets?: Array<{
+          address: string
+          hop: number
+          reason: string
+          reachedViaMixer: boolean
+        }>
+        mixerTrace?: {
+          encountered: boolean
+          mixerWallets: string[]
+          downstreamWallets: string[]
+        }
       }
 
       const steps = metadata.steps || []
@@ -545,6 +556,29 @@ export class ScamWalletCommand {
         messageLines.push(
           `Hop ${step.hop}: <code>${step.from}</code> → <code>${step.to}</code> | ${step.amount} ${step.asset} | ${platformTag} | ${launchTag}`,
         )
+      }
+
+      const terminalWallets = Array.isArray(metadata.terminalWallets) ? metadata.terminalWallets : []
+      if (terminalWallets.length > 0) {
+        messageLines.push('')
+        messageLines.push('🏁 <b>Terminal Wallets</b>')
+
+        for (const terminal of terminalWallets.slice(0, 12)) {
+          const mixerTag = terminal.reachedViaMixer ? ' | via-mixer' : ''
+          messageLines.push(
+            `Hop ${terminal.hop}: <code>${terminal.address}</code> | ${terminal.reason.toLowerCase()}${mixerTag}`,
+          )
+        }
+      }
+
+      const mixerTrace = metadata.mixerTrace
+      if (mixerTrace?.encountered) {
+        const mixerCount = Array.isArray(mixerTrace.mixerWallets) ? mixerTrace.mixerWallets.length : 0
+        const downstreamCount = Array.isArray(mixerTrace.downstreamWallets) ? mixerTrace.downstreamWallets.length : 0
+        messageLines.push('')
+        messageLines.push('🌀 <b>Mixer Path Activity</b>')
+        messageLines.push(`Mixers touched: <b>${mixerCount}</b>`)
+        messageLines.push(`Downstream wallets after mixer: <b>${downstreamCount}</b>`)
       }
 
       await this.bot.sendMessage(chatId, messageLines.join('\n'), {
