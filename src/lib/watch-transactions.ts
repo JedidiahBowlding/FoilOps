@@ -22,6 +22,14 @@ export class WatchTransaction extends EventEmitter {
 
   private prismaUserRepository: PrismaUserRepository
   private static readonly SOL_MINT = 'So11111111111111111111111111111111111111112'
+  private static readonly userSendChains: Map<string, Promise<void>> = new Map()
+  private static readonly telegramSendConcurrency = Math.max(1, Number(process.env.TELEGRAM_SEND_CONCURRENCY || 3))
+  private static readonly telegramMinSendIntervalMs = Math.max(
+    0,
+    Number(process.env.TELEGRAM_MIN_SEND_INTERVAL_MS || 350),
+  )
+  private static readonly telegramSendRetryAttempts = Math.max(1, Number(process.env.TELEGRAM_SEND_RETRY_ATTEMPTS || 3))
+
   constructor() {
     super()
 
@@ -282,20 +290,112 @@ export class WatchTransaction extends EventEmitter {
       activeUsers.find((user) => user.userId === userId),
     )
 
-    const limit = pLimit(20)
+    const limit = pLimit(WatchTransaction.telegramSendConcurrency)
 
     const tasks = uniqueActiveUsers.map((user) =>
       limit(async () => {
         if (user) {
           try {
-            await sendMessageFn(sendMessageHandler, parsed, user.userId)
-          } catch (error) {
-            console.log(`Error sending message to user ${user.userId}`)
+            await this.enqueueUserMessage(user.userId, async () => {
+              await this.sendWithTelegramRetry(
+                () => sendMessageFn(sendMessageHandler, parsed, user.userId),
+                user.userId,
+              )
+            })
+          } catch (error: unknown) {
+            console.log(`Error sending message to user ${user.userId}`, this.getRpcErrorReason(error))
           }
         }
       }),
     )
 
     await Promise.all(tasks)
+  }
+
+  private async enqueueUserMessage(userId: string, task: () => Promise<void>) {
+    const currentChain = WatchTransaction.userSendChains.get(userId) || Promise.resolve()
+
+    const nextChain = currentChain
+      .catch(() => {
+        return
+      })
+      .then(async () => {
+        if (WatchTransaction.telegramMinSendIntervalMs > 0) {
+          await this.delay(WatchTransaction.telegramMinSendIntervalMs)
+        }
+        await task()
+      })
+      .finally(() => {
+        if (WatchTransaction.userSendChains.get(userId) === nextChain) {
+          WatchTransaction.userSendChains.delete(userId)
+        }
+      })
+
+    WatchTransaction.userSendChains.set(userId, nextChain)
+    await nextChain
+  }
+
+  private async sendWithTelegramRetry(sendFn: () => Promise<TelegramBot.Message | undefined>, userId: string) {
+    for (let attempt = 1; attempt <= WatchTransaction.telegramSendRetryAttempts; attempt++) {
+      try {
+        await sendFn()
+        return
+      } catch (error: unknown) {
+        if (!this.isTelegram429(error) || attempt >= WatchTransaction.telegramSendRetryAttempts) {
+          throw error
+        }
+
+        const retryDelayMs = this.getTelegramRetryAfterMs(error) || attempt * 1000
+        console.log(`Telegram 429 for user ${userId}. Retry ${attempt} after ${retryDelayMs}ms`)
+        await this.delay(retryDelayMs)
+      }
+    }
+  }
+
+  private isTelegram429(error: unknown): boolean {
+    if (!error || typeof error !== 'object') {
+      return false
+    }
+
+    const maybeError = error as {
+      response?: {
+        statusCode?: number
+        body?: { error_code?: number }
+      }
+      message?: string
+    }
+
+    return (
+      maybeError.response?.statusCode === 429 ||
+      maybeError.response?.body?.error_code === 429 ||
+      String(maybeError.message || '').includes('Too Many Requests')
+    )
+  }
+
+  private getTelegramRetryAfterMs(error: unknown): number | null {
+    if (!error || typeof error !== 'object') {
+      return null
+    }
+
+    const maybeError = error as {
+      response?: {
+        body?: {
+          parameters?: {
+            retry_after?: number
+          }
+        }
+      }
+    }
+
+    const retryAfterSeconds = Number(maybeError.response?.body?.parameters?.retry_after)
+    if (!Number.isFinite(retryAfterSeconds) || retryAfterSeconds <= 0) {
+      return null
+    }
+
+    return Math.ceil(retryAfterSeconds * 1000)
+  }
+
+  private async delay(ms: number): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, ms))
   }
 }
