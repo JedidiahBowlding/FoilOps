@@ -204,21 +204,26 @@ export class WatchTransaction extends EventEmitter {
 
   public async getParsedTransaction(transactionSignature: string, retries = 4) {
     for (let attempt = 1; attempt <= retries; attempt++) {
+      const { connection, endpointUrl } = RpcConnectionManager.getConnectionByAttempt(attempt - 1)
+
       try {
-        const transactionDetails = await RpcConnectionManager.getRandomConnection().getParsedTransactions(
-          [transactionSignature],
-          {
-            maxSupportedTransactionVersion: 0,
-          },
-        )
+        const transactionDetails = await connection.getParsedTransactions([transactionSignature], {
+          maxSupportedTransactionVersion: 0,
+        })
 
         if (transactionDetails && transactionDetails[0] !== null) {
           return transactionDetails
         }
 
-        console.log(`Attempt ${attempt}: No transaction details found for ${transactionSignature}`)
-      } catch (error) {
-        console.error(`Attempt ${attempt}: Error fetching transaction details`, error)
+        console.log(
+          `Attempt ${attempt}: No transaction details found for ${transactionSignature} via endpoint ${endpointUrl}`,
+        )
+      } catch (error: unknown) {
+        if (this.shouldCooldownRpcEndpoint(error)) {
+          RpcConnectionManager.markEndpointUnhealthy(endpointUrl, this.getRpcErrorReason(error))
+        }
+
+        console.error(`Attempt ${attempt}: Error fetching transaction details via endpoint ${endpointUrl}`, error)
       }
 
       // Delay before retrying
@@ -227,6 +232,34 @@ export class WatchTransaction extends EventEmitter {
 
     console.error(`Failed to fetch transaction details after ${retries} retries for signature:`, transactionSignature)
     return null
+  }
+
+  private shouldCooldownRpcEndpoint(error: unknown): boolean {
+    const reason = this.getRpcErrorReason(error).toLowerCase()
+    return (
+      reason.includes('econnreset') ||
+      reason.includes('fetch failed') ||
+      reason.includes('tls') ||
+      reason.includes('client network socket disconnected') ||
+      reason.includes('etimedout') ||
+      reason.includes('socket hang up')
+    )
+  }
+
+  private getRpcErrorReason(error: unknown): string {
+    if (!error || typeof error !== 'object') {
+      return String(error)
+    }
+
+    const maybeError = error as {
+      message?: string
+      code?: string
+      cause?: { message?: string; code?: string }
+    }
+
+    return [maybeError.code, maybeError.message, maybeError.cause?.code, maybeError.cause?.message]
+      .filter(Boolean)
+      .join(' | ')
   }
 
   private async sendMessageToUsers<T>(
