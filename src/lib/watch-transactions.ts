@@ -24,11 +24,12 @@ export class WatchTransaction extends EventEmitter {
   private static readonly SOL_MINT = 'So11111111111111111111111111111111111111112'
   private static readonly userSendChains: Map<string, Promise<void>> = new Map()
   private static readonly telegramSendConcurrency = Math.max(1, Number(process.env.TELEGRAM_SEND_CONCURRENCY || 3))
+  private static readonly telegramGlobalSendLimiter = pLimit(WatchTransaction.telegramSendConcurrency)
   private static readonly telegramMinSendIntervalMs = Math.max(
     0,
-    Number(process.env.TELEGRAM_MIN_SEND_INTERVAL_MS || 350),
+    Number(process.env.TELEGRAM_MIN_SEND_INTERVAL_MS || 700),
   )
-  private static readonly telegramSendRetryAttempts = Math.max(1, Number(process.env.TELEGRAM_SEND_RETRY_ATTEMPTS || 3))
+  private static readonly telegramSendRetryAttempts = Math.max(1, Number(process.env.TELEGRAM_SEND_RETRY_ATTEMPTS || 4))
 
   constructor() {
     super()
@@ -290,10 +291,8 @@ export class WatchTransaction extends EventEmitter {
       activeUsers.find((user) => user.userId === userId),
     )
 
-    const limit = pLimit(WatchTransaction.telegramSendConcurrency)
-
     const tasks = uniqueActiveUsers.map((user) =>
-      limit(async () => {
+      WatchTransaction.telegramGlobalSendLimiter(async () => {
         if (user) {
           try {
             await this.enqueueUserMessage(user.userId, async () => {

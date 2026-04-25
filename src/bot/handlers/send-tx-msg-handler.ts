@@ -68,9 +68,11 @@ export class SendTransactionMsgHandler {
     } catch (error: any) {
       if (error.response && error.response.statusCode === 403) {
         console.log(`User ${chatId} has blocked the bot or chat no longer exists`)
-      } else {
-        console.log(`Failed to send message to ${chatId}:`, error)
+        return
       }
+
+      console.log(`Failed to send message to ${chatId}:`, error)
+      throw error
     }
 
     return
@@ -90,9 +92,16 @@ export class SendTransactionMsgHandler {
         parse_mode: 'HTML',
         disable_web_page_preview: true,
       })
-    } catch (error) {
-      console.log(`Failed to send message to ${chatId}`)
-      return
+    } catch (error: any) {
+      if (error?.response?.statusCode === 403) {
+        console.log(`User ${chatId} has blocked the bot or chat no longer exists`)
+        return
+      }
+
+      console.log(`Failed to send message to ${chatId}:`, error)
+      throw error
     }
+
+    return
   }
 }
