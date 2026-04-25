@@ -562,7 +562,6 @@ class Main {
     registerGraphRoutes(this.app, {
       scamWalletRepository: this.scamWalletRepository,
       walletClusterService: this.walletClusterService,
-      fundFlowTracer: this.fundFlowTracer,
       aiAnalyzer: this.aiAnalyzer,
       apiAuthMiddleware: this.dashboardAuth.requireApiAuth,
       pageAuthMiddleware: this.dashboardAuth.requirePageAuth,
