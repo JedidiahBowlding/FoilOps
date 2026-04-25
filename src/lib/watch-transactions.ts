@@ -64,88 +64,95 @@ export class WatchTransaction extends EventEmitter {
         const subscriptionId = RpcConnectionManager.logConnection.onLogs(
           publicKey,
           async (logs, ctx) => {
-            // Exclude wallets that have reached the limit
-            if (WalletPool.bannedWallets.has(walletAddress)) {
-              console.log(`Wallet ${walletAddress} is excluded from logging.`)
+            try {
+              // Exclude wallets that have reached the limit
+              if (WalletPool.bannedWallets.has(walletAddress)) {
+                console.log(`Wallet ${walletAddress} is excluded from logging.`)
 
-              return
-            }
-
-            // if (wallet.userWallets[0].status === 'SPAM_PAUSED') {
-            //   console.log('PAUSED TRANSACTIONS FOR: ', walletAddress)
-            //   return
-            // }
-
-            const { isRelevant, swap } = ValidTransactions.isRelevantTransaction(logs)
-
-            if (!isRelevant) {
-              // console.log('TRANSACTION IS NOT DEFI', logs.signature)
-              return
-            }
-            // console.log('TRANSACTION IS DEFI', logs.signature)
-            // check txs per second
-            const walletData = this.walletTransactions.get(walletAddress)
-            if (!walletData) {
-              return
-            }
-
-            const isWalletRateLimited = await this.rateLimit.txPerSecondCap({
-              wallet,
-              bot,
-              excludedWallets: WalletPool.bannedWallets,
-              walletData,
-            })
-
-            if (isWalletRateLimited) {
-              return
-            }
-
-            const transactionSignature = logs.signature
-
-            const transactionDetails = await this.getParsedTransaction(transactionSignature)
-
-            if (!transactionDetails || transactionDetails[0] === null) {
-              return
-            }
-
-            // Parse transaction
-            const solPriceUsd = CronJobs.getSolPrice()
-            const transactionParser = new TransactionParser(transactionSignature)
-
-            if (
-              swap === 'raydium' ||
-              swap === 'jupiter' ||
-              swap === 'pumpfun' ||
-              swap === 'mint_pumpfun' ||
-              swap === 'pumpfun_amm'
-            ) {
-              const parsed = await transactionParser.parseDefiTransaction(
-                transactionDetails,
-                swap,
-                solPriceUsd,
-                walletAddress,
-              )
-              if (!parsed) {
                 return
               }
-              console.log(parsed.description)
 
-              await this.emitCopyTradeSignalFromParsedSwap(walletAddress, transactionSignature, parsed)
+              // if (wallet.userWallets[0].status === 'SPAM_PAUSED') {
+              //   console.log('PAUSED TRANSACTIONS FOR: ', walletAddress)
+              //   return
+              // }
 
-              // await this.sendTransactionMessageToUsers(wallet, parsed)S
-              await this.sendMessageToUsers(wallet, parsed, (handler, parsedData, userId) =>
-                handler.sendTransactionMessage(parsedData, userId),
-              )
-            } else if (swap === 'sol_transfer') {
-              const parsed = await transactionParser.parseSolTransfer(transactionDetails, solPriceUsd, walletAddress)
-              if (!parsed) {
+              const { isRelevant, swap } = ValidTransactions.isRelevantTransaction(logs)
+
+              if (!isRelevant) {
+                // console.log('TRANSACTION IS NOT DEFI', logs.signature)
                 return
               }
-              console.log(parsed.description)
+              // console.log('TRANSACTION IS DEFI', logs.signature)
+              // check txs per second
+              const walletData = this.walletTransactions.get(walletAddress)
+              if (!walletData) {
+                return
+              }
 
-              // await this.sendTransferMessageToUsers(wallet, parsed)
-              await this.sendMessageToUsers(wallet, parsed, (handler, parsedData, userId) =>
-                handler.sendTransferMessage(parsedData, userId),
+              const isWalletRateLimited = await this.rateLimit.txPerSecondCap({
+                wallet,
+                bot,
+                excludedWallets: WalletPool.bannedWallets,
+                walletData,
+              })
+
+              if (isWalletRateLimited) {
+                return
+              }
+
+              const transactionSignature = logs.signature
+
+              const transactionDetails = await this.getParsedTransaction(transactionSignature)
+
+              if (!transactionDetails || transactionDetails[0] === null) {
+                return
+              }
+
+              // Parse transaction
+              const solPriceUsd = CronJobs.getSolPrice()
+              const transactionParser = new TransactionParser(transactionSignature)
+
+              if (
+                swap === 'raydium' ||
+                swap === 'jupiter' ||
+                swap === 'pumpfun' ||
+                swap === 'mint_pumpfun' ||
+                swap === 'pumpfun_amm'
+              ) {
+                const parsed = await transactionParser.parseDefiTransaction(
+                  transactionDetails,
+                  swap,
+                  solPriceUsd,
+                  walletAddress,
+                )
+                if (!parsed) {
+                  return
+                }
+                console.log(parsed.description)
+
+                await this.emitCopyTradeSignalFromParsedSwap(walletAddress, transactionSignature, parsed)
+
+                // await this.sendTransactionMessageToUsers(wallet, parsed)S
+                await this.sendMessageToUsers(wallet, parsed, (handler, parsedData, userId) =>
+                  handler.sendTransactionMessage(parsedData, userId),
+                )
+              } else if (swap === 'sol_transfer') {
+                const parsed = await transactionParser.parseSolTransfer(transactionDetails, solPriceUsd, walletAddress)
+                if (!parsed) {
+                  return
+                }
+                console.log(parsed.description)
+
+                // await this.sendTransferMessageToUsers(wallet, parsed)
+                await this.sendMessageToUsers(wallet, parsed, (handler, parsedData, userId) =>
+                  handler.sendTransferMessage(parsedData, userId),
+                )
+              }
+            } catch (error: unknown) {
+              console.error(
+                `WATCH_SOCKET_CALLBACK_ERROR wallet=${walletAddress} signature=${logs.signature}`,
+                this.getRpcErrorReason(error),
               )
             }
           },

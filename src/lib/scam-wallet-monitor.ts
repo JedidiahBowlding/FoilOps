@@ -143,7 +143,11 @@ export class ScamWalletMonitor {
       const subscriptionId = RpcConnectionManager.logConnection.onLogs(
         publicKey,
         async (logs) => {
-          await this.handleLogs(wallet.address, logs)
+          try {
+            await this.handleLogs(wallet.address, logs)
+          } catch (error) {
+            console.error(`SCAM_MONITOR_CALLBACK_ERROR wallet=${wallet.address} signature=${logs.signature}`, error)
+          }
         },
         'processed',
       )
@@ -331,7 +335,11 @@ export class ScamWalletMonitor {
       const chatId = resolveAlertChatId(rule.userId)
       if (chatId === null) continue
 
-      await bot.sendMessage(chatId, message)
+      try {
+        await bot.sendMessage(chatId, message)
+      } catch (error) {
+        console.error(`ALERT_RULE_SEND_ERROR userId=${rule.userId}`, error)
+      }
     }
   }
 

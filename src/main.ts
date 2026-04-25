@@ -22,6 +22,7 @@ import { TradingCommand } from './bot/commands/trading-command'
 import { ScamWalletMonitor } from './lib/scam-wallet-monitor'
 import { ScamDashboard } from './lib/scam-dashboard'
 import { TokenInvestigator } from './lib/token-investigator'
+import { FundFlowTracer } from './lib/fund-flow-tracer'
 import { PrismaScamWalletRepository } from './repositories/prisma/scam-wallet'
 import { WalletClusterService } from './lib/wallet-cluster'
 import { registerGraphRoutes } from './http/graph-routes'
@@ -62,6 +63,7 @@ class Main {
   private scamWalletMonitor: ScamWalletMonitor
   private scamDashboard: ScamDashboard
   private tokenInvestigator: TokenInvestigator
+  private fundFlowTracer: FundFlowTracer
   private scamWalletRepository: PrismaScamWalletRepository
   private walletClusterService: WalletClusterService
   private aiAnalyzer: AiAnalyzer
@@ -91,6 +93,7 @@ class Main {
     this.tradingCommand = new TradingCommand(bot)
     this.scamDashboard = new ScamDashboard()
     this.tokenInvestigator = new TokenInvestigator()
+    this.fundFlowTracer = new FundFlowTracer()
     this.scamWalletRepository = new PrismaScamWalletRepository()
     this.walletClusterService = new WalletClusterService()
     this.aiAnalyzer = new AiAnalyzer()
@@ -559,6 +562,7 @@ class Main {
     registerGraphRoutes(this.app, {
       scamWalletRepository: this.scamWalletRepository,
       walletClusterService: this.walletClusterService,
+      fundFlowTracer: this.fundFlowTracer,
       aiAnalyzer: this.aiAnalyzer,
       apiAuthMiddleware: this.dashboardAuth.requireApiAuth,
       pageAuthMiddleware: this.dashboardAuth.requirePageAuth,
@@ -836,4 +840,15 @@ class Main {
 }
 
 const main = new Main()
-main.init()
+
+process.on('unhandledRejection', (reason) => {
+  console.error('UNHANDLED_REJECTION', reason)
+})
+
+process.on('uncaughtException', (error) => {
+  console.error('UNCAUGHT_EXCEPTION', error)
+})
+
+main.init().catch((error) => {
+  console.error('MAIN_INIT_ERROR', error)
+})
