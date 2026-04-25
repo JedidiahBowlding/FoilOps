@@ -13,9 +13,15 @@ const configuredRpcEndpoints =
     .map((url) => url.trim())
     .filter(Boolean) ?? []
 
-const fallbackRpcEndpoints = [process.env.SOLANA_NETWORK?.trim(), HELIUS_NETWORK, clusterApiUrl('mainnet-beta')].filter(
-  (url): url is string => Boolean(url),
+const allowPublicRpcFallback = String(process.env.ALLOW_PUBLIC_RPC_FALLBACK || 'false').toLowerCase() === 'true'
+
+const fallbackRpcEndpoints = [process.env.SOLANA_NETWORK?.trim(), HELIUS_NETWORK].filter((url): url is string =>
+  Boolean(url),
 )
+
+if (allowPublicRpcFallback) {
+  fallbackRpcEndpoints.push(clusterApiUrl('mainnet-beta'))
+}
 
 const RPC_ENDPOINTS = Array.from(new Set([...configuredRpcEndpoints, ...fallbackRpcEndpoints]))
 
@@ -53,7 +59,7 @@ export class RpcConnectionManager {
     const pool = activeEndpoints.length > 0 ? activeEndpoints : RpcConnectionManager.endpointUrls
 
     if (pool.length === 0) {
-      const fallbackUrl = clusterApiUrl('mainnet-beta')
+      const fallbackUrl = process.env.SOLANA_NETWORK?.trim() || HELIUS_NETWORK || clusterApiUrl('mainnet-beta')
       const fallbackConnection = new Connection(fallbackUrl, 'confirmed')
       return { connection: fallbackConnection, endpointUrl: fallbackUrl }
     }

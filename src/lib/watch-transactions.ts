@@ -233,6 +233,7 @@ export class WatchTransaction extends EventEmitter {
   public async getParsedTransaction(transactionSignature: string, retries = 4) {
     for (let attempt = 1; attempt <= retries; attempt++) {
       const { connection, endpointUrl } = RpcConnectionManager.getConnectionByAttempt(attempt - 1)
+      let lastErrorReason = ''
 
       try {
         const transactionDetails = await connection.getParsedTransactions([transactionSignature], {
@@ -247,15 +248,19 @@ export class WatchTransaction extends EventEmitter {
           `Attempt ${attempt}: No transaction details found for ${transactionSignature} via endpoint ${endpointUrl}`,
         )
       } catch (error: unknown) {
+        lastErrorReason = this.getRpcErrorReason(error)
         if (this.shouldCooldownRpcEndpoint(error)) {
-          RpcConnectionManager.markEndpointUnhealthy(endpointUrl, this.getRpcErrorReason(error))
+          RpcConnectionManager.markEndpointUnhealthy(endpointUrl, lastErrorReason)
         }
 
         console.error(`Attempt ${attempt}: Error fetching transaction details via endpoint ${endpointUrl}`, error)
       }
 
       // Delay before retrying
-      await new Promise((resolve) => setTimeout(resolve, 1000 * attempt))
+      const reason = lastErrorReason.toLowerCase()
+      const retryDelayMs =
+        reason.includes('429') || reason.includes('too many requests') ? 2500 * attempt : 1000 * attempt
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs))
     }
 
     console.error(`Failed to fetch transaction details after ${retries} retries for signature:`, transactionSignature)
@@ -270,7 +275,9 @@ export class WatchTransaction extends EventEmitter {
       reason.includes('tls') ||
       reason.includes('client network socket disconnected') ||
       reason.includes('etimedout') ||
-      reason.includes('socket hang up')
+      reason.includes('socket hang up') ||
+      reason.includes('429') ||
+      reason.includes('too many requests')
     )
   }
 
