@@ -9,8 +9,10 @@ use solana_sdk::{
 };
 use spl_associated_token_account::get_associated_token_address;
 use spl_token::ui_amount_to_amount;
+use std::env;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::time::Duration;
 
 const SOL_MINT: &str = "So11111111111111111111111111111111111111112";
 
@@ -71,67 +73,121 @@ impl Pump {
         }
 
         let slippage_bps = slippage.saturating_mul(100).min(5000);
-        let quote_url = format!(
-            "https://quote-api.jup.ag/v6/quote?inputMint={}&outputMint={}&amount={}&slippageBps={}",
-            input_mint, output_mint, amount, slippage_bps
-        );
+        let http_client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(8))
+            .build()
+            .context("jupiter_http_client_build_failed")?;
 
-        let quote_response = reqwest::get(&quote_url)
-            .await
-            .context("jupiter_quote_request_failed")?
-            .error_for_status()
-            .context("jupiter_quote_http_error")?
-            .json::<JupiterQuoteResponse>()
-            .await
-            .context("jupiter_quote_decode_failed")?;
+        let mut endpoint_errors: Vec<String> = Vec::new();
+        for base in Self::jupiter_api_bases() {
+            let quote_url = format!(
+                "{}/quote?inputMint={}&outputMint={}&amount={}&slippageBps={}",
+                base, input_mint, output_mint, amount, slippage_bps
+            );
 
-        if quote_response.route_plan.is_empty() {
-            return Err(anyhow!("no_route_found_for_token"));
+            let quote_response = match http_client.get(&quote_url).send().await {
+                Ok(resp) => match resp.error_for_status() {
+                    Ok(ok_resp) => match ok_resp.json::<JupiterQuoteResponse>().await {
+                        Ok(parsed) => parsed,
+                        Err(e) => {
+                            endpoint_errors.push(format!("{} quote_decode_failed: {}", base, e));
+                            continue;
+                        }
+                    },
+                    Err(e) => {
+                        endpoint_errors.push(format!("{} quote_http_error: {}", base, e));
+                        continue;
+                    }
+                },
+                Err(e) => {
+                    endpoint_errors.push(format!("{} quote_request_failed: {}", base, e));
+                    continue;
+                }
+            };
+
+            if quote_response.route_plan.is_empty() {
+                endpoint_errors.push(format!("{} no_route_found_for_token", base));
+                continue;
+            }
+
+            let swap_payload = JupiterSwapRequest {
+                quote_response,
+                user_public_key: self.wallet.pubkey().to_string(),
+                wrap_and_unwrap_sol: true,
+                dynamic_compute_unit_limit: true,
+            };
+
+            let swap_url = format!("{}/swap", base);
+            let swap_response = match http_client.post(&swap_url).json(&swap_payload).send().await {
+                Ok(resp) => match resp.error_for_status() {
+                    Ok(ok_resp) => match ok_resp.json::<JupiterSwapResponse>().await {
+                        Ok(parsed) => parsed,
+                        Err(e) => {
+                            endpoint_errors.push(format!("{} swap_decode_failed: {}", base, e));
+                            continue;
+                        }
+                    },
+                    Err(e) => {
+                        endpoint_errors.push(format!("{} swap_http_error: {}", base, e));
+                        continue;
+                    }
+                },
+                Err(e) => {
+                    endpoint_errors.push(format!("{} swap_request_failed: {}", base, e));
+                    continue;
+                }
+            };
+
+            let swap_tx_bytes = STANDARD
+                .decode(&swap_response.swap_transaction)
+                .with_context(|| format!("swap_transaction_base64_decode_failed: {}", base))?;
+
+            let mut swap_tx: VersionedTransaction = bincode::deserialize(&swap_tx_bytes)
+                .with_context(|| format!("swap_transaction_deserialize_failed: {}", base))?;
+
+            let message_data = swap_tx.message.serialize();
+            let signature = self.wallet.sign_message(&message_data);
+            if swap_tx.signatures.is_empty() {
+                swap_tx.signatures.push(signature);
+            } else {
+                swap_tx.signatures[0] = signature;
+            }
+
+            let tx_sig: Signature = self
+                .rpc_nonblocking_client
+                .send_transaction(&swap_tx)
+                .await
+                .with_context(|| format!("swap_transaction_send_failed: {}", base))?;
+
+            let _ = self.rpc_client.get_latest_blockhash();
+
+            return Ok(vec![tx_sig.to_string()]);
         }
 
-        let swap_payload = JupiterSwapRequest {
-            quote_response,
-            user_public_key: self.wallet.pubkey().to_string(),
-            wrap_and_unwrap_sol: true,
-            dynamic_compute_unit_limit: true,
-        };
+        Err(anyhow!(
+            "jupiter_quote_request_failed: all_endpoints_failed [{}]",
+            endpoint_errors.join(" | ")
+        ))
+    }
 
-        let swap_response = reqwest::Client::new()
-            .post("https://quote-api.jup.ag/v6/swap")
-            .json(&swap_payload)
-            .send()
-            .await
-            .context("jupiter_swap_request_failed")?
-            .error_for_status()
-            .context("jupiter_swap_http_error")?
-            .json::<JupiterSwapResponse>()
-            .await
-            .context("jupiter_swap_decode_failed")?;
+    fn jupiter_api_bases() -> Vec<String> {
+        let configured = env::var("JUPITER_API_BASES").unwrap_or_default();
+        let parsed: Vec<String> = configured
+            .split(',')
+            .map(|entry| entry.trim())
+            .filter(|entry| !entry.is_empty())
+            .map(|entry| entry.trim_end_matches('/').to_string())
+            .collect();
 
-        let swap_tx_bytes = STANDARD
-            .decode(&swap_response.swap_transaction)
-            .context("swap_transaction_base64_decode_failed")?;
-
-        let mut swap_tx: VersionedTransaction =
-            bincode::deserialize(&swap_tx_bytes).context("swap_transaction_deserialize_failed")?;
-
-        let message_data = swap_tx.message.serialize();
-        let signature = self.wallet.sign_message(&message_data);
-        if swap_tx.signatures.is_empty() {
-            swap_tx.signatures.push(signature);
+        if parsed.is_empty() {
+            vec![
+                "https://api.jup.ag/swap/v1".to_string(),
+                "https://lite-api.jup.ag/swap/v1".to_string(),
+                "https://quote-api.jup.ag/v6".to_string(),
+            ]
         } else {
-            swap_tx.signatures[0] = signature;
+            parsed
         }
-
-        let tx_sig: Signature = self
-            .rpc_nonblocking_client
-            .send_transaction(&swap_tx)
-            .await
-            .context("swap_transaction_send_failed")?;
-
-        let _ = self.rpc_client.get_latest_blockhash();
-
-        Ok(vec![tx_sig.to_string()])
     }
 
     async fn execute_jupiter_buy(&self, mint: &str, amount_sol: f64, slippage: u64) -> Result<Vec<String>> {
