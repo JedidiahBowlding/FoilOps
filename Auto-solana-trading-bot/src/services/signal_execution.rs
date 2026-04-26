@@ -32,6 +32,7 @@ pub struct TradingConfig {
     pub source_wallet_profiles: HashMap<String, SourceWalletProfile>,
     pub min_alert_quality_score: f64,
     pub min_trace_alerts: usize,
+    pub auto_block_source_wallet_after_buy: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -69,6 +70,7 @@ impl Default for TradingConfig {
             source_wallet_profiles: HashMap::new(),
             min_alert_quality_score: 0.0,
             min_trace_alerts: 0,
+            auto_block_source_wallet_after_buy: false,
         }
     }
 }
@@ -197,9 +199,10 @@ impl SignalExecutionEngine {
         Some(profile)
     }
 
-    pub fn new(app_state: AppState, max_risk_score: f64) -> Self {
+    pub fn new(app_state: AppState, max_risk_score: f64, auto_block_source_wallet_after_buy: bool) -> Self {
         let mut trading_state = TradingState::default();
         trading_state.config.max_risk_score = max_risk_score;
+        trading_state.config.auto_block_source_wallet_after_buy = auto_block_source_wallet_after_buy;
         Self {
             state: Arc::new(Mutex::new(trading_state)),
             app_state,
@@ -621,7 +624,43 @@ impl SignalExecutionEngine {
                     },
                 );
 
-                Ok(format!("BUY_EXECUTED: {} tx(s), amount: {} SOL", tx_sigs.len(), actual_amount))
+                let auto_blocked_wallet = if state.config.auto_block_source_wallet_after_buy {
+                    if let Some(source_wallet) = request.source_wallet.as_ref() {
+                        if let Some(blocked_profile) = Self::build_source_wallet_profile(
+                            "blocked",
+                            Some(format!(
+                                "auto-blocked after successful buy for request {}",
+                                request.request_id
+                            )),
+                        ) {
+                            state
+                                .config
+                                .source_wallet_profiles
+                                .insert(source_wallet.clone(), blocked_profile);
+                            state
+                                .config
+                                .source_wallet_caps_sol
+                                .insert(source_wallet.clone(), 0.0);
+                            Some(source_wallet.clone())
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+
+                Ok(match auto_blocked_wallet {
+                    Some(wallet) => format!(
+                        "BUY_EXECUTED: {} tx(s), amount: {} SOL, AUTO_BLOCKED_SOURCE_WALLET: {}",
+                        tx_sigs.len(),
+                        actual_amount,
+                        wallet
+                    ),
+                    None => format!("BUY_EXECUTED: {} tx(s), amount: {} SOL", tx_sigs.len(), actual_amount),
+                })
             }
             Err(e) => {
                 let mut state = self.state.lock().await;
