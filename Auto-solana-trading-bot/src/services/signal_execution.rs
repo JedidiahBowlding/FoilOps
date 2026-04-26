@@ -199,10 +199,18 @@ impl SignalExecutionEngine {
         Some(profile)
     }
 
-    pub fn new(app_state: AppState, max_risk_score: f64, auto_block_source_wallet_after_buy: bool) -> Self {
+    pub fn new(
+        app_state: AppState,
+        max_risk_score: f64,
+        auto_block_source_wallet_after_buy: bool,
+        initial_enabled: bool,
+        initial_paused: bool,
+    ) -> Self {
         let mut trading_state = TradingState::default();
         trading_state.config.max_risk_score = max_risk_score;
         trading_state.config.auto_block_source_wallet_after_buy = auto_block_source_wallet_after_buy;
+        trading_state.config.enabled = initial_enabled;
+        trading_state.config.paused = initial_paused;
         Self {
             state: Arc::new(Mutex::new(trading_state)),
             app_state,

@@ -69,13 +69,21 @@ async fn main() {
     let signal_auto_block_source_wallet_after_buy = env::var("SIGNAL_AUTO_BLOCK_SOURCE_WALLET_AFTER_BUY")
         .map(|value| value.eq_ignore_ascii_case("true"))
         .unwrap_or(false);
+    let initial_trading_enabled = env::var("TRADING_ENABLED")
+        .map(|value| value.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+    let initial_trading_paused = env::var("TRADING_PAUSED")
+        .map(|value| value.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
 
     println!(
-        "Signal receiver profile => very_early_mode={}, dedup_window={}s, max_timestamp_skew={}s, auto_block_source_wallet_after_buy={}",
+        "Signal receiver profile => very_early_mode={}, dedup_window={}s, max_timestamp_skew={}s, auto_block_source_wallet_after_buy={}, trading_enabled={}, trading_paused={}",
         signal_very_early_mode,
         signal_dedup_window_seconds,
         signal_max_timestamp_skew_seconds,
         signal_auto_block_source_wallet_after_buy,
+        initial_trading_enabled,
+        initial_trading_paused,
     );
 
     let signal_receiver_bind_for_task = signal_receiver_bind.clone();
@@ -97,6 +105,8 @@ async fn main() {
                             app_state,
                             signal_max_risk_score,
                             signal_auto_block_source_wallet_after_buy,
+                            initial_trading_enabled,
+                            initial_trading_paused,
                         )))
                     }
                     Ok(Err(error)) => {
