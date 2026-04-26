@@ -108,6 +108,7 @@ export class TradingOpsDashboard {
     const maxRiskScore = safety.maxRiskScore ?? safety.max_risk_score ?? ''
     const minAlertQualityScore = safety.minAlertQualityScore ?? 0
     const minTraceAlerts = safety.minTraceAlerts ?? 0
+    const buyOncePerToken = Boolean(config.buyOncePerToken ?? config.buy_once_per_token)
     const slippageValue = slippage.slippage ?? config.slippage ?? ''
     const currentMode = String(data.status.mode || 'signal_based')
     const currentProfile = String(config.profile || config.profilePreset || 'conservative')
@@ -246,6 +247,7 @@ export class TradingOpsDashboard {
         <span class="signal-pill"><strong>Execution</strong>${currentExecutionMode}</span>
         <span class="signal-pill"><strong>Mode</strong>${currentMode}</span>
         <span class="signal-pill"><strong>Profile</strong>${currentProfile}</span>
+        <span class="signal-pill"><strong>Buy Once/Token</strong>${buyOncePerToken ? 'on' : 'off'}</span>
         <span class="signal-pill"><strong>Watchlist</strong>${watchlistCount}</span>
         <span class="signal-pill"><strong>Dead Letters</strong>${failureCount}</span>
       </div>
@@ -370,6 +372,10 @@ export class TradingOpsDashboard {
             <label>Min trace alerts
               <input name="minTraceAlerts" type="number" step="1" min="0" value="${minTraceAlerts}" />
             </label>
+            <label style="display:flex;align-items:center;gap:10px;grid-column:1 / -1;">
+              <input name="buyOncePerToken" type="checkbox" ${buyOncePerToken ? 'checked' : ''} />
+              Buy once per token (reject repeat buys for any token already bought once)
+            </label>
             <div class="button-row">
               <button class="primary" type="submit">Apply Settings</button>
             </div>
@@ -377,6 +383,8 @@ export class TradingOpsDashboard {
               <button type="button" data-safe-preset="paper-test">Paper Test</button>
               <button type="button" data-safe-preset="cautious-live">Cautious Live</button>
               <button type="button" data-safe-preset="aggressive-live">Aggressive Live</button>
+              <button type="button" data-one-click-buy-once="true">Enable Buy Once</button>
+              <button type="button" data-one-click-buy-once="false">Disable Buy Once</button>
             </div>
           </form>
         </article>
@@ -893,6 +901,7 @@ export class TradingOpsDashboard {
           slippage: parseOptionalNumber(formData.get('slippage')),
           minAlertQualityScore: parseOptionalNumber(formData.get('minAlertQualityScore')),
           minTraceAlerts: parseOptionalNumber(formData.get('minTraceAlerts')),
+          buyOncePerToken: formData.get('buyOncePerToken') !== null,
         }
 
         try {
@@ -910,7 +919,12 @@ export class TradingOpsDashboard {
       function applyPresetToForm(preset) {
         const set = (name, value) => {
           const field = tradingSettingsForm.querySelector('[name="' + name + '"]')
-          if (field) field.value = String(value)
+          if (!field) return
+          if (field instanceof HTMLInputElement && field.type === 'checkbox') {
+            field.checked = Boolean(value)
+            return
+          }
+          field.value = String(value)
         }
 
         if (preset === 'paper-test') {
@@ -922,6 +936,7 @@ export class TradingOpsDashboard {
           set('slippage', '1')
           set('minAlertQualityScore', '50')
           set('minTraceAlerts', '1')
+          set('buyOncePerToken', true)
           return
         }
 
@@ -934,6 +949,7 @@ export class TradingOpsDashboard {
           set('slippage', '2')
           set('minAlertQualityScore', '60')
           set('minTraceAlerts', '2')
+          set('buyOncePerToken', true)
           return
         }
 
@@ -946,6 +962,7 @@ export class TradingOpsDashboard {
           set('slippage', '3')
           set('minAlertQualityScore', '35')
           set('minTraceAlerts', '0')
+          set('buyOncePerToken', true)
         }
       }
 
@@ -961,6 +978,22 @@ export class TradingOpsDashboard {
             await tradingSettingsForm.requestSubmit()
           } catch (error) {
             setControlStatus('Failed to apply preset settings.', 'error')
+          }
+        })
+      })
+
+      document.querySelectorAll('[data-one-click-buy-once]').forEach((button) => {
+        button.addEventListener('click', async () => {
+          const enabled = button.getAttribute('data-one-click-buy-once') === 'true'
+          try {
+            const response = await requestJson('/api/control/trading/settings', {
+              method: 'POST',
+              body: JSON.stringify({ buyOncePerToken: enabled }),
+            })
+            setControlStatus(response.message || ('Buy once per token set to ' + enabled + '.'), 'success')
+            window.setTimeout(() => window.location.reload(), 700)
+          } catch (error) {
+            setControlStatus(error.message || 'Failed to update buy-once-per-token setting.', 'error')
           }
         })
       })

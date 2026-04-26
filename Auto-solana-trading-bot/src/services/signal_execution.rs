@@ -4,7 +4,7 @@ use crate::dex::raydium::get_pool_state_by_mint;
 use crate::services::signal_receiver::{ExecutionRequest, TradeSignalV1};
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::Mutex;
@@ -33,6 +33,7 @@ pub struct TradingConfig {
     pub min_alert_quality_score: f64,
     pub min_trace_alerts: usize,
     pub auto_block_source_wallet_after_buy: bool,
+    pub buy_once_per_token: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -71,6 +72,7 @@ impl Default for TradingConfig {
             min_alert_quality_score: 0.0,
             min_trace_alerts: 0,
             auto_block_source_wallet_after_buy: false,
+            buy_once_per_token: false,
         }
     }
 }
@@ -90,6 +92,7 @@ pub struct ActivePosition {
 pub struct TradingState {
     pub config: TradingConfig,
     pub active_positions: HashMap<String, ActivePosition>, // token_mint -> position
+    pub bought_tokens: HashSet<String>,
     pub recent_trades: Vec<TradeRecord>,
     pub journal: Vec<TradeJournalEntry>,
     pub total_pnl: f64,
@@ -128,6 +131,7 @@ impl Default for TradingState {
         Self {
             config: TradingConfig::default(),
             active_positions: HashMap::new(),
+            bought_tokens: HashSet::new(),
             recent_trades: Vec::new(),
             journal: Vec::new(),
             total_pnl: 0.0,
@@ -528,6 +532,9 @@ impl SignalExecutionEngine {
 
         let (slippage, mev_service, actual_amount, allowed_dexes, profile_preset) = {
             let state = self.state.lock().await;
+            if state.config.buy_once_per_token && state.bought_tokens.contains(&token_mint) {
+                return Ok("TOKEN_ALREADY_BOUGHT_ONCE".to_string());
+            }
             if state.active_positions.contains_key(&token_mint) {
                 return Ok("POSITION_ALREADY_EXISTS".to_string());
             }
@@ -602,6 +609,7 @@ impl SignalExecutionEngine {
                 };
 
                 state.active_positions.insert(token_mint.clone(), position);
+                state.bought_tokens.insert(token_mint.clone());
 
                 // Record trade
                 let trade = TradeRecord {
@@ -967,10 +975,23 @@ impl SignalExecutionEngine {
             "sourceWalletProfileCount": state.config.source_wallet_profiles.len(),
             "slippage": state.config.slippage,
             "buyAmountSol": state.config.buy_amount_sol,
+            "buyOncePerToken": state.config.buy_once_per_token,
+            "boughtTokenCount": state.bought_tokens.len(),
             "activePositions": state.active_positions.len(),
             "enabled": state.config.enabled,
             "paused": state.config.paused
         })
+    }
+
+    pub async fn set_buy_once_per_token_async(&self, enabled: bool) -> String {
+        let mut state = self.state.lock().await;
+        state.config.buy_once_per_token = enabled;
+        format!("BUY_ONCE_PER_TOKEN_SET: {}", enabled)
+    }
+
+    pub async fn get_buy_once_per_token_async(&self) -> bool {
+        let state = self.state.lock().await;
+        state.config.buy_once_per_token
     }
 
     pub async fn set_max_risk_score_async(&self, score: f64) -> String {

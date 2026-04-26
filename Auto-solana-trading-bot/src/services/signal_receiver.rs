@@ -244,6 +244,7 @@ pub async fn start_signal_receiver(
         .route("/trading/execution-mode", get(get_execution_mode).post(set_execution_mode))
         .route("/trading/source-wallets", get(get_source_wallets).post(update_source_wallets))
         .route("/trading/alert-quality", get(get_alert_quality).post(set_alert_quality))
+        .route("/trading/buy-once-per-token", get(get_buy_once_per_token).post(set_buy_once_per_token))
         .route("/trading/journal", get(get_trade_journal))
         .route("/trading/metrics", get(get_metrics))
         .route("/trading/dead-letters", get(get_dead_letters))
@@ -912,7 +913,8 @@ async fn get_config(
             "minLiquidityUsd": 1000.0,
             "allowedDexes": ["pump_fun", "raydium"],
             "denylist": [],
-            "allowlist": []
+            "allowlist": [],
+            "buyOncePerToken": false
         }))
     }
 }
@@ -1276,6 +1278,32 @@ async fn set_alert_quality(
         let min_trace_alerts = payload["min_trace_alerts"].as_u64().map(|value| value as usize);
         let result = engine.set_alert_quality_async(min_score, min_trace_alerts).await;
         (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "message": result })))
+    } else {
+        (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
+    }
+}
+
+async fn get_buy_once_per_token(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> Json<Value> {
+    if let Some(engine) = &state.execution_engine {
+        Json(serde_json::json!({ "enabled": engine.get_buy_once_per_token_async().await }))
+    } else {
+        Json(serde_json::json!({ "enabled": false }))
+    }
+}
+
+async fn set_buy_once_per_token(
+    State(state): State<Arc<SignalReceiverState>>,
+    Json(payload): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Some(engine) = &state.execution_engine {
+        if let Some(enabled) = payload["enabled"].as_bool() {
+            let result = engine.set_buy_once_per_token_async(enabled).await;
+            (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "message": result })))
+        } else {
+            (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "status": "error", "message": "Invalid enabled value" })))
+        }
     } else {
         (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
     }

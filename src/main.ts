@@ -465,6 +465,7 @@ class Main {
           slippage: this.parseOptionalNumber(req.body?.slippage),
           minAlertQualityScore: this.parseOptionalNumber(req.body?.minAlertQualityScore),
           minTraceAlerts: this.parseOptionalNumber(req.body?.minTraceAlerts),
+          buyOncePerToken: this.parseOptionalBoolean(req.body?.buyOncePerToken),
         })
 
         if (operations.length === 0) {
@@ -609,6 +610,27 @@ class Main {
 
     const parsed = Number(normalized)
     return Number.isFinite(parsed) ? parsed : undefined
+  }
+
+  private parseOptionalBoolean(value: unknown): boolean | undefined {
+    if (typeof value === 'boolean') {
+      return value
+    }
+
+    if (typeof value !== 'string') {
+      return undefined
+    }
+
+    const normalized = value.trim().toLowerCase()
+    if (normalized === 'true') {
+      return true
+    }
+
+    if (normalized === 'false') {
+      return false
+    }
+
+    return undefined
   }
 
   private async captureTradingAnalyticsSnapshot(data: Record<string, unknown>, minIntervalMinutes = 10) {

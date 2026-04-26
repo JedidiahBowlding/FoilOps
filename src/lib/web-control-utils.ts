@@ -16,6 +16,7 @@ export type TradingSettingsInput = {
   slippage?: number
   minAlertQualityScore?: number
   minTraceAlerts?: number
+  buyOncePerToken?: boolean
 }
 
 type TradingOperation = {
@@ -92,6 +93,10 @@ export function buildTradingSettingsOperations(input: TradingSettingsInput): Tra
   }
   if (Object.keys(alertQualityBody).length > 0) {
     operations.push({ path: '/trading/alert-quality', body: alertQualityBody })
+  }
+
+  if (typeof input.buyOncePerToken === 'boolean') {
+    operations.push({ path: '/trading/buy-once-per-token', body: { enabled: input.buyOncePerToken } })
   }
 
   return operations
