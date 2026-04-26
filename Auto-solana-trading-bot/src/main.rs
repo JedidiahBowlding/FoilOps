@@ -48,19 +48,31 @@ async fn main() {
     let signal_receiver_require_auth = env::var("SIGNAL_REQUIRE_AUTH")
         .map(|value| value.eq_ignore_ascii_case("true"))
         .unwrap_or(!signal_receiver_dry_run);
+    let signal_very_early_mode = env::var("SIGNAL_VERY_EARLY_MODE")
+        .map(|value| value.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
     let signal_auth_secret = env::var("SIGNAL_AUTH_SECRET").ok();
+    let signal_dedup_default_seconds = if signal_very_early_mode { 45 } else { 300 };
     let signal_dedup_window_seconds = env::var("SIGNAL_DEDUP_WINDOW_SECONDS")
         .ok()
         .and_then(|value| value.parse::<u64>().ok())
-        .unwrap_or(300);
+        .unwrap_or(signal_dedup_default_seconds);
+    let signal_max_timestamp_skew_default_seconds = if signal_very_early_mode { 30 } else { 120 };
     let signal_max_timestamp_skew_seconds = env::var("SIGNAL_MAX_TIMESTAMP_SKEW_SECONDS")
         .ok()
         .and_then(|value| value.parse::<u64>().ok())
-        .unwrap_or(120);
+        .unwrap_or(signal_max_timestamp_skew_default_seconds);
     let signal_max_risk_score = env::var("SIGNAL_MAX_RISK_SCORE")
         .ok()
         .and_then(|value| value.parse::<f64>().ok())
         .unwrap_or(75.0);
+
+    println!(
+        "Signal receiver profile => very_early_mode={}, dedup_window={}s, max_timestamp_skew={}s",
+        signal_very_early_mode,
+        signal_dedup_window_seconds,
+        signal_max_timestamp_skew_seconds,
+    );
 
     let signal_receiver_bind_for_task = signal_receiver_bind.clone();
     let signal_auth_secret_for_task = signal_auth_secret.clone();
