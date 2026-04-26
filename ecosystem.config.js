@@ -29,7 +29,7 @@ module.exports = {
       name: 'foilops-receiver',
       cwd: path.join(ROOT, 'Auto-solana-trading-bot'),
       script: 'bash',
-      args: '-lc "if [ -x target/debug/trading-bot ]; then exec ./target/debug/trading-bot; else exec cargo run --bin trading-bot; fi"',
+      args: '-lc "if [ -x target/release/trading-bot ]; then exec ./target/release/trading-bot; elif [ -x target/debug/trading-bot ]; then exec ./target/debug/trading-bot; else exec cargo run --release --bin trading-bot; fi"',
       exec_mode: 'fork',
       instances: 1,
       autorestart: true,
