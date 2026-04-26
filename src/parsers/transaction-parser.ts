@@ -10,6 +10,40 @@ export class TransactionParser {
   private tokenUtils: TokenUtils
   private tokenMarketPrice: TokenMarketPrice
   private connection: Connection
+  private static readonly SOL_MINT = 'So11111111111111111111111111111111111111112'
+
+  private getPumpAmmTokenMint(transfers: any[]): string | null {
+    const nonSolTransfer = transfers.find((transfer) => {
+      const mint = transfer?.info?.mint
+      return typeof mint === 'string' && mint !== TransactionParser.SOL_MINT
+    })
+
+    return nonSolTransfer?.info?.mint || null
+  }
+
+  private formatPumpAmmUiAmount(transfers: any[], mint: string): string {
+    const matchedTransfer =
+      transfers.find((transfer) => transfer?.info?.mint === mint) || transfers.find((transfer) => transfer?.info?.mint)
+
+    const tokenAmountInfo = matchedTransfer?.info?.tokenAmount
+    const uiAmountString = tokenAmountInfo?.uiAmountString
+
+    if (typeof uiAmountString === 'string' && uiAmountString.trim() !== '') {
+      const parsedUiAmount = Number(uiAmountString)
+      if (!Number.isNaN(parsedUiAmount)) {
+        return FormatNumbers.formatTokenAmount(parsedUiAmount)
+      }
+    }
+
+    const uiAmount = tokenAmountInfo?.uiAmount
+    if (typeof uiAmount === 'number' && Number.isFinite(uiAmount)) {
+      return FormatNumbers.formatTokenAmount(uiAmount)
+    }
+
+    const rawAmount = Number(tokenAmountInfo?.amount || 0)
+    return FormatNumbers.formatTokenAmount(rawAmount)
+  }
+
   constructor(private transactionSignature: string) {
     this.connection = RpcConnectionManager.getRandomConnection()
     this.tokenUtils = new TokenUtils(this.connection)
@@ -133,6 +167,13 @@ export class TransactionParser {
         }
       }
 
+      if ((swap === 'pumpfun_amm' || swap === 'pumpfun' || swap === 'mint_pumpfun') && totalSolSwapped <= 0) {
+        const fallbackSolAmount = Math.abs(Number(nativeBalance?.balanceChange) || 0)
+        if (fallbackSolAmount > 0) {
+          totalSolSwapped = fallbackSolAmount
+        }
+      }
+
       const raydiumTransfer =
         transactions.length > 2
           ? transactions.find((t: any) => t?.info?.destination === transactions[0]?.info?.source)
@@ -150,18 +191,23 @@ export class TransactionParser {
 
       if (swap === 'pumpfun_amm') {
         if (nativeBalance?.type === 'sell') {
-          tokenOutMint = transactions[0]?.info.mint
-          tokenInMint = 'So11111111111111111111111111111111111111112'
+          tokenOutMint = this.getPumpAmmTokenMint(transactions) || ''
+          tokenInMint = TransactionParser.SOL_MINT
+
+          if (!tokenOutMint) {
+            console.log('NO TOKEN OUT MINT')
+            return
+          }
 
           const tokenOutInfo = await this.tokenUtils.getParsedTokenInfo(tokenOutMint)
 
           tokenOut = tokenOutInfo.data.symbol.replace(/\x00/g, '')
           tokenIn = 'SOL'
         } else {
-          tokenInMint = transactions[0]?.info.mint
-          tokenOutMint = 'So11111111111111111111111111111111111111112'
+          tokenInMint = this.getPumpAmmTokenMint(transactions) || ''
+          tokenOutMint = TransactionParser.SOL_MINT
 
-          if (tokenInMint === null) {
+          if (!tokenInMint) {
             console.log('NO TOKEN IN MINT')
             return
           }
@@ -172,7 +218,10 @@ export class TransactionParser {
           tokenOut = 'SOL'
         }
 
-        const formattedAmount = FormatNumbers.formatTokenAmount(Number(transactions[0]?.info?.tokenAmount.amount) || 0)
+        const formattedAmount = this.formatPumpAmmUiAmount(
+          transactions,
+          nativeBalance?.type === 'sell' ? tokenOutMint : tokenInMint,
+        )
 
         amountOut = nativeBalance?.type === 'sell' ? formattedAmount : totalSolSwapped.toFixed(2).toString()
         amountIn = nativeBalance?.type === 'sell' ? totalSolSwapped.toFixed(2).toString() : formattedAmount

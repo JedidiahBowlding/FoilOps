@@ -173,9 +173,16 @@ export class TokenMarketPrice {
     try {
       const tokenBalance = await this.connection.getTokenAccountBalance(tokenAccountAddress)
       return tokenBalance.value.amount
-    } catch (error) {
+    } catch (error: any) {
+      const message = String(error?.message || '')
+
+      if (message.includes('could not find account')) {
+        // Missing/closed token accounts are normal on some routes; treat as zero balance.
+        return '0'
+      }
+
       console.log('Error fetching token balance:', error)
-      return
+      return '0'
     }
   }
 }
