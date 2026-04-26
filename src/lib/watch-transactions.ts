@@ -48,6 +48,9 @@ export class WatchTransaction extends EventEmitter {
     Number(process.env.WATCHLIST_ROTATE_COOLDOWN_MS || 120000),
   )
   private static readonly watchlistRotateLastByWallet: Map<string, number> = new Map()
+  private static readonly MAX_RETRY_DELAY_MS = 15000 // Cap backoff at 15s (instead of unbounded exponential)
+  private static readonly CONSECUTIVE_429_THRESHOLD = 5 // Mark endpoints unhealthy after 5 consecutive 429s
+  private static consecutiveRateLimitErrors = 0
 
   constructor() {
     super()
@@ -496,6 +499,14 @@ export class WatchTransaction extends EventEmitter {
   }
 
   public async getParsedTransaction(transactionSignature: string, retries = 4) {
+    // If we've hit the rate limit threshold, fail fast to prevent cascade
+    if (WatchTransaction.consecutiveRateLimitErrors >= WatchTransaction.CONSECUTIVE_429_THRESHOLD) {
+      console.warn(
+        `Circuit breaker triggered: ${WatchTransaction.consecutiveRateLimitErrors} consecutive 429 errors. Rejecting transaction fetch for ${transactionSignature}`,
+      )
+      return null
+    }
+
     for (let attempt = 1; attempt <= retries; attempt++) {
       const { connection, endpointUrl } = RpcConnectionManager.getConnectionByAttempt(attempt - 1)
       let lastErrorReason = ''
@@ -514,6 +525,8 @@ export class WatchTransaction extends EventEmitter {
         ])) as Awaited<ReturnType<Connection['getParsedTransactions']>>
 
         if (transactionDetails && transactionDetails[0] !== null) {
+          // Reset consecutive 429 counter on success
+          WatchTransaction.consecutiveRateLimitErrors = 0
           return transactionDetails
         }
 
@@ -522,6 +535,16 @@ export class WatchTransaction extends EventEmitter {
         )
       } catch (error: unknown) {
         lastErrorReason = this.getRpcErrorReason(error)
+        
+        // Track consecutive 429 errors for circuit breaker
+        if (lastErrorReason.toLowerCase().includes('429') || lastErrorReason.toLowerCase().includes('too many requests')) {
+          WatchTransaction.consecutiveRateLimitErrors++
+          console.warn(`Rate limit error (${WatchTransaction.consecutiveRateLimitErrors}/${WatchTransaction.CONSECUTIVE_429_THRESHOLD}): ${lastErrorReason}`)
+        } else {
+          // Reset counter on non-429 errors
+          WatchTransaction.consecutiveRateLimitErrors = 0
+        }
+
         if (this.shouldCooldownRpcEndpoint(error)) {
           RpcConnectionManager.markEndpointUnhealthy(endpointUrl, lastErrorReason)
         }
@@ -531,11 +554,16 @@ export class WatchTransaction extends EventEmitter {
         )
       }
 
-      // Delay before retrying
+      // Delay before retrying - CAPPED to prevent exponential explosion
       const reason = lastErrorReason.toLowerCase()
-      const retryDelayMs =
+      const baseDelayMs =
         reason.includes('429') || reason.includes('too many requests') ? 2500 * attempt : 1000 * attempt
-      await new Promise((resolve) => setTimeout(resolve, retryDelayMs))
+      const cappedDelayMs = Math.min(baseDelayMs, WatchTransaction.MAX_RETRY_DELAY_MS)
+      
+      if (attempt < retries) {
+        console.log(`Waiting ${cappedDelayMs}ms before retry attempt ${attempt + 1}...`)
+        await new Promise((resolve) => setTimeout(resolve, cappedDelayMs))
+      }
     }
 
     console.error(`Failed to fetch transaction details after ${retries} retries for signature:`, transactionSignature)
