@@ -38,6 +38,22 @@ export class HelpCommand {
     return chunks
   }
 
+  private async sendChunkWithRetry(sendFn: () => Promise<unknown>, retries = 4): Promise<void> {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        await sendFn()
+        return
+      } catch (error: unknown) {
+        const e = error as { response?: { statusCode?: number; body?: { parameters?: { retry_after?: number } } } }
+        const is429 =
+          e?.response?.statusCode === 429 || String((error as Error)?.message || '').includes('Too Many Requests')
+        if (!is429 || attempt >= retries) throw error
+        const retryAfterMs = Math.ceil((Number(e?.response?.body?.parameters?.retry_after) || attempt * 5) * 1000)
+        await new Promise((r) => setTimeout(r, retryAfterMs))
+      }
+    }
+  }
+
   private async sendCommandDirectory(chatId: number, firstChunkAsEdit?: { messageId: number }) {
     const chunks = this.buildDirectoryChunks()
 
@@ -46,25 +62,25 @@ export class HelpCommand {
     }
 
     if (firstChunkAsEdit) {
-      await this.bot.editMessageText(chunks[0], {
-        chat_id: chatId,
-        message_id: firstChunkAsEdit.messageId,
-        parse_mode: 'HTML',
-        reply_markup: SUB_MENU,
-      })
+      await this.sendChunkWithRetry(() =>
+        this.bot.editMessageText(chunks[0], {
+          chat_id: chatId,
+          message_id: firstChunkAsEdit.messageId,
+          parse_mode: 'HTML',
+          reply_markup: SUB_MENU,
+        }),
+      )
 
       for (let i = 1; i < chunks.length; i += 1) {
-        await this.bot.sendMessage(chatId, chunks[i], {
-          parse_mode: 'HTML',
-        })
+        await new Promise((r) => setTimeout(r, 300))
+        await this.sendChunkWithRetry(() => this.bot.sendMessage(chatId, chunks[i], { parse_mode: 'HTML' }))
       }
       return
     }
 
     for (let i = 0; i < chunks.length; i += 1) {
-      await this.bot.sendMessage(chatId, chunks[i], {
-        parse_mode: 'HTML',
-      })
+      if (i > 0) await new Promise((r) => setTimeout(r, 300))
+      await this.sendChunkWithRetry(() => this.bot.sendMessage(chatId, chunks[i], { parse_mode: 'HTML' }))
     }
   }
 

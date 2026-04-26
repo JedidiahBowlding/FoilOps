@@ -42,12 +42,27 @@ export class StartCommand {
     return chunks
   }
 
+  private async sendChunkWithRetry(sendFn: () => Promise<unknown>, retries = 4): Promise<void> {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        await sendFn()
+        return
+      } catch (error: unknown) {
+        const e = error as { response?: { statusCode?: number; body?: { parameters?: { retry_after?: number } } } }
+        const is429 =
+          e?.response?.statusCode === 429 || String((error as Error)?.message || '').includes('Too Many Requests')
+        if (!is429 || attempt >= retries) throw error
+        const retryAfterMs = Math.ceil((Number(e?.response?.body?.parameters?.retry_after) || attempt * 5) * 1000)
+        await new Promise((r) => setTimeout(r, retryAfterMs))
+      }
+    }
+  }
+
   private async sendCommandDirectory(chatId: number) {
     const chunks = this.buildDirectoryChunks()
-    for (const chunk of chunks) {
-      await this.bot.sendMessage(chatId, chunk, {
-        parse_mode: 'HTML',
-      })
+    for (let i = 0; i < chunks.length; i += 1) {
+      if (i > 0) await new Promise((r) => setTimeout(r, 300))
+      await this.sendChunkWithRetry(() => this.bot.sendMessage(chatId, chunks[i], { parse_mode: 'HTML' }))
     }
   }
 
