@@ -38,6 +38,7 @@ import {
   isBlockedTrackingWallet,
   isSolanaWallet,
   parseWalletInput,
+  parseSourceWalletInput,
   toStoredWalletAddress,
 } from './lib/wallet-chain'
 import {
@@ -488,7 +489,7 @@ class Main {
       try {
         const action = typeof req.body?.action === 'string' ? req.body.action.trim().toLowerCase() : ''
         const walletInput = typeof req.body?.wallet === 'string' ? req.body.wallet.trim() : ''
-        const parsedWallet = parseWalletInput(walletInput)
+        const parsedWallet = parseSourceWalletInput(walletInput)
 
         if (!['add', 'remove', 'cap', 'uncap', 'profile'].includes(action)) {
           res.status(400).json({ message: 'Unsupported source wallet action.' })
@@ -496,7 +497,7 @@ class Main {
         }
 
         if (!parsedWallet || parsedWallet.chain !== 'solana') {
-          res.status(400).json({ message: 'Source wallet controls currently support Solana wallet addresses only.' })
+          res.status(400).json({ message: 'Source wallet controls currently support Solana addresses only.' })
           return
         }
 

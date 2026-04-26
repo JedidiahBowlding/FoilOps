@@ -20,6 +20,21 @@ export function isSolanaWallet(address: string): boolean {
   }
 }
 
+// Accept any valid Solana public key (including off-curve PDA/program-style addresses).
+export function isSolanaAddress(address: string): boolean {
+  if (!BASE58_REGEX.test(address)) {
+    return false
+  }
+
+  try {
+    // Constructor validates base58 and key length.
+    new PublicKey(address)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export function isEvmWallet(address: string): boolean {
   return EVM_REGEX.test(address)
 }
@@ -51,6 +66,30 @@ export function parseWalletInput(input: string): { chain: WalletChain; address: 
   }
 
   if (isSolanaWallet(trimmed)) {
+    return { chain: 'solana', address: trimmed }
+  }
+
+  return null
+}
+
+// Source-wallet controls should allow Solana addresses even when they are off-curve.
+export function parseSourceWalletInput(input: string): { chain: 'solana'; address: string } | null {
+  const trimmed = input.trim()
+  if (!trimmed) {
+    return null
+  }
+
+  const prefixed = trimmed.match(/^(sol|solana|eth|ethereum|bnb)\s*:\s*(.+)$/i)
+  if (prefixed) {
+    const prefix = prefixed[1].toLowerCase()
+    const rawAddress = prefixed[2].trim()
+    if ((prefix === 'sol' || prefix === 'solana') && isSolanaAddress(rawAddress)) {
+      return { chain: 'solana', address: rawAddress }
+    }
+    return null
+  }
+
+  if (isSolanaAddress(trimmed)) {
     return { chain: 'solana', address: trimmed }
   }
 
