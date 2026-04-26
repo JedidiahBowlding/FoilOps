@@ -839,6 +839,9 @@ export class TradingOpsDashboard {
             + (warning ? '<div style="margin-top:6px">' + warning + '</div>' : '')
             + '</div>'
             + '<div class="button-row">'
+            + (wallet.chain === 'solana'
+              ? '<button type="button" class="fx-button secondary" data-open-wallet-profile="' + escapeHtml(wallet.displayAddress) + '">Profile</button>'
+              : '')
             + '<button type="button" class="fx-button secondary" data-open-graph="' + escapeHtml(wallet.displayAddress) + '">Open Graph</button>'
             + '<button type="button" data-remove-wallet="' + escapeHtml(wallet.displayAddress) + '">Remove</button>'
             + '</div>'
@@ -1037,6 +1040,12 @@ export class TradingOpsDashboard {
         const graphWallet = target.getAttribute('data-open-graph')
         if (graphWallet) {
           window.location.assign('/graph/' + encodeURIComponent(graphWallet))
+          return
+        }
+
+        const profileWallet = target.getAttribute('data-open-wallet-profile')
+        if (profileWallet) {
+          window.location.assign('/dashboard/wallet-profile/' + encodeURIComponent(profileWallet))
         }
       })
 

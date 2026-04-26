@@ -31,8 +31,15 @@ import { TradingOpsDashboard } from './lib/trading-ops-dashboard'
 import { TradingAnalyticsStore, TradingAnalyticsSnapshot } from './lib/trading-analytics-store'
 import { DashboardAuth } from './lib/dashboard-auth'
 import { renderHomepageHtml } from './lib/homepage'
+import { renderFuturisticPage } from './lib/site-theme'
 import { PrismaWalletRepository } from './repositories/prisma/wallet'
-import { fromStoredWalletAddress, parseWalletInput, toStoredWalletAddress } from './lib/wallet-chain'
+import {
+  fromStoredWalletAddress,
+  isBlockedTrackingWallet,
+  isSolanaWallet,
+  parseWalletInput,
+  toStoredWalletAddress,
+} from './lib/wallet-chain'
 import {
   buildTradingSettingsOperations,
   getTradingBotBaseUrl,
@@ -73,6 +80,11 @@ class Main {
   private prismaWalletRepository: PrismaWalletRepository
   private foilOpsRepository: FoilOpsRepository
   private readonly tradingBotUrl: string
+
+  private isScamMonitorEnabled(): boolean {
+    return process.env.SCAM_MONITOR_ENABLED === 'true'
+  }
+
   constructor(private app: Express = express()) {
     this.setupMiddleware()
 
@@ -171,6 +183,39 @@ class Main {
       } catch (error) {
         console.error('Trading ops dashboard error', error)
         res.status(500).send('Failed to render trading ops dashboard')
+      }
+    })
+
+    this.app.get('/dashboard/wallet-profile/:wallet', this.dashboardAuth.requirePageAuth, async (req, res) => {
+      try {
+        const walletInput = decodeURIComponent(String(req.params.wallet || '')).trim()
+        if (!isSolanaWallet(walletInput)) {
+          res.status(400).send('Wallet profile currently supports Solana wallet addresses only.')
+          return
+        }
+
+        res.setHeader('Content-Type', 'text/html; charset=utf-8')
+        res.status(200).send(this.renderWalletProfileDashboard(walletInput))
+      } catch (error) {
+        console.error('Wallet profile page error', error)
+        res.status(500).send('Failed to render wallet profile dashboard')
+      }
+    })
+
+    this.app.get('/api/wallet-profile/:wallet', this.dashboardAuth.requireApiAuth, async (req, res) => {
+      try {
+        const walletInput = decodeURIComponent(String(req.params.wallet || '')).trim()
+        if (!isSolanaWallet(walletInput)) {
+          res.status(400).json({ message: 'Wallet profile currently supports Solana wallet addresses only.' })
+          return
+        }
+
+        const data = await this.fetchWalletProfileFromSolscan(walletInput)
+        res.status(200).json(data)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to load wallet profile'
+        console.error('Wallet profile API error', error)
+        res.status(500).json({ message })
       }
     })
 
@@ -296,6 +341,13 @@ class Main {
         }
 
         const storedWalletAddress = toStoredWalletAddress(parsedWallet.chain, parsedWallet.address)
+
+        if (isBlockedTrackingWallet(parsedWallet.chain, parsedWallet.address)) {
+          res.status(400).json({
+            message: `Wallet ${walletInput} cannot be tracked because it is a reserved program address.`,
+          })
+          return
+        }
 
         if (action === 'add') {
           const existingWallet = await this.prismaWalletRepository.getUserWalletById(adminUserId, storedWalletAddress)
@@ -732,6 +784,162 @@ class Main {
     return badges
   }
 
+  private async fetchWalletProfileFromSolscan(walletAddress: string): Promise<Record<string, unknown>> {
+    const [accountResult, transactionsResult, transfersResult, tokenAccountsResult] = await Promise.allSettled([
+      this.fetchSolscanJson('/account/detail', { address: walletAddress }),
+      this.fetchSolscanJson('/account/transactions', { address: walletAddress, limit: 30, offset: 0 }),
+      this.fetchSolscanJson('/account/transfer', { address: walletAddress, limit: 30, offset: 0 }),
+      this.fetchSolscanJson('/account/token-accounts', {
+        address: walletAddress,
+        type: 'token',
+        hide_zero: 'true',
+        page: 1,
+        page_size: 50,
+      }),
+    ])
+
+    const sectionOrNull = (result: PromiseSettledResult<Record<string, unknown>>) =>
+      result.status === 'fulfilled' ? result.value : null
+    const sectionError = (result: PromiseSettledResult<Record<string, unknown>>) =>
+      result.status === 'rejected'
+        ? String(result.reason instanceof Error ? result.reason.message : result.reason)
+        : null
+
+    return {
+      wallet: walletAddress,
+      source: 'solscan',
+      fetchedAt: new Date().toISOString(),
+      account: sectionOrNull(accountResult),
+      transactions: sectionOrNull(transactionsResult),
+      transfers: sectionOrNull(transfersResult),
+      tokenAccounts: sectionOrNull(tokenAccountsResult),
+      errors: {
+        account: sectionError(accountResult),
+        transactions: sectionError(transactionsResult),
+        transfers: sectionError(transfersResult),
+        tokenAccounts: sectionError(tokenAccountsResult),
+      },
+    }
+  }
+
+  private async fetchSolscanJson(path: string, params: Record<string, string | number>) {
+    const baseUrl = (process.env.SOLSCAN_API_BASE_URL || 'https://pro-api.solscan.io/v2.0').trim().replace(/\/$/, '')
+    const apiKey = process.env.SOLSCAN_API_KEY?.trim()
+
+    const response = await axios.get(`${baseUrl}${path}`, {
+      params,
+      timeout: 10_000,
+      headers: {
+        Accept: 'application/json',
+        ...(apiKey ? { token: apiKey } : {}),
+      },
+    })
+
+    return (response.data || {}) as Record<string, unknown>
+  }
+
+  private renderWalletProfileDashboard(walletAddress: string): string {
+    const escapedWallet = walletAddress
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+
+    return renderFuturisticPage({
+      title: `Wallet Profile ${escapedWallet}`,
+      activeNav: 'trading',
+      heroHtml: `
+        <section class="hero">
+          <div>
+            <p class="fx-eyebrow">Wallet Intelligence</p>
+            <h1>Wallet Profile</h1>
+            <p class="fx-lead">On-site wallet profile powered by Solscan API data. Stay in your dashboard while reviewing activity, transfers, and token holdings.</p>
+          </div>
+          <div class="card" style="min-width:280px">
+            <p class="eyebrow">Wallet</p>
+            <div class="big" style="font-size:1rem;word-break:break-all">${escapedWallet}</div>
+            <p id="wallet-profile-status">Loading profile...</p>
+          </div>
+        </section>
+      `,
+      contentHtml: `
+        <section class="section">
+          <div class="button-row">
+            <a class="fx-button secondary" href="/dashboard/trading-ops">Back To Trading Ops</a>
+            <a class="fx-button secondary" href="/graph/${encodeURIComponent(walletAddress)}">Open Graph View</a>
+          </div>
+        </section>
+
+        <section class="section table-card">
+          <div class="section-header"><div class="section-header-copy"><h2>Account Summary</h2></div></div>
+          <pre id="wallet-account-json" style="white-space:pre-wrap;word-break:break-word;margin:0">Loading...</pre>
+        </section>
+
+        <section class="section table-card">
+          <div class="section-header"><div class="section-header-copy"><h2>Recent Transactions</h2></div></div>
+          <pre id="wallet-transactions-json" style="white-space:pre-wrap;word-break:break-word;margin:0">Loading...</pre>
+        </section>
+
+        <section class="section table-card">
+          <div class="section-header"><div class="section-header-copy"><h2>Recent Transfers</h2></div></div>
+          <pre id="wallet-transfers-json" style="white-space:pre-wrap;word-break:break-word;margin:0">Loading...</pre>
+        </section>
+
+        <section class="section table-card">
+          <div class="section-header"><div class="section-header-copy"><h2>Token Accounts</h2></div></div>
+          <pre id="wallet-token-accounts-json" style="white-space:pre-wrap;word-break:break-word;margin:0">Loading...</pre>
+        </section>
+      `,
+      scriptHtml: `<script>
+        const wallet = ${JSON.stringify(walletAddress)}
+        const statusEl = document.getElementById('wallet-profile-status')
+        const accountEl = document.getElementById('wallet-account-json')
+        const transactionsEl = document.getElementById('wallet-transactions-json')
+        const transfersEl = document.getElementById('wallet-transfers-json')
+        const tokenAccountsEl = document.getElementById('wallet-token-accounts-json')
+
+        function writeJson(target, value) {
+          if (!target) return
+          target.textContent = JSON.stringify(value ?? {}, null, 2)
+        }
+
+        async function loadProfile() {
+          try {
+            const response = await fetch('/api/wallet-profile/' + encodeURIComponent(wallet), {
+              method: 'GET',
+              headers: { 'Content-Type': 'application/json' },
+            })
+            const payload = await response.json().catch(() => ({ message: 'Invalid response' }))
+            if (!response.ok) {
+              throw new Error(payload.message || 'Failed to load wallet profile')
+            }
+
+            writeJson(accountEl, payload.account)
+            writeJson(transactionsEl, payload.transactions)
+            writeJson(transfersEl, payload.transfers)
+            writeJson(tokenAccountsEl, payload.tokenAccounts)
+            if (statusEl) {
+              const hasErrors = Object.values(payload.errors || {}).some((value) => Boolean(value))
+              statusEl.textContent = hasErrors
+                ? 'Profile loaded with partial errors. Check section payloads below.'
+                : 'Profile loaded successfully.'
+            }
+          } catch (error) {
+            const message = error && error.message ? error.message : 'Failed to load wallet profile'
+            if (statusEl) statusEl.textContent = message
+            writeJson(accountEl, { error: message })
+            writeJson(transactionsEl, { error: message })
+            writeJson(transfersEl, { error: message })
+            writeJson(tokenAccountsEl, { error: message })
+          }
+        }
+
+        loadProfile()
+      </script>`,
+    })
+  }
+
   private startServer(): void {
     this.app.listen(PORT, () =>
       console.log(`${chalk.bold.white.bgMagenta(`Server running on http://localhost:${PORT}`)}`),
@@ -763,7 +971,11 @@ class Main {
 
     // setup
     await this.trackWallets.setupWalletWatcher({ event: 'initial' })
-    await this.scamWalletMonitor.init()
+    if (this.isScamMonitorEnabled()) {
+      await this.scamWalletMonitor.init()
+    } else {
+      console.log('SCAM_MONITOR: disabled (set SCAM_MONITOR_ENABLED=true to enable)')
+    }
   }
 }
 

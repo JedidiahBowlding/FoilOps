@@ -535,11 +535,16 @@ export class WatchTransaction extends EventEmitter {
         )
       } catch (error: unknown) {
         lastErrorReason = this.getRpcErrorReason(error)
-        
+
         // Track consecutive 429 errors for circuit breaker
-        if (lastErrorReason.toLowerCase().includes('429') || lastErrorReason.toLowerCase().includes('too many requests')) {
+        if (
+          lastErrorReason.toLowerCase().includes('429') ||
+          lastErrorReason.toLowerCase().includes('too many requests')
+        ) {
           WatchTransaction.consecutiveRateLimitErrors++
-          console.warn(`Rate limit error (${WatchTransaction.consecutiveRateLimitErrors}/${WatchTransaction.CONSECUTIVE_429_THRESHOLD}): ${lastErrorReason}`)
+          console.warn(
+            `Rate limit error (${WatchTransaction.consecutiveRateLimitErrors}/${WatchTransaction.CONSECUTIVE_429_THRESHOLD}): ${lastErrorReason}`,
+          )
         } else {
           // Reset counter on non-429 errors
           WatchTransaction.consecutiveRateLimitErrors = 0
@@ -559,7 +564,7 @@ export class WatchTransaction extends EventEmitter {
       const baseDelayMs =
         reason.includes('429') || reason.includes('too many requests') ? 2500 * attempt : 1000 * attempt
       const cappedDelayMs = Math.min(baseDelayMs, WatchTransaction.MAX_RETRY_DELAY_MS)
-      
+
       if (attempt < retries) {
         console.log(`Waiting ${cappedDelayMs}ms before retry attempt ${attempt + 1}...`)
         await new Promise((resolve) => setTimeout(resolve, cappedDelayMs))

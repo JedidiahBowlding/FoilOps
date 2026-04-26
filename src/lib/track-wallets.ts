@@ -7,7 +7,7 @@ import { SetupWalletWatcherProps } from '../types/general-interfaces'
 import { WalletWithUsers } from '../types/swap-types'
 import { WatchTransaction } from './watch-transactions'
 import { WhaleWalletSelector } from './whale-wallet-selector'
-import { fromStoredWalletAddress } from './wallet-chain'
+import { fromStoredWalletAddress, isBlockedTrackingWallet } from './wallet-chain'
 import { evmWalletMonitor } from './evm-wallet-monitor'
 
 export class TrackWallets {
@@ -15,10 +15,29 @@ export class TrackWallets {
   private walletWatcher: WatchTransaction
   private whaleWalletSelector: WhaleWalletSelector
 
+  private isManualOnlyMode(): boolean {
+    const raw = (process.env.MANUAL_WALLET_TRACK_ONLY || 'true').trim().toLowerCase()
+    return raw !== 'false'
+  }
+
   constructor() {
     this.prismaWalletRepository = new PrismaWalletRepository()
     this.walletWatcher = new WatchTransaction()
     this.whaleWalletSelector = new WhaleWalletSelector()
+  }
+
+  private filterBlockedWallets(wallets: WalletWithUsers[]): WalletWithUsers[] {
+    const filtered = wallets.filter((wallet) => {
+      const parsed = fromStoredWalletAddress(wallet.address)
+      return !isBlockedTrackingWallet(parsed.chain, parsed.address)
+    })
+
+    const blockedCount = wallets.length - filtered.length
+    if (blockedCount > 0) {
+      console.log(`TRACKING_GUARD: skipped ${blockedCount} blocked wallet(s) from active watcher pool`)
+    }
+
+    return filtered
   }
 
   public async setupWalletWatcher({ event, userId, walletId }: SetupWalletWatcherProps): Promise<void> {
@@ -168,21 +187,26 @@ export class TrackWallets {
         }
       }
 
-      const autoWhaleAddresses = await this.whaleWalletSelector.selectTopActiveWhales()
+      if (this.isManualOnlyMode()) {
+        console.log('MANUAL_TRACK_ONLY: enabled, skipping auto whale wallet discovery')
+        WalletPool.wallets = this.filterBlockedWallets([...userWallets])
+      } else {
+        const autoWhaleAddresses = await this.whaleWalletSelector.selectTopActiveWhales()
 
-      const existingAddresses = new Set(userWallets.map((wallet) => wallet.address))
-      const autoWhaleWallets = autoWhaleAddresses
-        .filter((address) => !existingAddresses.has(address))
-        .map(
-          (address) =>
-            ({
-              id: `auto-whale:${address}`,
-              address,
-              userWallets: [],
-            }) as unknown as WalletWithUsers,
-        )
+        const existingAddresses = new Set(userWallets.map((wallet) => wallet.address))
+        const autoWhaleWallets = autoWhaleAddresses
+          .filter((address) => !existingAddresses.has(address))
+          .map(
+            (address) =>
+              ({
+                id: `auto-whale:${address}`,
+                address,
+                userWallets: [],
+              }) as unknown as WalletWithUsers,
+          )
 
-      WalletPool.wallets = [...userWallets, ...autoWhaleWallets]
+        WalletPool.wallets = this.filterBlockedWallets([...userWallets, ...autoWhaleWallets])
+      }
       await evmWalletMonitor.refreshFromWalletPool(WalletPool.wallets)
       const solanaWallets = WalletPool.wallets.filter(
         (wallet) => fromStoredWalletAddress(wallet.address).chain === 'solana',

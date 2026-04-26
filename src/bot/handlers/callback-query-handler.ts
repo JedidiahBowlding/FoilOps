@@ -30,6 +30,7 @@ import axios from 'axios'
 import { PrismaWalletRepository } from '../../repositories/prisma/wallet'
 import { TrackWallets } from '../../lib/track-wallets'
 import { getTradingBotBaseUrl } from '../../lib/web-control-utils'
+import { isBlockedTrackingWallet } from '../../lib/wallet-chain'
 
 export class CallbackQueryHandler {
   private addCommand: AddCommand
@@ -107,6 +108,17 @@ export class CallbackQueryHandler {
         if (!BotMiddleware.isUserBotAdmin(userId)) return
         const addr = data.slice(3).trim()
         if (!addr) return
+        if (isBlockedTrackingWallet('solana', addr)) {
+          await this.bot.sendMessage(
+            chatId,
+            `❌ <code>${addr}</code> is a reserved program address and cannot be tracked.`,
+            {
+              parse_mode: 'HTML',
+              reply_markup: SUB_MENU,
+            },
+          )
+          return
+        }
         try {
           const existing = await this.prismaWalletRepository.getUserWalletById(userId, addr)
           if (existing) {

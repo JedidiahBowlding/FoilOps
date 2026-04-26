@@ -2,6 +2,9 @@ import { PublicKey } from '@solana/web3.js'
 
 export type WalletChain = 'solana' | 'ethereum' | 'bnb'
 
+// Reserved/non-user addresses that should never be tracked as wallets.
+const BLOCKED_TRACKING_WALLETS = new Set<string>(['MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'])
+
 const BASE58_REGEX = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/
 const EVM_REGEX = /^0x[a-fA-F0-9]{40}$/
 
@@ -52,6 +55,14 @@ export function parseWalletInput(input: string): { chain: WalletChain; address: 
   }
 
   return null
+}
+
+export function isBlockedTrackingWallet(chain: WalletChain, address: string): boolean {
+  if (chain !== 'solana') {
+    return false
+  }
+
+  return BLOCKED_TRACKING_WALLETS.has(address)
 }
 
 export function toStoredWalletAddress(chain: WalletChain, address: string): string {

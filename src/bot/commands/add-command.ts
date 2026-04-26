@@ -12,7 +12,7 @@ import { GeneralMessages } from '../messages/general-messages'
 import { BANNED_WALLETS } from '../../constants/banned-wallets'
 import { BotMiddleware } from '../../config/bot-middleware'
 import { SubscriptionMessages } from '../messages/subscription-messages'
-import { parseWalletInput, toStoredWalletAddress } from '../../lib/wallet-chain'
+import { isBlockedTrackingWallet, parseWalletInput, toStoredWalletAddress } from '../../lib/wallet-chain'
 
 export class AddCommand {
   private prismaWalletRepository: PrismaWalletRepository
@@ -107,6 +107,14 @@ export class AddCommand {
 
           const walletAddress = parsedWallet.address
           const storedWalletAddress = toStoredWalletAddress(parsedWallet.chain, parsedWallet.address)
+
+          if (isBlockedTrackingWallet(parsedWallet.chain, parsedWallet.address)) {
+            this.bot.sendMessage(
+              message.chat.id,
+              `😾 Wallet ${walletAddress} is a reserved program address and cannot be tracked.`,
+            )
+            continue
+          }
 
           // check for bot wallets
           if (BANNED_WALLETS.has(walletAddress)) {
