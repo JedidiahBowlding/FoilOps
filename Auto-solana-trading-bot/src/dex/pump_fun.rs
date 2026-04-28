@@ -16,24 +16,15 @@ use std::time::Duration;
 
 const SOL_MINT: &str = "So11111111111111111111111111111111111111112";
 
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct JupiterQuoteResponse {
-    input_mint: String,
-    output_mint: String,
-    in_amount: String,
-    out_amount: String,
-    slippage_bps: u64,
-    route_plan: Vec<serde_json::Value>,
-}
-
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct JupiterSwapRequest {
-    quote_response: JupiterQuoteResponse,
+    quote_response: serde_json::Value,
     user_public_key: String,
     wrap_and_unwrap_sol: bool,
     dynamic_compute_unit_limit: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    prioritization_fee_lamports: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -61,6 +52,13 @@ impl Pump {
         }
     }
 
+    fn jupiter_priority_fee_lamports() -> Option<u64> {
+        env::var("JUPITER_PRIORITY_FEE_LAMPORTS")
+            .ok()
+            .and_then(|value| value.trim().parse::<u64>().ok())
+            .filter(|value| *value > 0)
+    }
+
     async fn execute_jupiter_swap(
         &self,
         input_mint: &str,
@@ -86,26 +84,40 @@ impl Pump {
             );
 
             let quote_response = match http_client.get(&quote_url).send().await {
-                Ok(resp) => match resp.error_for_status() {
-                    Ok(ok_resp) => match ok_resp.json::<JupiterQuoteResponse>().await {
+                Ok(resp) => {
+                    let status = resp.status();
+                    if !status.is_success() {
+                        let body = resp.text().await.unwrap_or_else(|_| "<unable_to_read_body>".to_string());
+                        endpoint_errors.push(format!(
+                            "{} quote_http_error: status={} body={}",
+                            base,
+                            status,
+                            body
+                        ));
+                        continue;
+                    }
+
+                    match resp.json::<serde_json::Value>().await {
                         Ok(parsed) => parsed,
                         Err(e) => {
                             endpoint_errors.push(format!("{} quote_decode_failed: {}", base, e));
                             continue;
                         }
-                    },
-                    Err(e) => {
-                        endpoint_errors.push(format!("{} quote_http_error: {}", base, e));
-                        continue;
                     }
-                },
+                }
                 Err(e) => {
                     endpoint_errors.push(format!("{} quote_request_failed: {}", base, e));
                     continue;
                 }
             };
 
-            if quote_response.route_plan.is_empty() {
+            let has_route = quote_response
+                .get("routePlan")
+                .and_then(|value| value.as_array())
+                .map(|routes| !routes.is_empty())
+                .unwrap_or(false);
+
+            if !has_route {
                 endpoint_errors.push(format!("{} no_route_found_for_token", base));
                 continue;
             }
@@ -115,23 +127,32 @@ impl Pump {
                 user_public_key: self.wallet.pubkey().to_string(),
                 wrap_and_unwrap_sol: true,
                 dynamic_compute_unit_limit: true,
+                prioritization_fee_lamports: Self::jupiter_priority_fee_lamports(),
             };
 
             let swap_url = format!("{}/swap", base);
             let swap_response = match http_client.post(&swap_url).json(&swap_payload).send().await {
-                Ok(resp) => match resp.error_for_status() {
-                    Ok(ok_resp) => match ok_resp.json::<JupiterSwapResponse>().await {
+                Ok(resp) => {
+                    let status = resp.status();
+                    if !status.is_success() {
+                        let body = resp.text().await.unwrap_or_else(|_| "<unable_to_read_body>".to_string());
+                        endpoint_errors.push(format!(
+                            "{} swap_http_error: status={} body={}",
+                            base,
+                            status,
+                            body
+                        ));
+                        continue;
+                    }
+
+                    match resp.json::<JupiterSwapResponse>().await {
                         Ok(parsed) => parsed,
                         Err(e) => {
                             endpoint_errors.push(format!("{} swap_decode_failed: {}", base, e));
                             continue;
                         }
-                    },
-                    Err(e) => {
-                        endpoint_errors.push(format!("{} swap_http_error: {}", base, e));
-                        continue;
                     }
-                },
+                }
                 Err(e) => {
                     endpoint_errors.push(format!("{} swap_request_failed: {}", base, e));
                     continue;
@@ -183,7 +204,6 @@ impl Pump {
             vec![
                 "https://api.jup.ag/swap/v1".to_string(),
                 "https://lite-api.jup.ag/swap/v1".to_string(),
-                "https://quote-api.jup.ag/v6".to_string(),
             ]
         } else {
             parsed
