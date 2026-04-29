@@ -17,6 +17,8 @@ export type TradingSettingsInput = {
   minAlertQualityScore?: number
   minTraceAlerts?: number
   buyOncePerToken?: boolean
+  stopLossPercentage?: number
+  takeProfitPercentage?: number
 }
 
 type TradingOperation = {
@@ -97,6 +99,14 @@ export function buildTradingSettingsOperations(input: TradingSettingsInput): Tra
 
   if (typeof input.buyOncePerToken === 'boolean') {
     operations.push({ path: '/trading/buy-once-per-token', body: { enabled: input.buyOncePerToken } })
+  }
+
+  if (Number.isFinite(input.stopLossPercentage)) {
+    operations.push({ path: '/trading/stop-loss', body: { stop_loss_percentage: input.stopLossPercentage } })
+  }
+
+  if (Number.isFinite(input.takeProfitPercentage)) {
+    operations.push({ path: '/trading/take-profit', body: { take_profit_percentage: input.takeProfitPercentage } })
   }
 
   return operations

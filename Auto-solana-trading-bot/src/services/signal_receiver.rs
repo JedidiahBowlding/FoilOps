@@ -245,6 +245,8 @@ pub async fn start_signal_receiver(
         .route("/trading/source-wallets", get(get_source_wallets).post(update_source_wallets))
         .route("/trading/alert-quality", get(get_alert_quality).post(set_alert_quality))
         .route("/trading/buy-once-per-token", get(get_buy_once_per_token).post(set_buy_once_per_token))
+        .route("/trading/stop-loss", get(get_stop_loss).post(set_stop_loss))
+        .route("/trading/take-profit", get(get_take_profit).post(set_take_profit))
         .route("/trading/journal", get(get_trade_journal))
         .route("/trading/metrics", get(get_metrics))
         .route("/trading/dead-letters", get(get_dead_letters))
@@ -983,6 +985,58 @@ async fn set_slippage(
             (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "message": result })))
         } else {
             (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "status": "error", "message": "Invalid slippage value" })))
+        }
+    } else {
+        (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
+    }
+}
+
+async fn get_stop_loss(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> Json<Value> {
+    if let Some(engine) = &state.execution_engine {
+        Json(serde_json::json!({ "stop_loss_percentage": engine.get_stop_loss_async().await }))
+    } else {
+        Json(serde_json::json!({ "stop_loss_percentage": 20.0 }))
+    }
+}
+
+async fn set_stop_loss(
+    State(state): State<Arc<SignalReceiverState>>,
+    Json(payload): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Some(engine) = &state.execution_engine {
+        if let Some(percentage) = payload["stop_loss_percentage"].as_f64() {
+            let result = engine.set_stop_loss_async(percentage).await;
+            (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "message": result })))
+        } else {
+            (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "status": "error", "message": "Invalid stop_loss_percentage value" })))
+        }
+    } else {
+        (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
+    }
+}
+
+async fn get_take_profit(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> Json<Value> {
+    if let Some(engine) = &state.execution_engine {
+        Json(serde_json::json!({ "take_profit_percentage": engine.get_take_profit_async().await }))
+    } else {
+        Json(serde_json::json!({ "take_profit_percentage": 50.0 }))
+    }
+}
+
+async fn set_take_profit(
+    State(state): State<Arc<SignalReceiverState>>,
+    Json(payload): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Some(engine) = &state.execution_engine {
+        if let Some(percentage) = payload["take_profit_percentage"].as_f64() {
+            let result = engine.set_take_profit_async(percentage).await;
+            (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "message": result })))
+        } else {
+            (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "status": "error", "message": "Invalid take_profit_percentage value" })))
         }
     } else {
         (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))

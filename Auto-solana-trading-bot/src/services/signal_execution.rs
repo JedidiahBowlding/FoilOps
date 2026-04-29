@@ -976,6 +976,28 @@ impl SignalExecutionEngine {
         state.config.slippage
     }
 
+    pub async fn set_stop_loss_async(&self, percentage: f64) -> String {
+        let mut state = self.state.lock().await;
+        state.config.stop_loss_percentage = percentage.max(1.0).min(99.0);
+        format!("STOP_LOSS_SET: {}%", state.config.stop_loss_percentage)
+    }
+
+    pub async fn get_stop_loss_async(&self) -> f64 {
+        let state = self.state.lock().await;
+        state.config.stop_loss_percentage
+    }
+
+    pub async fn set_take_profit_async(&self, percentage: f64) -> String {
+        let mut state = self.state.lock().await;
+        state.config.take_profit_percentage = percentage.max(1.0).min(999.0);
+        format!("TAKE_PROFIT_SET: {}%", state.config.take_profit_percentage)
+    }
+
+    pub async fn get_take_profit_async(&self) -> f64 {
+        let state = self.state.lock().await;
+        state.config.take_profit_percentage
+    }
+
     pub async fn set_target_wallet_async(&self, wallet: Option<String>) -> String {
         let mut state = self.state.lock().await;
         state.config.target_wallet = wallet.clone();

@@ -106,6 +106,8 @@ export class TradingOpsDashboard {
     const watchlist = Array.isArray(data.sources.watchlist) ? data.sources.watchlist : []
     const buyAmountSol = config.buyAmountSol || config.buy_amount_sol || ''
     const maxRiskScore = safety.maxRiskScore ?? safety.max_risk_score ?? ''
+    const stopLossPercentage = safety.stopLossPercentage ?? config.stop_loss_percentage ?? 20
+    const takeProfitPercentage = safety.takeProfitPercentage ?? config.take_profit_percentage ?? 50
     const minAlertQualityScore = safety.minAlertQualityScore ?? 0
     const minTraceAlerts = safety.minTraceAlerts ?? 0
     const buyOncePerToken = Boolean(config.buyOncePerToken ?? config.buy_once_per_token)
@@ -365,6 +367,12 @@ export class TradingOpsDashboard {
             </label>
             <label>Slippage
               <input name="slippage" type="number" step="0.01" min="0" value="${slippageValue}" />
+            </label>
+            <label>Stop Loss %
+              <input name="stopLossPercentage" type="number" step="1" min="1" max="99" value="${stopLossPercentage}" />
+            </label>
+            <label>Take Profit %
+              <input name="takeProfitPercentage" type="number" step="1" min="1" max="999" value="${takeProfitPercentage}" />
             </label>
             <label>Min alert quality score
               <input name="minAlertQualityScore" type="number" step="1" min="0" max="100" value="${minAlertQualityScore}" />
