@@ -1009,6 +1009,85 @@ impl SignalExecutionEngine {
         state.config.target_wallet.clone()
     }
 
+    pub async fn set_max_concurrent_trades_async(&self, value: usize) -> String {
+        let mut state = self.state.lock().await;
+        state.config.max_concurrent_trades = value.max(1).min(50);
+        format!("MAX_CONCURRENT_TRADES_SET: {}", state.config.max_concurrent_trades)
+    }
+
+    pub async fn get_max_concurrent_trades_async(&self) -> usize {
+        let state = self.state.lock().await;
+        state.config.max_concurrent_trades
+    }
+
+    pub async fn set_max_position_size_async(&self, sol: f64) -> String {
+        let mut state = self.state.lock().await;
+        state.config.max_position_size_sol = sol.max(0.001);
+        format!("MAX_POSITION_SIZE_SET: {} SOL", state.config.max_position_size_sol)
+    }
+
+    pub async fn get_max_position_size_async(&self) -> f64 {
+        let state = self.state.lock().await;
+        state.config.max_position_size_sol
+    }
+
+    pub async fn set_min_liquidity_usd_async(&self, usd: f64) -> String {
+        let mut state = self.state.lock().await;
+        state.config.min_liquidity_usd = usd.max(0.0);
+        format!("MIN_LIQUIDITY_USD_SET: ${}", state.config.min_liquidity_usd)
+    }
+
+    pub async fn get_min_liquidity_usd_async(&self) -> f64 {
+        let state = self.state.lock().await;
+        state.config.min_liquidity_usd
+    }
+
+    pub async fn set_allowed_dexes_async(&self, dexes: Vec<String>) -> String {
+        let mut state = self.state.lock().await;
+        state.config.allowed_dexes = dexes.clone();
+        format!("ALLOWED_DEXES_SET: [{}]", dexes.join(", "))
+    }
+
+    pub async fn get_allowed_dexes_async(&self) -> Vec<String> {
+        let state = self.state.lock().await;
+        state.config.allowed_dexes.clone()
+    }
+
+    pub async fn set_auto_block_source_wallet_async(&self, enabled: bool) -> String {
+        let mut state = self.state.lock().await;
+        state.config.auto_block_source_wallet_after_buy = enabled;
+        format!("AUTO_BLOCK_SOURCE_WALLET_SET: {}", enabled)
+    }
+
+    pub async fn get_auto_block_source_wallet_async(&self) -> bool {
+        let state = self.state.lock().await;
+        state.config.auto_block_source_wallet_after_buy
+    }
+
+    pub async fn set_denylist_async(&self, mints: Vec<String>) -> String {
+        let mut state = self.state.lock().await;
+        let count = mints.len();
+        state.config.denylist = mints;
+        format!("DENYLIST_SET: {} tokens", count)
+    }
+
+    pub async fn get_denylist_async(&self) -> Vec<String> {
+        let state = self.state.lock().await;
+        state.config.denylist.clone()
+    }
+
+    pub async fn set_allowlist_async(&self, mints: Vec<String>) -> String {
+        let mut state = self.state.lock().await;
+        let count = mints.len();
+        state.config.allowlist = mints;
+        format!("ALLOWLIST_SET: {} tokens", count)
+    }
+
+    pub async fn get_allowlist_async(&self) -> Vec<String> {
+        let state = self.state.lock().await;
+        state.config.allowlist.clone()
+    }
+
     pub async fn set_mev_service_async(&self, service: String) -> String {
         let mut state = self.state.lock().await;
         state.config.mev_service = service.clone();

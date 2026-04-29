@@ -19,6 +19,15 @@ export type TradingSettingsInput = {
   buyOncePerToken?: boolean
   stopLossPercentage?: number
   takeProfitPercentage?: number
+  mevService?: string
+  maxConcurrentTrades?: number
+  maxPositionSizeSol?: number
+  minLiquidityUsd?: number
+  allowedDexes?: string[]
+  targetWallet?: string
+  autoBlockSourceWalletAfterBuy?: boolean
+  denylist?: string[]
+  allowlist?: string[]
 }
 
 type TradingOperation = {
@@ -107,6 +116,42 @@ export function buildTradingSettingsOperations(input: TradingSettingsInput): Tra
 
   if (Number.isFinite(input.takeProfitPercentage)) {
     operations.push({ path: '/trading/take-profit', body: { take_profit_percentage: input.takeProfitPercentage } })
+  }
+
+  if (typeof input.mevService === 'string' && input.mevService.trim()) {
+    operations.push({ path: '/trading/mev', body: { service: input.mevService.trim() } })
+  }
+
+  if (Number.isFinite(input.maxConcurrentTrades) && (input.maxConcurrentTrades as number) > 0) {
+    operations.push({ path: '/trading/max-concurrent-trades', body: { max_concurrent_trades: input.maxConcurrentTrades } })
+  }
+
+  if (Number.isFinite(input.maxPositionSizeSol) && (input.maxPositionSizeSol as number) > 0) {
+    operations.push({ path: '/trading/max-position-size', body: { max_position_size_sol: input.maxPositionSizeSol } })
+  }
+
+  if (Number.isFinite(input.minLiquidityUsd) && (input.minLiquidityUsd as number) >= 0) {
+    operations.push({ path: '/trading/min-liquidity', body: { min_liquidity_usd: input.minLiquidityUsd } })
+  }
+
+  if (Array.isArray(input.allowedDexes)) {
+    operations.push({ path: '/trading/allowed-dexes', body: { allowed_dexes: input.allowedDexes } })
+  }
+
+  if (typeof input.targetWallet === 'string') {
+    operations.push({ path: '/trading/target', body: { wallet: input.targetWallet.trim() } })
+  }
+
+  if (typeof input.autoBlockSourceWalletAfterBuy === 'boolean') {
+    operations.push({ path: '/trading/auto-block-source-wallet', body: { auto_block_source_wallet_after_buy: input.autoBlockSourceWalletAfterBuy } })
+  }
+
+  if (Array.isArray(input.denylist)) {
+    operations.push({ path: '/trading/denylist', body: { denylist: input.denylist } })
+  }
+
+  if (Array.isArray(input.allowlist)) {
+    operations.push({ path: '/trading/allowlist', body: { allowlist: input.allowlist } })
   }
 
   return operations

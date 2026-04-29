@@ -112,6 +112,15 @@ export class TradingOpsDashboard {
     const minTraceAlerts = safety.minTraceAlerts ?? 0
     const buyOncePerToken = Boolean(config.buyOncePerToken ?? config.buy_once_per_token)
     const slippageValue = slippage.slippage ?? config.slippage ?? ''
+    const mevServiceValue = String(config.mev_service ?? config.mevService ?? 'none')
+    const maxConcurrentTrades = Number(config.max_concurrent_trades ?? config.maxConcurrentTrades ?? 5)
+    const maxPositionSizeSolValue = config.max_position_size_sol ?? config.maxPositionSizeSol ?? ''
+    const minLiquidityUsdValue = config.min_liquidity_usd ?? config.minLiquidityUsd ?? ''
+    const allowedDexesValue: string[] = Array.isArray(config.allowed_dexes) ? config.allowed_dexes : Array.isArray(config.allowedDexes) ? config.allowedDexes : ['pump_fun', 'raydium']
+    const targetWalletValue = String(config.target_wallet ?? config.targetWallet ?? '')
+    const autoBlockSourceWallet = Boolean(config.auto_block_source_wallet_after_buy ?? config.autoBlockSourceWalletAfterBuy ?? false)
+    const denylistValue = Array.isArray(config.denylist) ? (config.denylist as string[]).join('\n') : ''
+    const allowlistValue = Array.isArray(config.allowlist) ? (config.allowlist as string[]).join('\n') : ''
     const currentMode = String(data.status.mode || 'signal_based')
     const currentProfile = String(config.profile || config.profilePreset || 'conservative')
     const currentExecutionMode = String(data.metrics.executionMode || data.status.executionMode || 'paper')
@@ -383,6 +392,47 @@ export class TradingOpsDashboard {
             <label style="display:flex;align-items:center;gap:10px;grid-column:1 / -1;">
               <input name="buyOncePerToken" type="checkbox" ${buyOncePerToken ? 'checked' : ''} />
               Buy once per token (reject repeat buys for any token already bought once)
+            </label>
+            <label>MEV Service
+              <select name="mevService">
+                <option value="none" ${mevServiceValue === 'none' ? 'selected' : ''}>None</option>
+                <option value="jito" ${mevServiceValue === 'jito' ? 'selected' : ''}>Jito</option>
+                <option value="nozomi" ${mevServiceValue === 'nozomi' ? 'selected' : ''}>Nozomi</option>
+                <option value="zero_slot" ${mevServiceValue === 'zero_slot' ? 'selected' : ''}>Zero Slot</option>
+              </select>
+            </label>
+            <label>Max concurrent trades
+              <input name="maxConcurrentTrades" type="number" step="1" min="1" max="50" value="${maxConcurrentTrades}" />
+            </label>
+            <label>Max position size (SOL)
+              <input name="maxPositionSizeSol" type="number" step="0.0001" min="0.001" value="${maxPositionSizeSolValue}" />
+            </label>
+            <label>Min liquidity (USD)
+              <input name="minLiquidityUsd" type="number" step="1" min="0" value="${minLiquidityUsdValue}" />
+            </label>
+            <label>Target wallet (copy-trade)
+              <input name="targetWallet" type="text" placeholder="Base58 wallet address" value="${targetWalletValue}" />
+            </label>
+            <fieldset style="grid-column:1 / -1;border:1px solid #444;padding:8px 12px;border-radius:6px;">
+              <legend>Allowed DEXes</legend>
+              <label style="display:flex;align-items:center;gap:8px;">
+                <input name="allowedDexPumpFun" type="checkbox" ${allowedDexesValue.includes('pump_fun') ? 'checked' : ''} />
+                Pump.fun
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;">
+                <input name="allowedDexRaydium" type="checkbox" ${allowedDexesValue.includes('raydium') ? 'checked' : ''} />
+                Raydium
+              </label>
+            </fieldset>
+            <label style="display:flex;align-items:center;gap:10px;grid-column:1 / -1;">
+              <input name="autoBlockSourceWalletAfterBuy" type="checkbox" ${autoBlockSourceWallet ? 'checked' : ''} />
+              Auto-block source wallet after buy (one-shot copy-trade)
+            </label>
+            <label style="grid-column:1 / -1;">Denylist (one mint per line)
+              <textarea name="denylist" rows="4" style="width:100%;font-family:monospace;font-size:12px;">${denylistValue}</textarea>
+            </label>
+            <label style="grid-column:1 / -1;">Allowlist (one mint per line — empty = all allowed)
+              <textarea name="allowlist" rows="4" style="width:100%;font-family:monospace;font-size:12px;">${allowlistValue}</textarea>
             </label>
             <div class="button-row">
               <button class="primary" type="submit">Apply Settings</button>
@@ -910,6 +960,20 @@ export class TradingOpsDashboard {
           minAlertQualityScore: parseOptionalNumber(formData.get('minAlertQualityScore')),
           minTraceAlerts: parseOptionalNumber(formData.get('minTraceAlerts')),
           buyOncePerToken: formData.get('buyOncePerToken') !== null,
+          stopLossPercentage: parseOptionalNumber(formData.get('stopLossPercentage')),
+          takeProfitPercentage: parseOptionalNumber(formData.get('takeProfitPercentage')),
+          mevService: String(formData.get('mevService') || ''),
+          maxConcurrentTrades: parseOptionalNumber(formData.get('maxConcurrentTrades')),
+          maxPositionSizeSol: parseOptionalNumber(formData.get('maxPositionSizeSol')),
+          minLiquidityUsd: parseOptionalNumber(formData.get('minLiquidityUsd')),
+          allowedDexes: [
+            ...(formData.get('allowedDexPumpFun') !== null ? ['pump_fun'] : []),
+            ...(formData.get('allowedDexRaydium') !== null ? ['raydium'] : []),
+          ],
+          targetWallet: String(formData.get('targetWallet') || ''),
+          autoBlockSourceWalletAfterBuy: formData.get('autoBlockSourceWalletAfterBuy') !== null,
+          denylist: String(formData.get('denylist') || '').split('\n').map((s: string) => s.trim()).filter(Boolean),
+          allowlist: String(formData.get('allowlist') || '').split('\n').map((s: string) => s.trim()).filter(Boolean),
         }
 
         try {

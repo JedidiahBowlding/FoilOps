@@ -247,6 +247,13 @@ pub async fn start_signal_receiver(
         .route("/trading/buy-once-per-token", get(get_buy_once_per_token).post(set_buy_once_per_token))
         .route("/trading/stop-loss", get(get_stop_loss).post(set_stop_loss))
         .route("/trading/take-profit", get(get_take_profit).post(set_take_profit))
+        .route("/trading/max-concurrent-trades", get(get_max_concurrent_trades).post(set_max_concurrent_trades))
+        .route("/trading/max-position-size", get(get_max_position_size).post(set_max_position_size))
+        .route("/trading/min-liquidity", get(get_min_liquidity).post(set_min_liquidity))
+        .route("/trading/allowed-dexes", get(get_allowed_dexes).post(set_allowed_dexes))
+        .route("/trading/auto-block-source-wallet", get(get_auto_block_source_wallet).post(set_auto_block_source_wallet))
+        .route("/trading/denylist", get(get_denylist).post(set_denylist))
+        .route("/trading/allowlist", get(get_allowlist).post(set_allowlist))
         .route("/trading/journal", get(get_trade_journal))
         .route("/trading/metrics", get(get_metrics))
         .route("/trading/dead-letters", get(get_dead_letters))
@@ -1050,6 +1057,192 @@ async fn get_target(
         Json(serde_json::json!({ "target_wallet": engine.get_target_wallet_async().await }))
     } else {
         Json(serde_json::json!({ "target_wallet": null }))
+    }
+
+}
+
+async fn get_max_concurrent_trades(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> Json<Value> {
+    if let Some(engine) = &state.execution_engine {
+        Json(serde_json::json!({ "max_concurrent_trades": engine.get_max_concurrent_trades_async().await }))
+    } else {
+        Json(serde_json::json!({ "max_concurrent_trades": 5 }))
+    }
+}
+
+async fn set_max_concurrent_trades(
+    State(state): State<Arc<SignalReceiverState>>,
+    Json(payload): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Some(engine) = &state.execution_engine {
+        if let Some(value) = payload["max_concurrent_trades"].as_u64() {
+            let result = engine.set_max_concurrent_trades_async(value as usize).await;
+            (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "message": result })))
+        } else {
+            (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "status": "error", "message": "Invalid max_concurrent_trades value" })))
+        }
+    } else {
+        (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
+    }
+}
+
+async fn get_max_position_size(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> Json<Value> {
+    if let Some(engine) = &state.execution_engine {
+        Json(serde_json::json!({ "max_position_size_sol": engine.get_max_position_size_async().await }))
+    } else {
+        Json(serde_json::json!({ "max_position_size_sol": 0.1 }))
+    }
+}
+
+async fn set_max_position_size(
+    State(state): State<Arc<SignalReceiverState>>,
+    Json(payload): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Some(engine) = &state.execution_engine {
+        if let Some(sol) = payload["max_position_size_sol"].as_f64() {
+            let result = engine.set_max_position_size_async(sol).await;
+            (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "message": result })))
+        } else {
+            (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "status": "error", "message": "Invalid max_position_size_sol value" })))
+        }
+    } else {
+        (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
+    }
+}
+
+async fn get_min_liquidity(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> Json<Value> {
+    if let Some(engine) = &state.execution_engine {
+        Json(serde_json::json!({ "min_liquidity_usd": engine.get_min_liquidity_usd_async().await }))
+    } else {
+        Json(serde_json::json!({ "min_liquidity_usd": 1000.0 }))
+    }
+}
+
+async fn set_min_liquidity(
+    State(state): State<Arc<SignalReceiverState>>,
+    Json(payload): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Some(engine) = &state.execution_engine {
+        if let Some(usd) = payload["min_liquidity_usd"].as_f64() {
+            let result = engine.set_min_liquidity_usd_async(usd).await;
+            (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "message": result })))
+        } else {
+            (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "status": "error", "message": "Invalid min_liquidity_usd value" })))
+        }
+    } else {
+        (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
+    }
+}
+
+async fn get_allowed_dexes(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> Json<Value> {
+    if let Some(engine) = &state.execution_engine {
+        Json(serde_json::json!({ "allowed_dexes": engine.get_allowed_dexes_async().await }))
+    } else {
+        Json(serde_json::json!({ "allowed_dexes": ["pump_fun", "raydium"] }))
+    }
+}
+
+async fn set_allowed_dexes(
+    State(state): State<Arc<SignalReceiverState>>,
+    Json(payload): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Some(engine) = &state.execution_engine {
+        if let Some(arr) = payload["allowed_dexes"].as_array() {
+            let dexes: Vec<String> = arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect();
+            let result = engine.set_allowed_dexes_async(dexes).await;
+            (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "message": result })))
+        } else {
+            (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "status": "error", "message": "Invalid allowed_dexes value" })))
+        }
+    } else {
+        (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
+    }
+}
+
+async fn get_auto_block_source_wallet(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> Json<Value> {
+    if let Some(engine) = &state.execution_engine {
+        Json(serde_json::json!({ "auto_block_source_wallet_after_buy": engine.get_auto_block_source_wallet_async().await }))
+    } else {
+        Json(serde_json::json!({ "auto_block_source_wallet_after_buy": false }))
+    }
+}
+
+async fn set_auto_block_source_wallet(
+    State(state): State<Arc<SignalReceiverState>>,
+    Json(payload): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Some(engine) = &state.execution_engine {
+        if let Some(enabled) = payload["auto_block_source_wallet_after_buy"].as_bool() {
+            let result = engine.set_auto_block_source_wallet_async(enabled).await;
+            (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "message": result })))
+        } else {
+            (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "status": "error", "message": "Invalid auto_block_source_wallet_after_buy value" })))
+        }
+    } else {
+        (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
+    }
+}
+
+async fn get_denylist(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> Json<Value> {
+    if let Some(engine) = &state.execution_engine {
+        Json(serde_json::json!({ "denylist": engine.get_denylist_async().await }))
+    } else {
+        Json(serde_json::json!({ "denylist": [] }))
+    }
+}
+
+async fn set_denylist(
+    State(state): State<Arc<SignalReceiverState>>,
+    Json(payload): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Some(engine) = &state.execution_engine {
+        if let Some(arr) = payload["denylist"].as_array() {
+            let mints: Vec<String> = arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect();
+            let result = engine.set_denylist_async(mints).await;
+            (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "message": result })))
+        } else {
+            (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "status": "error", "message": "Invalid denylist value" })))
+        }
+    } else {
+        (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
+    }
+}
+
+async fn get_allowlist(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> Json<Value> {
+    if let Some(engine) = &state.execution_engine {
+        Json(serde_json::json!({ "allowlist": engine.get_allowlist_async().await }))
+    } else {
+        Json(serde_json::json!({ "allowlist": [] }))
+    }
+}
+
+async fn set_allowlist(
+    State(state): State<Arc<SignalReceiverState>>,
+    Json(payload): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Some(engine) = &state.execution_engine {
+        if let Some(arr) = payload["allowlist"].as_array() {
+            let mints: Vec<String> = arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect();
+            let result = engine.set_allowlist_async(mints).await;
+            (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "message": result })))
+        } else {
+            (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "status": "error", "message": "Invalid allowlist value" })))
+        }
+    } else {
+        (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
     }
 }
 
