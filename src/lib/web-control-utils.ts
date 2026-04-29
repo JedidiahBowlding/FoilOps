@@ -123,7 +123,10 @@ export function buildTradingSettingsOperations(input: TradingSettingsInput): Tra
   }
 
   if (Number.isFinite(input.maxConcurrentTrades) && (input.maxConcurrentTrades as number) > 0) {
-    operations.push({ path: '/trading/max-concurrent-trades', body: { max_concurrent_trades: input.maxConcurrentTrades } })
+    operations.push({
+      path: '/trading/max-concurrent-trades',
+      body: { max_concurrent_trades: input.maxConcurrentTrades },
+    })
   }
 
   if (Number.isFinite(input.maxPositionSizeSol) && (input.maxPositionSizeSol as number) > 0) {
@@ -143,7 +146,10 @@ export function buildTradingSettingsOperations(input: TradingSettingsInput): Tra
   }
 
   if (typeof input.autoBlockSourceWalletAfterBuy === 'boolean') {
-    operations.push({ path: '/trading/auto-block-source-wallet', body: { auto_block_source_wallet_after_buy: input.autoBlockSourceWalletAfterBuy } })
+    operations.push({
+      path: '/trading/auto-block-source-wallet',
+      body: { auto_block_source_wallet_after_buy: input.autoBlockSourceWalletAfterBuy },
+    })
   }
 
   if (Array.isArray(input.denylist)) {

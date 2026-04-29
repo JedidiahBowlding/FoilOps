@@ -116,9 +116,15 @@ export class TradingOpsDashboard {
     const maxConcurrentTrades = Number(config.max_concurrent_trades ?? config.maxConcurrentTrades ?? 5)
     const maxPositionSizeSolValue = config.max_position_size_sol ?? config.maxPositionSizeSol ?? ''
     const minLiquidityUsdValue = config.min_liquidity_usd ?? config.minLiquidityUsd ?? ''
-    const allowedDexesValue: string[] = Array.isArray(config.allowed_dexes) ? config.allowed_dexes : Array.isArray(config.allowedDexes) ? config.allowedDexes : ['pump_fun', 'raydium']
+    const allowedDexesValue: string[] = Array.isArray(config.allowed_dexes)
+      ? config.allowed_dexes
+      : Array.isArray(config.allowedDexes)
+        ? config.allowedDexes
+        : ['pump_fun', 'raydium']
     const targetWalletValue = String(config.target_wallet ?? config.targetWallet ?? '')
-    const autoBlockSourceWallet = Boolean(config.auto_block_source_wallet_after_buy ?? config.autoBlockSourceWalletAfterBuy ?? false)
+    const autoBlockSourceWallet = Boolean(
+      config.auto_block_source_wallet_after_buy ?? config.autoBlockSourceWalletAfterBuy ?? false,
+    )
     const denylistValue = Array.isArray(config.denylist) ? (config.denylist as string[]).join('\n') : ''
     const allowlistValue = Array.isArray(config.allowlist) ? (config.allowlist as string[]).join('\n') : ''
     const currentMode = String(data.status.mode || 'signal_based')
