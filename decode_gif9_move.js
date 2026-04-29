@@ -38,7 +38,7 @@ async function rpc(method, params) {
     console.log('\n=== TOKEN BALANCE CHANGES ===');
     const pre = meta.preTokenBalances || [];
     const post = meta.postTokenBalances || [];
-    const allIdx = new Set([...pre.map(t=>t.accountIndex), ...post.map(t=>t.accountIndex)]);
+    const allIdx = new Set([...pre.map(t => t.accountIndex), ...post.map(t => t.accountIndex)]);
     for (const idx of allIdx) {
       const preE = pre.find(t => t.accountIndex === idx);
       const postE = post.find(t => t.accountIndex === idx);
@@ -75,7 +75,7 @@ async function rpc(method, params) {
           if (info?.source) console.log(`    -> source: ${info.source}`);
           if (info?.amount) console.log(`    -> amount: ${info.amount}`);
           if (info?.tokenAmount) console.log(`    -> tokenAmount: ${JSON.stringify(info.tokenAmount)}`);
-          if (info?.lamports) console.log(`    -> lamports: ${info.lamports} (${(info.lamports/1e9).toFixed(6)} SOL)`);
+          if (info?.lamports) console.log(`    -> lamports: ${info.lamports} (${(info.lamports / 1e9).toFixed(6)} SOL)`);
         }
       });
     });
@@ -83,7 +83,7 @@ async function rpc(method, params) {
     console.log('\n=== ALL ACCOUNTS ===');
     accounts.forEach((a, i) => console.log(`  [${i}] ${a}`));
 
-  } catch(e) {
+  } catch (e) {
     console.error('ERROR:', e.message);
   }
 })();

@@ -1,13 +1,15 @@
 use crate::common::utils::AppState;
 use crate::engine::swap::{pump_swap, raydium_swap};
 use crate::dex::raydium::get_pool_state_by_mint;
+use crate::services::price_monitor::{ExitReason, PriceMonitor};
 use crate::services::signal_receiver::{ExecutionRequest, TradeSignalV1};
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
+use tokio::time::sleep;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TradingConfig {
@@ -215,10 +217,24 @@ impl SignalExecutionEngine {
         trading_state.config.auto_block_source_wallet_after_buy = auto_block_source_wallet_after_buy;
         trading_state.config.enabled = initial_enabled;
         trading_state.config.paused = initial_paused;
-        Self {
+        
+        let engine = Self {
             state: Arc::new(Mutex::new(trading_state)),
             app_state,
-        }
+        };
+        
+        // Spawn price monitoring loop in background
+        let state_for_monitor = engine.state.clone();
+        let app_state_for_monitor = engine.app_state.clone();
+        tokio::spawn(async move {
+            let monitor_engine = SignalExecutionEngine {
+                state: state_for_monitor,
+                app_state: app_state_for_monitor,
+            };
+            monitor_engine.price_monitoring_loop().await;
+        });
+        
+        engine
     }
 
     pub async fn execute_signal(&self, signal: &TradeSignalV1) -> Result<String> {
@@ -596,16 +612,35 @@ impl SignalExecutionEngine {
 
         match result {
             Ok(tx_sigs) => {
+                // Fetch current price to establish entry price
+                let price_monitor = PriceMonitor::new();
+                let entry_price = match price_monitor.get_token_price(&token_mint).await {
+                    Ok(price_info) => price_info.price_sol,
+                    Err(_) => {
+                        // Fallback: use a placeholder price for now (will be updated on next price check)
+                        0.0001
+                    }
+                };
+
+                let (stop_loss_price, take_profit_price) = {
+                    let state = self.state.lock().await;
+                    PriceMonitor::calculate_exit_prices(
+                        entry_price,
+                        state.config.stop_loss_percentage,
+                        state.config.take_profit_percentage,
+                    )
+                };
+
                 let mut state = self.state.lock().await;
                 // Record the position
                 let position = ActivePosition {
                     token_mint: token_mint.clone(),
                     source_wallet: request.source_wallet.clone(),
-                    entry_price: 0.0, // Would need price oracle integration
+                    entry_price,
                     amount: actual_amount,
                     entry_time: Instant::now(),
-                    stop_loss_price: 0.0, // Would need price calculation
-                    take_profit_price: 0.0, // Would need price calculation
+                    stop_loss_price,
+                    take_profit_price,
                 };
 
                 state.active_positions.insert(token_mint.clone(), position);
@@ -617,7 +652,7 @@ impl SignalExecutionEngine {
                     token_mint: token_mint.clone(),
                     action: "buy".to_string(),
                     amount: actual_amount,
-                    price: 0.0,
+                    price: entry_price,
                     pnl: None,
                     reason: request.reason.clone(),
                 };
@@ -636,7 +671,8 @@ impl SignalExecutionEngine {
                         amount_sol: actual_amount,
                         pnl_sol: None,
                         profile_preset,
-                        reason: request.reason.clone(),
+                        reason: format!("{} [entry_price: {} SOL, SL: {} SOL, TP: {} SOL]", 
+                                       request.reason, entry_price, stop_loss_price, take_profit_price),
                     },
                 );
 
@@ -670,12 +706,13 @@ impl SignalExecutionEngine {
 
                 Ok(match auto_blocked_wallet {
                     Some(wallet) => format!(
-                        "BUY_EXECUTED: {} tx(s), amount: {} SOL, AUTO_BLOCKED_SOURCE_WALLET: {}",
+                        "BUY_EXECUTED: {} tx(s), amount: {} SOL, entry_price: {} SOL, AUTO_BLOCKED_SOURCE_WALLET: {}",
                         tx_sigs.len(),
                         actual_amount,
+                        entry_price,
                         wallet
                     ),
-                    None => format!("BUY_EXECUTED: {} tx(s), amount: {} SOL", tx_sigs.len(), actual_amount),
+                    None => format!("BUY_EXECUTED: {} tx(s), amount: {} SOL, entry_price: {} SOL", tx_sigs.len(), actual_amount, entry_price),
                 })
             }
             Err(e) => {
@@ -1553,5 +1590,113 @@ impl SignalExecutionEngine {
                 "close_positions_first"
             }
         }))
+    }
+
+    // Background price monitoring loop - automatically exits positions at SL/TP
+    async fn price_monitoring_loop(&self) {
+        let price_monitor = PriceMonitor::new();
+        let check_interval = Duration::from_secs(30); // Check every 30 seconds
+
+        loop {
+            sleep(check_interval).await;
+
+            // Get current positions
+            let positions_to_check = {
+                let state = self.state.lock().await;
+                if !state.config.enabled || state.active_positions.is_empty() {
+                    continue;
+                }
+                state.active_positions.clone()
+            };
+
+            // Check each position
+            for (token_mint, position) in positions_to_check.iter() {
+                // Fetch current price
+                match price_monitor.get_token_price(token_mint).await {
+                    Ok(price_info) => {
+                        let current_price = price_info.price_sol;
+
+                        // Check if position should exit
+                        if let Some(exit_reason) = PriceMonitor::should_exit(
+                            current_price,
+                            position.stop_loss_price,
+                            position.take_profit_price,
+                        ) {
+                            // Execute auto-sell
+                            let reason = match exit_reason {
+                                ExitReason::StopLoss => format!(
+                                    "AUTO_SELL_STOP_LOSS: price {} < sl {} (entry: {})",
+                                    current_price, position.stop_loss_price, position.entry_price
+                                ),
+                                ExitReason::TakeProfit => format!(
+                                    "AUTO_SELL_TAKE_PROFIT: price {} > tp {} (entry: {})",
+                                    current_price, position.take_profit_price, position.entry_price
+                                ),
+                            };
+
+                            let execution_request = ExecutionRequest {
+                                request_id: format!("AUTO_{}_{}_{}", exit_reason, token_mint, chrono::Utc::now().timestamp()),
+                                signal_type: "AUTO_EXIT".to_string(),
+                                action: "SELL_TOKEN".to_string(),
+                                action_hint: "SELL".to_string(),
+                                target_wallet: String::new(),
+                                source_wallet: position.source_wallet.clone(),
+                                token_mint: Some(token_mint.clone()),
+                                risk_score: 0.0,
+                                risk_level: "AUTO_EXIT".to_string(),
+                                metadata: Some(serde_json::json!({
+                                    "exitReason": exit_reason.to_string(),
+                                    "currentPrice": current_price,
+                                    "entryPrice": position.entry_price,
+                                    "stopLoss": position.stop_loss_price,
+                                    "takeProfit": position.take_profit_price,
+                                })),
+                                reason: reason.clone(),
+                            };
+
+                            match self.execute_sell(&execution_request).await {
+                                Ok(result) => {
+                                    println!(
+                                        "[PRICE_MONITOR] AUTO_EXIT: token={}, reason={}, result={}",
+                                        token_mint, exit_reason, result
+                                    );
+
+                                    // Record journal entry
+                                    let mut state = self.state.lock().await;
+                                    Self::record_journal_entry(
+                                        &mut state,
+                                        TradeJournalEntry {
+                                            timestamp: chrono::Utc::now().to_rfc3339(),
+                                            request_id: execution_request.request_id.clone(),
+                                            token_mint: Some(token_mint.clone()),
+                                            source_wallet: position.source_wallet.clone(),
+                                            action: "sell".to_string(),
+                                            status: "executed".to_string(),
+                                            amount_sol: position.amount,
+                                            pnl_sol: Some((current_price - position.entry_price) * position.amount),
+                                            profile_preset: None,
+                                            reason,
+                                        },
+                                    );
+                                }
+                                Err(e) => {
+                                    println!(
+                                        "[PRICE_MONITOR] AUTO_EXIT_FAILED: token={}, reason={}, error={}",
+                                        token_mint, exit_reason, e
+                                    );
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        // Log price fetch error but don't fail the loop
+                        println!(
+                            "[PRICE_MONITOR] Failed to fetch price for {}: {}",
+                            token_mint, e
+                        );
+                    }
+                }
+            }
+        }
     }
 }
