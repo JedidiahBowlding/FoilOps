@@ -4,12 +4,47 @@ use crate::dex::raydium::get_pool_state_by_mint;
 use crate::services::price_monitor::{ExitReason, PriceMonitor};
 use crate::services::signal_receiver::{ExecutionRequest, TradeSignalV1};
 use anyhow::{anyhow, Result};
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use solana_sdk::{program_pack::Pack, pubkey::Pubkey};
+use spl_token_2022::extension::{BaseStateWithExtensions, ExtensionType, StateWithExtensionsOwned};
 use std::collections::{HashMap, HashSet};
+use std::str::FromStr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 use tokio::time::sleep;
+
+const WSOL_MINT: &str = "So11111111111111111111111111111111111111112";
+const SUSPICIOUS_TAX_THRESHOLD_PCT: f64 = 15.0;
+
+#[derive(Debug, Clone)]
+struct MintGuardInfo {
+    decimals: u8,
+    freeze_authority: Option<String>,
+    risky_extensions: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PreBuySafetyChecksConfig {
+    pub sell_route: bool,
+    pub freeze_authority: bool,
+    pub token2022_extensions: bool,
+    pub honeypot: bool,
+    pub suspicious_tax: bool,
+}
+
+impl Default for PreBuySafetyChecksConfig {
+    fn default() -> Self {
+        Self {
+            sell_route: true,
+            freeze_authority: true,
+            token2022_extensions: true,
+            honeypot: true,
+            suspicious_tax: true,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TradingConfig {
@@ -36,6 +71,7 @@ pub struct TradingConfig {
     pub min_trace_alerts: usize,
     pub auto_block_source_wallet_after_buy: bool,
     pub buy_once_per_token: bool,
+    pub pre_buy_checks: PreBuySafetyChecksConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -75,6 +111,7 @@ impl Default for TradingConfig {
             min_trace_alerts: 0,
             auto_block_source_wallet_after_buy: false,
             buy_once_per_token: false,
+            pre_buy_checks: PreBuySafetyChecksConfig::default(),
         }
     }
 }
@@ -546,7 +583,7 @@ impl SignalExecutionEngine {
             None => return Ok("NO_TOKEN_MINT_SPECIFIED".to_string()),
         };
 
-        let (slippage, mev_service, actual_amount, allowed_dexes, profile_preset) = {
+        let (slippage, mev_service, actual_amount, allowed_dexes, profile_preset, pre_buy_checks) = {
             let state = self.state.lock().await;
             if state.config.buy_once_per_token && state.bought_tokens.contains(&token_mint) {
                 return Ok("TOKEN_ALREADY_BOUGHT_ONCE".to_string());
@@ -573,6 +610,7 @@ impl SignalExecutionEngine {
                 actual_amount,
                 state.config.allowed_dexes.clone(),
                 source_profile.map(|profile| profile.preset.clone()),
+                state.config.pre_buy_checks.clone(),
             )
         };
 
@@ -580,6 +618,37 @@ impl SignalExecutionEngine {
 
         if !allowed_dexes.contains(&dex) {
             return Ok(format!("DEX_NOT_ALLOWED: {}", dex));
+        }
+
+        if Self::has_any_pre_buy_check_enabled(&pre_buy_checks) {
+            if let Err(reason) = self
+                .validate_token_sellability_before_buy(
+                    &token_mint,
+                    actual_amount,
+                    slippage,
+                    request.metadata.as_ref(),
+                    &pre_buy_checks,
+                )
+                .await
+            {
+                let mut state = self.state.lock().await;
+                Self::record_journal_entry(
+                    &mut state,
+                    TradeJournalEntry {
+                        timestamp: chrono::Utc::now().to_rfc3339(),
+                        request_id: request.request_id.clone(),
+                        token_mint: Some(token_mint.clone()),
+                        source_wallet: request.source_wallet.clone(),
+                        action: "buy".to_string(),
+                        status: "blocked".to_string(),
+                        amount_sol: actual_amount,
+                        pnl_sol: None,
+                        profile_preset: profile_preset.clone(),
+                        reason: format!("{} | prebuy_safety_check_failed: {}", request.reason, reason),
+                    },
+                );
+                return Ok(format!("BUY_BLOCKED_PREBUY_SAFETY: {}", reason));
+            }
         }
 
         let result = match dex.as_str() {
@@ -735,6 +804,267 @@ impl SignalExecutionEngine {
                 Ok(format!("BUY_FAILED: {}", e))
             }
         }
+    }
+
+    async fn validate_token_sellability_before_buy(
+        &self,
+        token_mint: &str,
+        amount_sol: f64,
+        slippage: u64,
+        metadata: Option<&serde_json::Value>,
+        checks: &PreBuySafetyChecksConfig,
+    ) -> Result<()> {
+        let mint_info = self.read_token_mint_guard_info(token_mint).await?;
+        if checks.freeze_authority && mint_info.freeze_authority.is_some() {
+            let freeze_authority = mint_info.freeze_authority.as_ref().expect("checked is_some");
+            return Err(anyhow!("token_has_freeze_authority:{}", freeze_authority));
+        }
+
+        if checks.token2022_extensions && !mint_info.risky_extensions.is_empty() {
+            return Err(anyhow!(
+                "token2022_risky_extensions:{}",
+                mint_info.risky_extensions.join(",")
+            ));
+        }
+
+        self.validate_metadata_safety_flags(metadata, checks)?;
+
+        if !checks.sell_route {
+            return Ok(());
+        }
+
+        let buy_amount_lamports = (amount_sol.max(0.0) * 1_000_000_000.0).round() as u64;
+        if buy_amount_lamports == 0 {
+            return Err(anyhow!("invalid_buy_amount_for_sellability_check"));
+        }
+
+        let buy_quote = self
+            .fetch_jupiter_quote(WSOL_MINT, token_mint, buy_amount_lamports, slippage)
+            .await
+            .map_err(|error| anyhow!("buy_quote_unavailable:{}", error))?;
+
+        let estimated_token_out = buy_quote
+            .get("outAmount")
+            .and_then(|value| value.as_str())
+            .and_then(|value| value.parse::<u64>().ok())
+            .ok_or_else(|| anyhow!("buy_quote_missing_out_amount"))?;
+
+        if estimated_token_out == 0 {
+            return Err(anyhow!("buy_quote_zero_out_amount"));
+        }
+
+        let one_token = 10_u64.saturating_pow(mint_info.decimals as u32).max(1);
+        let sell_probe_amount = estimated_token_out.max(one_token);
+        self.fetch_jupiter_quote(token_mint, WSOL_MINT, sell_probe_amount, slippage)
+            .await
+            .map_err(|error| anyhow!("sell_quote_unavailable:{}", error))?;
+
+        Ok(())
+    }
+
+    async fn read_token_mint_guard_info(&self, token_mint: &str) -> Result<MintGuardInfo> {
+        let rpc_client = self.app_state.rpc_client.clone();
+        let token_mint = token_mint.to_string();
+
+        tokio::task::spawn_blocking(move || -> Result<MintGuardInfo> {
+            let mint_pubkey = Pubkey::from_str(&token_mint)
+                .map_err(|error| anyhow!("invalid_token_mint:{}", error))?;
+            let account = rpc_client
+                .get_account(&mint_pubkey)
+                .map_err(|error| anyhow!("token_mint_account_fetch_failed:{}", error))?;
+
+            if account.owner == spl_token::ID {
+                let mint = spl_token::state::Mint::unpack(&account.data)
+                    .map_err(|error| anyhow!("token_mint_unpack_failed:{}", error))?;
+                return Ok(MintGuardInfo {
+                    decimals: mint.decimals,
+                    freeze_authority: mint.freeze_authority.map(|key| key.to_string()).into(),
+                    risky_extensions: Vec::new(),
+                });
+            }
+
+            if account.owner == spl_token_2022::ID {
+                let mint = StateWithExtensionsOwned::<spl_token_2022::state::Mint>::unpack(account.data)
+                    .map_err(|error| anyhow!("token2022_mint_unpack_failed:{}", error))?;
+                let extension_types = mint
+                    .get_extension_types()
+                    .map_err(|error| anyhow!("token2022_extension_parse_failed:{}", error))?;
+                let risky_extensions = extension_types
+                    .into_iter()
+                    .filter_map(|extension| match extension {
+                        ExtensionType::TransferHook => Some("TransferHook".to_string()),
+                        ExtensionType::TransferFeeConfig => Some("TransferFeeConfig".to_string()),
+                        ExtensionType::PermanentDelegate => Some("PermanentDelegate".to_string()),
+                        ExtensionType::DefaultAccountState => Some("DefaultAccountState".to_string()),
+                        ExtensionType::NonTransferable => Some("NonTransferable".to_string()),
+                        ExtensionType::ConfidentialTransferMint => Some("ConfidentialTransferMint".to_string()),
+                        _ => None,
+                    })
+                    .collect();
+                return Ok(MintGuardInfo {
+                    decimals: mint.base.decimals,
+                    freeze_authority: mint.base.freeze_authority.map(|key| key.to_string()).into(),
+                    risky_extensions,
+                });
+            }
+
+            Err(anyhow!("unsupported_token_program:{}", account.owner))
+        })
+        .await
+        .map_err(|error| anyhow!("token_mint_guard_task_failed:{}", error))?
+    }
+
+    async fn fetch_jupiter_quote(
+        &self,
+        input_mint: &str,
+        output_mint: &str,
+        amount: u64,
+        slippage: u64,
+    ) -> Result<serde_json::Value> {
+        let slippage_bps = slippage.saturating_mul(100).min(5000);
+        let http_client = Client::builder()
+            .timeout(Duration::from_secs(8))
+            .build()
+            .map_err(|error| anyhow!("jupiter_http_client_build_failed:{}", error))?;
+
+        let bases = ["https://api.jup.ag/swap/v1", "https://lite-api.jup.ag/swap/v1"];
+        let mut errors = Vec::new();
+
+        for base in bases {
+            let quote_url = format!(
+                "{}/quote?inputMint={}&outputMint={}&amount={}&slippageBps={}",
+                base, input_mint, output_mint, amount, slippage_bps
+            );
+
+            match http_client.get(&quote_url).send().await {
+                Ok(response) => {
+                    let status = response.status();
+                    if !status.is_success() {
+                        let body = response
+                            .text()
+                            .await
+                            .unwrap_or_else(|_| "<unable_to_read_body>".to_string());
+                        errors.push(format!("{}:{}:{}", base, status, body));
+                        continue;
+                    }
+
+                    let quote = response
+                        .json::<serde_json::Value>()
+                        .await
+                        .map_err(|error| anyhow!("quote_decode_failed:{}", error))?;
+                    let has_route = quote
+                        .get("routePlan")
+                        .and_then(|value| value.as_array())
+                        .map(|routes| !routes.is_empty())
+                        .unwrap_or(false);
+
+                    if has_route {
+                        return Ok(quote);
+                    }
+
+                    errors.push(format!("{}:no_route_found", base));
+                }
+                Err(error) => errors.push(format!("{}:{}", base, error)),
+            }
+        }
+
+        Err(anyhow!("all_quote_endpoints_failed [{}]", errors.join(" | ")))
+    }
+
+    fn validate_metadata_safety_flags(
+        &self,
+        metadata: Option<&serde_json::Value>,
+        checks: &PreBuySafetyChecksConfig,
+    ) -> Result<()> {
+        let Some(metadata) = metadata else {
+            return Ok(());
+        };
+
+        if checks.honeypot
+            && Self::metadata_bool_at_any_path(
+            metadata,
+            &[
+                &["isHoneypot"],
+                &["is_honeypot"],
+                &["tokenInvestigation", "isHoneypot"],
+                &["tokenInvestigation", "is_honeypot"],
+                &["enrichment", "isHoneypot"],
+                &["gmgn", "is_honeypot"],
+            ],
+        ) == Some(true)
+        {
+            return Err(anyhow!("metadata_flagged_honeypot"));
+        }
+
+        let buy_tax = Self::metadata_number_at_any_path(
+            metadata,
+            &[
+                &["buyTax"],
+                &["buy_tax"],
+                &["tokenInvestigation", "buyTax"],
+                &["tokenInvestigation", "buy_tax"],
+                &["gmgn", "buy_tax"],
+            ],
+        );
+        let sell_tax = Self::metadata_number_at_any_path(
+            metadata,
+            &[
+                &["sellTax"],
+                &["sell_tax"],
+                &["tokenInvestigation", "sellTax"],
+                &["tokenInvestigation", "sell_tax"],
+                &["gmgn", "sell_tax"],
+            ],
+        );
+
+        if checks.suspicious_tax
+            && (buy_tax.unwrap_or(0.0) >= SUSPICIOUS_TAX_THRESHOLD_PCT
+                || sell_tax.unwrap_or(0.0) >= SUSPICIOUS_TAX_THRESHOLD_PCT)
+        {
+            return Err(anyhow!(
+                "metadata_flagged_suspicious_tax:buy={} sell={}",
+                buy_tax.map(|value| value.to_string()).unwrap_or_else(|| "n/a".to_string()),
+                sell_tax.map(|value| value.to_string()).unwrap_or_else(|| "n/a".to_string())
+            ));
+        }
+
+        Ok(())
+    }
+
+    fn metadata_bool_at_any_path(metadata: &serde_json::Value, paths: &[&[&str]]) -> Option<bool> {
+        paths
+            .iter()
+            .find_map(|path| Self::metadata_value_at_path(metadata, path))
+            .and_then(|value| value.as_bool())
+    }
+
+    fn metadata_number_at_any_path(metadata: &serde_json::Value, paths: &[&[&str]]) -> Option<f64> {
+        paths
+            .iter()
+            .find_map(|path| Self::metadata_value_at_path(metadata, path))
+            .and_then(|value| {
+                value
+                    .as_f64()
+                    .or_else(|| value.as_i64().map(|number| number as f64))
+                    .or_else(|| value.as_u64().map(|number| number as f64))
+                    .or_else(|| value.as_str().and_then(|number| number.parse::<f64>().ok()))
+            })
+    }
+
+    fn metadata_value_at_path<'a>(metadata: &'a serde_json::Value, path: &[&str]) -> Option<&'a serde_json::Value> {
+        let mut current = metadata;
+        for segment in path {
+            current = current.get(*segment)?;
+        }
+        Some(current)
+    }
+
+    fn has_any_pre_buy_check_enabled(checks: &PreBuySafetyChecksConfig) -> bool {
+        checks.sell_route
+            || checks.freeze_authority
+            || checks.token2022_extensions
+            || checks.honeypot
+            || checks.suspicious_tax
     }
 
     async fn execute_sell(&self, request: &ExecutionRequest) -> Result<String> {
@@ -1101,6 +1431,16 @@ impl SignalExecutionEngine {
 
     pub async fn get_safety_summary_async(&self) -> serde_json::Value {
         let state = self.state.lock().await;
+        let pre_buy_checks_enabled_count = [
+            state.config.pre_buy_checks.sell_route,
+            state.config.pre_buy_checks.freeze_authority,
+            state.config.pre_buy_checks.token2022_extensions,
+            state.config.pre_buy_checks.honeypot,
+            state.config.pre_buy_checks.suspicious_tax,
+        ]
+        .into_iter()
+        .filter(|enabled| *enabled)
+        .count();
         serde_json::json!({
             "maxRiskScore": state.config.max_risk_score,
             "minLiquidityUsd": state.config.min_liquidity_usd,
@@ -1114,6 +1454,14 @@ impl SignalExecutionEngine {
             "slippage": state.config.slippage,
             "buyAmountSol": state.config.buy_amount_sol,
             "buyOncePerToken": state.config.buy_once_per_token,
+            "preBuyChecks": {
+                "sellRoute": state.config.pre_buy_checks.sell_route,
+                "freezeAuthority": state.config.pre_buy_checks.freeze_authority,
+                "token2022Extensions": state.config.pre_buy_checks.token2022_extensions,
+                "honeypot": state.config.pre_buy_checks.honeypot,
+                "suspiciousTax": state.config.pre_buy_checks.suspicious_tax
+            },
+            "preBuyChecksEnabledCount": pre_buy_checks_enabled_count,
             "boughtTokenCount": state.bought_tokens.len(),
             "activePositions": state.active_positions.len(),
             "enabled": state.config.enabled,
@@ -1130,6 +1478,40 @@ impl SignalExecutionEngine {
     pub async fn get_buy_once_per_token_async(&self) -> bool {
         let state = self.state.lock().await;
         state.config.buy_once_per_token
+    }
+
+    pub async fn set_pre_buy_checks_async(&self, checks: PreBuySafetyChecksConfig) -> String {
+        let mut state = self.state.lock().await;
+        state.config.pre_buy_checks = checks.clone();
+        format!(
+            "PRE_BUY_CHECKS_SET: sell_route={} freeze_authority={} token2022_extensions={} honeypot={} suspicious_tax={}",
+            checks.sell_route,
+            checks.freeze_authority,
+            checks.token2022_extensions,
+            checks.honeypot,
+            checks.suspicious_tax
+        )
+    }
+
+    pub async fn get_pre_buy_checks_async(&self) -> PreBuySafetyChecksConfig {
+        let state = self.state.lock().await;
+        state.config.pre_buy_checks.clone()
+    }
+
+    pub async fn set_all_pre_buy_checks_enabled_async(&self, enabled: bool) -> String {
+        self.set_pre_buy_checks_async(PreBuySafetyChecksConfig {
+            sell_route: enabled,
+            freeze_authority: enabled,
+            token2022_extensions: enabled,
+            honeypot: enabled,
+            suspicious_tax: enabled,
+        })
+        .await
+    }
+
+    pub async fn get_all_pre_buy_checks_enabled_async(&self) -> bool {
+        let state = self.state.lock().await;
+        Self::has_any_pre_buy_check_enabled(&state.config.pre_buy_checks)
     }
 
     pub async fn set_max_risk_score_async(&self, score: f64) -> String {

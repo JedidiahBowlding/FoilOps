@@ -245,6 +245,8 @@ pub async fn start_signal_receiver(
         .route("/trading/source-wallets", get(get_source_wallets).post(update_source_wallets))
         .route("/trading/alert-quality", get(get_alert_quality).post(set_alert_quality))
         .route("/trading/buy-once-per-token", get(get_buy_once_per_token).post(set_buy_once_per_token))
+        .route("/trading/pre-buy-safety", get(get_pre_buy_safety).post(set_pre_buy_safety))
+        .route("/trading/pre-buy-checks", get(get_pre_buy_checks).post(set_pre_buy_checks))
         .route("/trading/stop-loss", get(get_stop_loss).post(set_stop_loss))
         .route("/trading/take-profit", get(get_take_profit).post(set_take_profit))
         .route("/trading/max-concurrent-trades", get(get_max_concurrent_trades).post(set_max_concurrent_trades))
@@ -1551,6 +1553,74 @@ async fn set_buy_once_per_token(
         } else {
             (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "status": "error", "message": "Invalid enabled value" })))
         }
+    } else {
+        (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
+    }
+}
+
+async fn get_pre_buy_safety(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> Json<Value> {
+    if let Some(engine) = &state.execution_engine {
+        Json(serde_json::json!({ "enabled": engine.get_all_pre_buy_checks_enabled_async().await }))
+    } else {
+        Json(serde_json::json!({ "enabled": true }))
+    }
+}
+
+async fn set_pre_buy_safety(
+    State(state): State<Arc<SignalReceiverState>>,
+    Json(payload): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Some(engine) = &state.execution_engine {
+        if let Some(enabled) = payload["enabled"].as_bool() {
+            let result = engine.set_all_pre_buy_checks_enabled_async(enabled).await;
+            (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "message": result })))
+        } else {
+            (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "status": "error", "message": "Invalid enabled value" })))
+        }
+    } else {
+        (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
+    }
+}
+
+async fn get_pre_buy_checks(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> Json<Value> {
+    if let Some(engine) = &state.execution_engine {
+        let checks = engine.get_pre_buy_checks_async().await;
+        Json(serde_json::json!({
+            "sell_route": checks.sell_route,
+            "freeze_authority": checks.freeze_authority,
+            "token2022_extensions": checks.token2022_extensions,
+            "honeypot": checks.honeypot,
+            "suspicious_tax": checks.suspicious_tax,
+        }))
+    } else {
+        Json(serde_json::json!({
+            "sell_route": true,
+            "freeze_authority": true,
+            "token2022_extensions": true,
+            "honeypot": true,
+            "suspicious_tax": true,
+        }))
+    }
+}
+
+async fn set_pre_buy_checks(
+    State(state): State<Arc<SignalReceiverState>>,
+    Json(payload): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Some(engine) = &state.execution_engine {
+        let checks = crate::services::signal_execution::PreBuySafetyChecksConfig {
+            sell_route: payload["sell_route"].as_bool().unwrap_or(true),
+            freeze_authority: payload["freeze_authority"].as_bool().unwrap_or(true),
+            token2022_extensions: payload["token2022_extensions"].as_bool().unwrap_or(true),
+            honeypot: payload["honeypot"].as_bool().unwrap_or(true),
+            suspicious_tax: payload["suspicious_tax"].as_bool().unwrap_or(true),
+        };
+        let result = engine.set_pre_buy_checks_async(checks).await;
+        (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "message": result })))
     } else {
         (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
     }

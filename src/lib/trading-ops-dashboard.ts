@@ -125,6 +125,37 @@ export class TradingOpsDashboard {
     const autoBlockSourceWallet = Boolean(
       config.auto_block_source_wallet_after_buy ?? config.autoBlockSourceWalletAfterBuy ?? false,
     )
+    const legacyPreBuySafetyEnabled = Boolean(
+      config.pre_buy_safety_checks_enabled ??
+        config.preBuySafetyChecksEnabled ??
+        safety.preBuySafetyChecksEnabled ??
+        true,
+    )
+    const preBuyChecksConfig =
+      (config.pre_buy_checks as Record<string, unknown>) ||
+      (config.preBuyChecks as Record<string, unknown>) ||
+      (safety.preBuyChecks as Record<string, unknown>) ||
+      {}
+    const preBuyCheckSellRoute = Boolean(
+      preBuyChecksConfig.sellRoute ?? preBuyChecksConfig.sell_route ?? legacyPreBuySafetyEnabled,
+    )
+    const preBuyCheckFreezeAuthority = Boolean(
+      preBuyChecksConfig.freezeAuthority ?? preBuyChecksConfig.freeze_authority ?? legacyPreBuySafetyEnabled,
+    )
+    const preBuyCheckToken2022Extensions = Boolean(
+      preBuyChecksConfig.token2022Extensions ?? preBuyChecksConfig.token2022_extensions ?? legacyPreBuySafetyEnabled,
+    )
+    const preBuyCheckHoneypot = Boolean(preBuyChecksConfig.honeypot ?? legacyPreBuySafetyEnabled)
+    const preBuyCheckSuspiciousTax = Boolean(
+      preBuyChecksConfig.suspiciousTax ?? preBuyChecksConfig.suspicious_tax ?? legacyPreBuySafetyEnabled,
+    )
+    const preBuyChecksEnabledCount = [
+      preBuyCheckSellRoute,
+      preBuyCheckFreezeAuthority,
+      preBuyCheckToken2022Extensions,
+      preBuyCheckHoneypot,
+      preBuyCheckSuspiciousTax,
+    ].filter(Boolean).length
     const denylistValue = Array.isArray(config.denylist) ? (config.denylist as string[]).join('\n') : ''
     const allowlistValue = Array.isArray(config.allowlist) ? (config.allowlist as string[]).join('\n') : ''
     const currentMode = String(data.status.mode || 'signal_based')
@@ -140,6 +171,13 @@ export class TradingOpsDashboard {
     const attributedWalletCount = walletAttribution.size
     const tokenExposureCount = observedTokensByWallet.size
     const journalCount = data.journal.length
+    const blockedBuyEntries = data.journal
+      .filter((entry) => {
+        const status = String(entry.status || entry.status_code || '').toLowerCase()
+        const action = String(entry.action || '').toLowerCase()
+        return status === 'blocked' && action === 'buy'
+      })
+      .slice(0, 8)
     const failureCount = data.failures.length
     const decisionCount = data.decisions.length
     const driftAlertHtml = driftAlerts.length
@@ -184,6 +222,20 @@ export class TradingOpsDashboard {
             <td>${entry.profilePreset || ''}</td>
             <td>${entry.amountSol || ''}</td>
             <td>${entry.reason || ''}</td>
+          </tr>
+        `,
+      )
+      .join('')
+
+    const blockedBuyRows = blockedBuyEntries
+      .map(
+        (entry) => `
+          <tr>
+            <td>${this.escapeHtml(String(entry.timestamp || ''))}</td>
+            <td>${this.escapeHtml(String(entry.tokenMint || entry.token_mint || ''))}</td>
+            <td>${this.escapeHtml(String(entry.sourceWallet || entry.source_wallet || ''))}</td>
+            <td>${this.escapeHtml(String(entry.amountSol || entry.amount_sol || ''))}</td>
+            <td>${this.escapeHtml(String(entry.reason || ''))}</td>
           </tr>
         `,
       )
@@ -265,6 +317,7 @@ export class TradingOpsDashboard {
         <span class="signal-pill"><strong>Mode</strong>${currentMode}</span>
         <span class="signal-pill"><strong>Profile</strong>${currentProfile}</span>
         <span class="signal-pill"><strong>Buy Once/Token</strong>${buyOncePerToken ? 'on' : 'off'}</span>
+        <span class="signal-pill"><strong>Pre-Buy Checks</strong>${preBuyChecksEnabledCount}/5 on</span>
         <span class="signal-pill"><strong>Watchlist</strong>${watchlistCount}</span>
         <span class="signal-pill"><strong>Dead Letters</strong>${failureCount}</span>
       </div>
@@ -399,6 +452,29 @@ export class TradingOpsDashboard {
               <input name="buyOncePerToken" type="checkbox" ${buyOncePerToken ? 'checked' : ''} />
               Buy once per token (reject repeat buys for any token already bought once)
             </label>
+            <fieldset style="grid-column:1 / -1;border:1px solid #444;padding:8px 12px;border-radius:6px;">
+              <legend>Pre-Buy Safety Checks</legend>
+              <label style="display:flex;align-items:center;gap:8px;">
+                <input name="preBuyCheckSellRoute" type="checkbox" ${preBuyCheckSellRoute ? 'checked' : ''} />
+                Reverse sell route exists before buy
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;">
+                <input name="preBuyCheckFreezeAuthority" type="checkbox" ${preBuyCheckFreezeAuthority ? 'checked' : ''} />
+                Block tokens with freeze authority
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;">
+                <input name="preBuyCheckToken2022Extensions" type="checkbox" ${preBuyCheckToken2022Extensions ? 'checked' : ''} />
+                Block risky Token-2022 extensions
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;">
+                <input name="preBuyCheckHoneypot" type="checkbox" ${preBuyCheckHoneypot ? 'checked' : ''} />
+                Block honeypot metadata flags
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;">
+                <input name="preBuyCheckSuspiciousTax" type="checkbox" ${preBuyCheckSuspiciousTax ? 'checked' : ''} />
+                Block suspicious buy/sell tax metadata
+              </label>
+            </fieldset>
             <label>MEV Service
               <select name="mevService">
                 <option value="none" ${mevServiceValue === 'none' ? 'selected' : ''}>None</option>
@@ -561,6 +637,20 @@ export class TradingOpsDashboard {
       <table>
         <thead><tr><th>Source Wallet</th><th>Distinct Tokens</th><th>Suggested Cap</th><th>Tokens</th></tr></thead>
         <tbody>${tokenExposureRows || '<tr><td colspan="4">No token exposure telemetry yet.</td></tr>'}</tbody>
+      </table>
+    </section>
+
+    <section class="section table-card">
+      <div class="section-header">
+        <div class="section-header-copy">
+          <h2>Blocked Buy Checks</h2>
+          <p class="section-subtitle">Most recent buys rejected before execution because the token failed pre-buy safety validation.</p>
+        </div>
+        <div class="table-meta"><span class="badge">Blocked buys: ${blockedBuyEntries.length}</span></div>
+      </div>
+      <table>
+        <thead><tr><th>Time</th><th>Token</th><th>Source</th><th>Amount</th><th>Reason</th></tr></thead>
+        <tbody>${blockedBuyRows || '<tr><td colspan="5">No blocked buys from pre-buy safety checks yet.</td></tr>'}</tbody>
       </table>
     </section>
 
@@ -966,6 +1056,11 @@ export class TradingOpsDashboard {
           minAlertQualityScore: parseOptionalNumber(formData.get('minAlertQualityScore')),
           minTraceAlerts: parseOptionalNumber(formData.get('minTraceAlerts')),
           buyOncePerToken: formData.get('buyOncePerToken') !== null,
+          preBuyCheckSellRoute: formData.get('preBuyCheckSellRoute') !== null,
+          preBuyCheckFreezeAuthority: formData.get('preBuyCheckFreezeAuthority') !== null,
+          preBuyCheckToken2022Extensions: formData.get('preBuyCheckToken2022Extensions') !== null,
+          preBuyCheckHoneypot: formData.get('preBuyCheckHoneypot') !== null,
+          preBuyCheckSuspiciousTax: formData.get('preBuyCheckSuspiciousTax') !== null,
           stopLossPercentage: parseOptionalNumber(formData.get('stopLossPercentage')),
           takeProfitPercentage: parseOptionalNumber(formData.get('takeProfitPercentage')),
           mevService: String(formData.get('mevService') || ''),

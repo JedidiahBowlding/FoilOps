@@ -26,6 +26,11 @@ export type TradingSettingsInput = {
   allowedDexes?: string[]
   targetWallet?: string
   autoBlockSourceWalletAfterBuy?: boolean
+  preBuyCheckSellRoute?: boolean
+  preBuyCheckFreezeAuthority?: boolean
+  preBuyCheckToken2022Extensions?: boolean
+  preBuyCheckHoneypot?: boolean
+  preBuyCheckSuspiciousTax?: boolean
   denylist?: string[]
   allowlist?: string[]
 }
@@ -149,6 +154,25 @@ export function buildTradingSettingsOperations(input: TradingSettingsInput): Tra
     operations.push({
       path: '/trading/auto-block-source-wallet',
       body: { auto_block_source_wallet_after_buy: input.autoBlockSourceWalletAfterBuy },
+    })
+  }
+
+  if (
+    typeof input.preBuyCheckSellRoute === 'boolean' ||
+    typeof input.preBuyCheckFreezeAuthority === 'boolean' ||
+    typeof input.preBuyCheckToken2022Extensions === 'boolean' ||
+    typeof input.preBuyCheckHoneypot === 'boolean' ||
+    typeof input.preBuyCheckSuspiciousTax === 'boolean'
+  ) {
+    operations.push({
+      path: '/trading/pre-buy-checks',
+      body: {
+        sell_route: input.preBuyCheckSellRoute,
+        freeze_authority: input.preBuyCheckFreezeAuthority,
+        token2022_extensions: input.preBuyCheckToken2022Extensions,
+        honeypot: input.preBuyCheckHoneypot,
+        suspicious_tax: input.preBuyCheckSuspiciousTax,
+      },
     })
   }
 
