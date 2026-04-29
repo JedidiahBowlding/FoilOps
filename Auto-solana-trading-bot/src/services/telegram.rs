@@ -2,7 +2,6 @@ use teloxide::prelude::*;
 use teloxide::types::ParseMode;
 use teloxide::utils::command::BotCommands;
 use std::sync::{Arc, Mutex};
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 #[derive(BotCommands, Clone, Debug)]
@@ -94,64 +93,28 @@ impl TelegramBot {
         
         let telegram_bot = Arc::new(TelegramBot::new(default_state));
         
-        let handler = dptree::entry()
-            .branch(
-                Update::filter_message()
-                    .filter_command::<Command>()
-                    .endpoint(handle_commands),
-            )
-            .branch(
-                Update::filter_message()
-                    .endpoint(handle_message),
-            );
+        let handler = {
+            let tb = telegram_bot.clone();
+            dptree::entry()
+                .branch(
+                    Update::filter_message()
+                        .filter_command::<Command>()
+                        .endpoint(move |bot: Bot, msg: Message, cmd: Command| {
+                            let tb = tb.clone();
+                            async move { handle_commands(bot, msg, cmd, tb).await }
+                        }),
+                )
+                .branch(
+                    Update::filter_message()
+                        .endpoint(handle_message),
+                )
+        };
 
-        let mut dispatcher = Dispatcher::builder(bot, handler)
-            .enable_ctypes_dialogue::<InMemStorage<()>>()
-            .build();
-
-        // Store bot state in dispatcher dependencies
-        dispatcher = dispatcher.dependencies(dptree::deps![telegram_bot]);
-
-        dispatcher.dispatch().await;
+        Dispatcher::builder(bot, handler)
+            .build()
+            .dispatch()
+            .await;
         Ok(())
-    }
-}
-
-#[derive(Clone, Default)]
-pub struct InMemStorage<T> {
-    storage: Arc<Mutex<HashMap<u64, T>>>,
-}
-
-impl<T: Clone + Send + Sync + 'static> teloxide::dispatching::dialogue::Storage<T>
-    for InMemStorage<T>
-{
-    type Error = std::convert::Infallible;
-
-    async fn remove_dialogue(
-        &self,
-        chat_id: teloxide::types::ChatId,
-    ) -> Result<(), Self::Error> {
-        self.storage.lock().unwrap().remove(&chat_id.0 as u64);
-        Ok(())
-    }
-
-    async fn update_dialogue(
-        &self,
-        chat_id: teloxide::types::ChatId,
-        dialogue: T,
-    ) -> Result<(), Self::Error> {
-        self.storage
-            .lock()
-            .unwrap()
-            .insert(chat_id.0 as u64, dialogue);
-        Ok(())
-    }
-
-    async fn get_dialogue(
-        &self,
-        chat_id: teloxide::types::ChatId,
-    ) -> Result<Option<T>, Self::Error> {
-        Ok(self.storage.lock().unwrap().get(&(chat_id.0 as u64)).cloned())
     }
 }
 
@@ -183,26 +146,27 @@ async fn handle_commands(
                 .await?;
         }
         Command::Status => {
-            let state = bot_state.state.lock().unwrap();
-            let bot_status = if state.enabled { "✅ Enabled" } else { "❌ Disabled" };
-            let pause_status = if state.paused { "⏸️ Paused" } else { "▶️ Running" };
-            
-            let response = format!(
-                "<b>Bot Status</b>\n\n\
-                 Status: {}\n\
-                 Mode: {}\n\
-                 Slippage: {}%\n\
-                 Target: {}\n\
-                 MEV Service: {}\n\n\
-                 <i>Use /config to see all settings</i>",
-                bot_status, pause_status, state.slippage, state.target_wallet, state.mev_service
-            );
+            let response = {
+                let state = bot_state.state.lock().unwrap();
+                let bot_status = if state.enabled { "✅ Enabled" } else { "❌ Disabled" };
+                let pause_status = if state.paused { "⏸️ Paused" } else { "▶️ Running" };
+                format!(
+                    "<b>Bot Status</b>\n\n\
+                     Status: {}\n\
+                     Mode: {}\n\
+                     Slippage: {}%\n\
+                     Target: {}\n\
+                     MEV Service: {}\n\n\
+                     <i>Use /config to see all settings</i>",
+                    bot_status, pause_status, state.slippage, state.target_wallet, state.mev_service
+                )
+            };
             bot.send_message(msg.chat.id, response)
                 .parse_mode(ParseMode::Html)
                 .await?;
         }
         Command::Balance => {
-            let response = 
+            let response =
                 "💰 <b>Wallet Balance</b>\n\n\
                  <i>Fetching balance from blockchain...</i>\n\n\
                  SOL: 5.234 ◎\n\
@@ -214,26 +178,27 @@ async fn handle_commands(
                 .await?;
         }
         Command::Trades => {
-            let history = bot_state.trade_history.lock().unwrap();
-            let response = if history.is_empty() {
-                "📊 <b>Recent Trades</b>\n\nNo trades yet.".to_string()
-            } else {
-                let mut resp = "📊 <b>Recent Trades</b>\n\n".to_string();
-                for trade in history.iter().rev().take(10) {
-                    resp.push_str(&format!(
-                        "• {} {} {} at {}\n",
-                        trade.direction, trade.amount, trade.token_mint,
-                        trade.timestamp
-                    ));
+            let response = {
+                let history = bot_state.trade_history.lock().unwrap();
+                if history.is_empty() {
+                    "📊 <b>Recent Trades</b>\n\nNo trades yet.".to_string()
+                } else {
+                    let mut resp = "📊 <b>Recent Trades</b>\n\n".to_string();
+                    for trade in history.iter().rev().take(10) {
+                        resp.push_str(&format!(
+                            "• {} {} {} at {}\n",
+                            trade.direction, trade.amount, trade.token_mint, trade.timestamp
+                        ));
+                    }
+                    resp
                 }
-                resp
             };
             bot.send_message(msg.chat.id, response)
                 .parse_mode(ParseMode::Html)
                 .await?;
         }
         Command::Stats => {
-            let response = 
+            let response =
                 "📈 <b>Trading Statistics</b>\n\n\
                  Total Trades: 42\n\
                  Wins: 31 (73.8%)\n\
@@ -250,16 +215,16 @@ async fn handle_commands(
         }
         Command::Slippage(args) => {
             if args.trim().is_empty() {
-                let state = bot_state.state.lock().unwrap();
-                let response = format!("📊 Current slippage: {}%", state.slippage);
+                let response = {
+                    let state = bot_state.state.lock().unwrap();
+                    format!("📊 Current slippage: {}%", state.slippage)
+                };
                 bot.send_message(msg.chat.id, response).await?;
             } else {
                 match args.trim().parse::<u64>() {
                     Ok(value) => {
-                        let mut state = bot_state.state.lock().unwrap();
-                        state.slippage = value;
-                        let response = format!("✅ Slippage set to {}%", value);
-                        bot.send_message(msg.chat.id, response).await?;
+                        { bot_state.state.lock().unwrap().slippage = value; }
+                        bot.send_message(msg.chat.id, format!("✅ Slippage set to {}%", value)).await?;
                     }
                     Err(_) => {
                         bot.send_message(msg.chat.id, "❌ Invalid value. Use /slippage <number>")
@@ -270,20 +235,26 @@ async fn handle_commands(
         }
         Command::Target(args) => {
             if args.trim().is_empty() {
-                let state = bot_state.state.lock().unwrap();
-                let response = format!("🎯 Current target: {}", state.target_wallet);
+                let response = {
+                    let state = bot_state.state.lock().unwrap();
+                    format!("🎯 Current target: {}", state.target_wallet)
+                };
                 bot.send_message(msg.chat.id, response).await?;
             } else {
                 let pubkey = args.trim();
                 if pubkey.len() == 44 || pubkey.len() == 32 {
-                    let mut state = bot_state.state.lock().unwrap();
-                    state.target_wallet = pubkey.to_string();
-                    let response = format!("✅ Target wallet set to: {}", 
-                        if pubkey.len() > 8 { 
-                            format!("{}...{}", &pubkey[..4], &pubkey[pubkey.len()-4..]) 
-                        } else { 
-                            pubkey.to_string() 
-                        });
+                    let response = {
+                        let mut state = bot_state.state.lock().unwrap();
+                        state.target_wallet = pubkey.to_string();
+                        format!(
+                            "✅ Target wallet set to: {}",
+                            if pubkey.len() > 8 {
+                                format!("{}...{}", &pubkey[..4], &pubkey[pubkey.len() - 4..])
+                            } else {
+                                pubkey.to_string()
+                            }
+                        )
+                    };
                     bot.send_message(msg.chat.id, response).await?;
                 } else {
                     bot.send_message(msg.chat.id, "❌ Invalid Solana address format").await?;
@@ -291,17 +262,15 @@ async fn handle_commands(
             }
         }
         Command::Enable => {
-            let mut state = bot_state.state.lock().unwrap();
-            state.enabled = true;
+            { bot_state.state.lock().unwrap().enabled = true; }
             bot.send_message(msg.chat.id, "✅ Trading bot enabled").await?;
         }
         Command::Disable => {
-            let mut state = bot_state.state.lock().unwrap();
-            state.enabled = false;
+            { bot_state.state.lock().unwrap().enabled = false; }
             bot.send_message(msg.chat.id, "⛔ Trading bot disabled").await?;
         }
         Command::Cancel => {
-            let response = 
+            let response =
                 "❌ <b>Cancel Pending Trade</b>\n\n\
                  No pending trades to cancel.";
             bot.send_message(msg.chat.id, response)
@@ -309,27 +278,29 @@ async fn handle_commands(
                 .await?;
         }
         Command::Config => {
-            let state = bot_state.state.lock().unwrap();
-            let response = format!(
-                "<b>⚙️ Bot Configuration</b>\n\n\
-                 <b>Trading:</b>\n\
-                 • Enabled: {}\n\
-                 • Paused: {}\n\
-                 • Slippage: {}%\n\n\
-                 <b>Target:</b>\n\
-                 • Wallet: {}\n\n\
-                 <b>MEV Protection:</b>\n\
-                 • Service: {}\n\n\
-                 <b>Pools:</b>\n\
-                 • Raydium: ✓\n\
-                 • PumpFun: ✓\n\n\
-                 Use /help for available commands",
-                if state.enabled { "✅" } else { "❌" },
-                if state.paused { "⏸️" } else { "▶️" },
-                state.slippage,
-                state.target_wallet,
-                state.mev_service
-            );
+            let response = {
+                let state = bot_state.state.lock().unwrap();
+                format!(
+                    "<b>⚙️ Bot Configuration</b>\n\n\
+                     <b>Trading:</b>\n\
+                     • Enabled: {}\n\
+                     • Paused: {}\n\
+                     • Slippage: {}%\n\n\
+                     <b>Target:</b>\n\
+                     • Wallet: {}\n\n\
+                     <b>MEV Protection:</b>\n\
+                     • Service: {}\n\n\
+                     <b>Pools:</b>\n\
+                     • Raydium: ✓\n\
+                     • PumpFun: ✓\n\n\
+                     Use /help for available commands",
+                    if state.enabled { "✅" } else { "❌" },
+                    if state.paused { "⏸️" } else { "▶️" },
+                    state.slippage,
+                    state.target_wallet,
+                    state.mev_service
+                )
+            };
             bot.send_message(msg.chat.id, response)
                 .parse_mode(ParseMode::Html)
                 .await?;
@@ -357,17 +328,19 @@ async fn handle_commands(
                 .await?;
         }
         Command::Mev => {
-            let state = bot_state.state.lock().unwrap();
-            let response = format!(
-                "<b>🚀 MEV Protection Settings</b>\n\n\
-                 Current Service: <b>{}</b>\n\n\
-                 Available Services:\n\
-                 • Jito - Jito MEV-Share\n\
-                 • Nozomi - Nozomi Bundle Service\n\
-                 • Zeroslot - Zero Slot Leader\n\n\
-                 Use /setmev to change service",
-                state.mev_service
-            );
+            let response = {
+                let state = bot_state.state.lock().unwrap();
+                format!(
+                    "<b>🚀 MEV Protection Settings</b>\n\n\
+                     Current Service: <b>{}</b>\n\n\
+                     Available Services:\n\
+                     • Jito - Jito MEV-Share\n\
+                     • Nozomi - Nozomi Bundle Service\n\
+                     • Zeroslot - Zero Slot Leader\n\n\
+                     Use /setmev to change service",
+                    state.mev_service
+                )
+            };
             bot.send_message(msg.chat.id, response)
                 .parse_mode(ParseMode::Html)
                 .await?;
@@ -375,40 +348,41 @@ async fn handle_commands(
         Command::SetMev(service) => {
             let service_lower = service.to_lowercase();
             if matches!(service_lower.as_str(), "jito" | "nozomi" | "zeroslot") {
-                let mut state = bot_state.state.lock().unwrap();
-                state.mev_service = service_lower.clone();
-                let response = format!("✅ MEV service changed to: {}", service_lower);
-                bot.send_message(msg.chat.id, response).await?;
+                { bot_state.state.lock().unwrap().mev_service = service_lower.clone(); }
+                bot.send_message(msg.chat.id, format!("✅ MEV service changed to: {}", service_lower))
+                    .await?;
             } else {
-                bot.send_message(msg.chat.id, 
-                    "❌ Invalid service. Use: jito, nozomi, or zeroslot").await?;
+                bot.send_message(msg.chat.id, "❌ Invalid service. Use: jito, nozomi, or zeroslot")
+                    .await?;
             }
         }
         Command::History => {
-            let history = bot_state.trade_history.lock().unwrap();
-            let response = if history.is_empty() {
-                "📜 <b>Transaction History</b>\n\nNo transactions yet.".to_string()
-            } else {
-                let mut resp = "📜 <b>Recent Transactions</b>\n\n".to_string();
-                for (idx, trade) in history.iter().rev().enumerate() {
-                    if idx >= 20 { break; }
-                    resp.push_str(&format!(
-                        "{}. {} {} {} ({})\n",
-                        idx + 1,
-                        trade.direction.to_uppercase(),
-                        trade.amount,
-                        trade.token_mint,
-                        trade.status
-                    ));
+            let response = {
+                let history = bot_state.trade_history.lock().unwrap();
+                if history.is_empty() {
+                    "📜 <b>Transaction History</b>\n\nNo transactions yet.".to_string()
+                } else {
+                    let mut resp = "📜 <b>Recent Transactions</b>\n\n".to_string();
+                    for (idx, trade) in history.iter().rev().enumerate() {
+                        if idx >= 20 { break; }
+                        resp.push_str(&format!(
+                            "{}. {} {} {} ({})\n",
+                            idx + 1,
+                            trade.direction.to_uppercase(),
+                            trade.amount,
+                            trade.token_mint,
+                            trade.status
+                        ));
+                    }
+                    resp
                 }
-                resp
             };
             bot.send_message(msg.chat.id, response)
                 .parse_mode(ParseMode::Html)
                 .await?;
         }
         Command::Logs => {
-            let response = 
+            let response =
                 "📋 <b>Recent Bot Logs</b>\n\n\
                  [2026-01-28 14:23:45] Bot started\n\
                  [2026-01-28 14:23:50] Connected to Helius WebSocket\n\
@@ -422,13 +396,11 @@ async fn handle_commands(
                 .await?;
         }
         Command::Pause => {
-            let mut state = bot_state.state.lock().unwrap();
-            state.paused = true;
+            { bot_state.state.lock().unwrap().paused = true; }
             bot.send_message(msg.chat.id, "⏸️ Trading paused").await?;
         }
         Command::Resume => {
-            let mut state = bot_state.state.lock().unwrap();
-            state.paused = false;
+            { bot_state.state.lock().unwrap().paused = false; }
             bot.send_message(msg.chat.id, "▶️ Trading resumed").await?;
         }
     }
