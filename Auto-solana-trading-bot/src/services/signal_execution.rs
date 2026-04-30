@@ -97,7 +97,7 @@ impl Default for TradingConfig {
             buy_amount_sol: 0.01,
             max_concurrent_trades: 5,
             stop_loss_percentage: 20.0,
-            take_profit_percentage: 50.0,
+            take_profit_percentage: 1.0,
             max_position_size_sol: 0.1,
             min_liquidity_usd: 1000.0,
             allowed_dexes: vec!["pump_fun".to_string(), "raydium".to_string()],

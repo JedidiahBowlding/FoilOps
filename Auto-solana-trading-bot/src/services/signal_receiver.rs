@@ -919,7 +919,7 @@ async fn get_config(
             "buyAmountSol": 0.01,
             "maxConcurrentTrades": 5,
             "stopLossPercentage": 20.0,
-            "takeProfitPercentage": 50.0,
+            "takeProfitPercentage": 1.0,
             "maxPositionSizeSol": 0.1,
             "minLiquidityUsd": 1000.0,
             "allowedDexes": ["pump_fun", "raydium"],
