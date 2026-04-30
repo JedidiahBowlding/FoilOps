@@ -600,12 +600,7 @@ export class DashboardAuth {
             <p class="fx-eyebrow">FoilOps Control Surface</p>
             <h1>Authenticate before touching live operator systems.</h1>
             <p class="fx-lead">Trading operations, scam intelligence, graph views, and protected APIs now share one signed session boundary. This is the gate in front of the live wallet intelligence stack.</p>
-            <div class="login-grid">
-              <article class="mini"><strong>Protected</strong>Trading ops, scam intelligence, graph view, FoilOps launch intelligence, and dashboard exports.</article>
-              <article class="mini"><strong>Session</strong>HTTP-only signed cookie with a seven day expiry window.</article>
-              <article class="mini"><strong>Security</strong>Brute-force throttling (8 attempts/15min) and${this.twoFAEnabled ? ' TOTP 2FA' : ' HMAC-SHA256 signing'} enabled.</article>
-              <article class="mini"><strong>Config</strong>DASHBOARD_USERNAME, DASHBOARD_PASSWORD, and DASHBOARD_SESSION_SECRET.</article>
-            </div>
+
           </article>
           <article class="panel login-panel">
             ${alertMarkup}

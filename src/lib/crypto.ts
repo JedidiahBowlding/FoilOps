@@ -12,8 +12,8 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
 
 const ALGORITHM = 'aes-256-gcm' as const
-const IV_BYTES = 12   // 96-bit IV — recommended for GCM
-const TAG_BYTES = 16  // 128-bit auth tag
+const IV_BYTES = 12 // 96-bit IV — recommended for GCM
+const TAG_BYTES = 16 // 128-bit auth tag
 const PREFIX = 'enc:v1:'
 
 function getKey(): Buffer {
@@ -21,7 +21,7 @@ function getKey(): Buffer {
   if (!hex || hex.length !== 64) {
     throw new Error(
       'WALLET_ENCRYPTION_KEY must be set to a 64-character hex string (32 bytes). ' +
-      'Generate one with: openssl rand -hex 32',
+        'Generate one with: openssl rand -hex 32',
     )
   }
   return Buffer.from(hex, 'hex')
@@ -44,14 +44,7 @@ export function encryptPrivateKey(plaintext: string): string {
   const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()])
   const authTag = cipher.getAuthTag()
 
-  return (
-    PREFIX +
-    iv.toString('base64') +
-    '.' +
-    authTag.toString('base64') +
-    '.' +
-    encrypted.toString('base64')
-  )
+  return PREFIX + iv.toString('base64') + '.' + authTag.toString('base64') + '.' + encrypted.toString('base64')
 }
 
 /**

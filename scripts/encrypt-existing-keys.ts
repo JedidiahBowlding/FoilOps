@@ -38,9 +38,7 @@ async function main() {
     walletEncrypted++
   }
 
-  console.log(
-    `[PersonalTradingWallet] encrypted=${walletEncrypted}  skipped=${walletSkipped}  total=${wallets.length}`,
-  )
+  console.log(`[PersonalTradingWallet] encrypted=${walletEncrypted}  skipped=${walletSkipped}  total=${wallets.length}`)
 
   // ── User.personalWalletPrivKey rows ────────────────────────────────────────
   const users = await prisma.user.findMany({
@@ -62,9 +60,7 @@ async function main() {
     userEncrypted++
   }
 
-  console.log(
-    `[User.personalWalletPrivKey] encrypted=${userEncrypted}  skipped=${userSkipped}  total=${users.length}`,
-  )
+  console.log(`[User.personalWalletPrivKey] encrypted=${userEncrypted}  skipped=${userSkipped}  total=${users.length}`)
 
   console.log('[encrypt-existing-keys] Done.')
 }
