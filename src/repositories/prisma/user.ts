@@ -1,6 +1,7 @@
 import { CreateWallet } from '../../lib/create-wallet'
 import { CreateUserInterface } from '../../types/general-interfaces'
 import prisma from '../../providers/prisma'
+import { encryptPrivateKey, decryptPrivateKey } from '../../lib/crypto'
 
 type ActivePersonalWallet = {
   id: string
@@ -20,6 +21,8 @@ export class PrismaUserRepository {
   public async create({ firstName, id, lastName, username }: CreateUserInterface) {
     const { publicKey, privateKey } = this.createWallet.create()
 
+    const encryptedPrivKey = encryptPrivateKey(privateKey)
+
     const newUser = await prisma.user.create({
       data: {
         firstName,
@@ -27,12 +30,12 @@ export class PrismaUserRepository {
         lastName,
         username,
         personalWalletPubKey: publicKey,
-        personalWalletPrivKey: privateKey,
+        personalWalletPrivKey: encryptedPrivKey,
         personalTradingWallets: {
           create: {
             name: 'Wallet 1',
             publicKey,
-            privateKey,
+            privateKey: encryptedPrivKey,
             isActive: true,
           },
         },
@@ -171,12 +174,14 @@ export class PrismaUserRepository {
     const walletName = name?.trim() || `Wallet ${existingWallets.length + 1}`
     const shouldBeActive = existingWallets.length === 0
 
+    const encryptedPrivKey = encryptPrivateKey(privateKey)
+
     const createdWallet = await prisma.personalTradingWallet.create({
       data: {
         userId,
         name: walletName,
         publicKey,
-        privateKey,
+        privateKey: encryptedPrivKey,
         isActive: shouldBeActive,
       },
       select: {
@@ -189,10 +194,10 @@ export class PrismaUserRepository {
     })
 
     if (shouldBeActive) {
-      await this.syncLegacyPersonalWallet(userId, createdWallet.publicKey, createdWallet.privateKey)
+      await this.syncLegacyPersonalWallet(userId, createdWallet.publicKey, encryptedPrivKey)
     }
 
-    return createdWallet
+    return { ...createdWallet, privateKey }
   }
 
   public async setActivePersonalTradingWallet(userId: string, walletId: string) {
@@ -214,8 +219,10 @@ export class PrismaUserRepository {
       return null
     }
 
+    const decryptedPrivKey = decryptPrivateKey(wallet.privateKey)
+
     if (wallet.isActive) {
-      return wallet
+      return { ...wallet, privateKey: decryptedPrivKey }
     }
 
     await prisma.$transaction([
@@ -238,6 +245,7 @@ export class PrismaUserRepository {
 
     return {
       ...wallet,
+      privateKey: decryptedPrivKey,
       isActive: true,
     }
   }
@@ -448,7 +456,7 @@ export class PrismaUserRepository {
     })
 
     if (activeWallet) {
-      return activeWallet
+      return { ...activeWallet, privateKey: decryptPrivateKey(activeWallet.privateKey) }
     }
 
     const firstWallet = await prisma.personalTradingWallet.findFirst({
@@ -482,6 +490,7 @@ export class PrismaUserRepository {
 
       return {
         ...firstWallet,
+        privateKey: decryptPrivateKey(firstWallet.privateKey),
         isActive: true,
       }
     }
@@ -498,12 +507,15 @@ export class PrismaUserRepository {
       return null
     }
 
-    return prisma.personalTradingWallet.create({
+    const legacyDecrypted = decryptPrivateKey(user.personalWalletPrivKey)
+    const encryptedForWallet = encryptPrivateKey(legacyDecrypted)
+
+    const created = await prisma.personalTradingWallet.create({
       data: {
         userId,
         name: 'Wallet 1',
         publicKey: user.personalWalletPubKey,
-        privateKey: user.personalWalletPrivKey,
+        privateKey: encryptedForWallet,
         isActive: true,
       },
       select: {
@@ -514,14 +526,17 @@ export class PrismaUserRepository {
         isActive: true,
       },
     })
+
+    return { ...created, privateKey: legacyDecrypted }
   }
 
-  private async syncLegacyPersonalWallet(userId: string, publicKey: string, privateKey: string) {
+  private async syncLegacyPersonalWallet(userId: string, publicKey: string, encryptedPrivKey: string) {
+    // encryptedPrivKey must already be encrypted — callers are responsible for passing ciphertext
     await prisma.user.update({
       where: { id: userId },
       data: {
         personalWalletPubKey: publicKey,
-        personalWalletPrivKey: privateKey,
+        personalWalletPrivKey: encryptedPrivKey,
       },
     })
   }
