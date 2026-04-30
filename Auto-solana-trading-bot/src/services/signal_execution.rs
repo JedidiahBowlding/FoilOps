@@ -74,6 +74,8 @@ pub struct TradingConfig {
     pub auto_block_source_wallet_after_buy: bool,
     pub buy_once_per_token: bool,
     pub pre_buy_checks: PreBuySafetyChecksConfig,
+    /// Max age in seconds for COPY_TRADE signals before they are rejected. 0 = disabled.
+    pub max_copy_trade_signal_age_seconds: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -114,6 +116,7 @@ impl Default for TradingConfig {
             auto_block_source_wallet_after_buy: false,
             buy_once_per_token: true,
             pre_buy_checks: PreBuySafetyChecksConfig::default(),
+            max_copy_trade_signal_age_seconds: 60,
         }
     }
 }
@@ -354,6 +357,20 @@ impl SignalExecutionEngine {
 
         if signal.signal_type == "COPY_TRADE" && source_wallet.is_none() {
             return Err("copy_trade_missing_source_wallet".to_string());
+        }
+
+        // Stale signal rejection — drop COPY_TRADE signals older than the configured max age
+        if signal.signal_type == "COPY_TRADE" && state.config.max_copy_trade_signal_age_seconds > 0 {
+            if let Ok(emitted) = chrono::DateTime::parse_from_rfc3339(&signal.emitted_at) {
+                let age_secs = (chrono::Utc::now() - emitted.with_timezone(&chrono::Utc)).num_seconds();
+                if age_secs > state.config.max_copy_trade_signal_age_seconds as i64 {
+                    return Err(format!(
+                        "copy_trade_signal_too_old: {}s > {}s max",
+                        age_secs,
+                        state.config.max_copy_trade_signal_age_seconds
+                    ));
+                }
+            }
         }
 
         if !state.config.source_wallet_watchlist.is_empty() {
@@ -1555,6 +1572,16 @@ impl SignalExecutionEngine {
         let mut state = self.state.lock().await;
         state.config.max_risk_score = score.clamp(0.0, 100.0);
         format!("MAX_RISK_SCORE_SET: {}", state.config.max_risk_score)
+    }
+
+    pub async fn get_copy_trade_signal_age_async(&self) -> u64 {
+        self.state.lock().await.config.max_copy_trade_signal_age_seconds
+    }
+
+    pub async fn set_copy_trade_signal_age_async(&self, seconds: u64) -> String {
+        let mut state = self.state.lock().await;
+        state.config.max_copy_trade_signal_age_seconds = seconds;
+        format!("COPY_TRADE_SIGNAL_AGE_SET: {}s", seconds)
     }
 
     pub async fn set_mode_async(&self, mode: String) -> String {

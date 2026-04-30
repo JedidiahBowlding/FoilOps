@@ -134,6 +134,8 @@ struct ReceiverMetrics {
     gate_invalid_timestamp: u64,
     #[serde(default)]
     gate_auth_failed: u64,
+    #[serde(default)]
+    gate_stale_copy_trade_signal: u64,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -249,6 +251,7 @@ pub async fn start_signal_receiver(
         .route("/trading/pre-buy-checks", get(get_pre_buy_checks).post(set_pre_buy_checks))
         .route("/trading/stop-loss", get(get_stop_loss).post(set_stop_loss))
         .route("/trading/take-profit", get(get_take_profit).post(set_take_profit))
+        .route("/trading/copy-trade-signal-age", get(get_copy_trade_signal_age).post(set_copy_trade_signal_age))
         .route("/trading/max-concurrent-trades", get(get_max_concurrent_trades).post(set_max_concurrent_trades))
         .route("/trading/max-position-size", get(get_max_position_size).post(set_max_position_size))
         .route("/trading/min-liquidity", get(get_min_liquidity).post(set_min_liquidity))
@@ -460,6 +463,10 @@ async fn receive_signal(
                     increment_metric(&state, "gate_source_wallet_cap_exceeded").await;
                     Some("source_wallet_cap_gate".to_string())
                 }
+                r if r.contains("copy_trade_signal_too_old") => {
+                    increment_metric(&state, "gate_stale_copy_trade_signal").await;
+                    Some("stale_copy_trade_signal_gate".to_string())
+                }
                 _ => None
             };
             
@@ -641,6 +648,7 @@ async fn increment_metric(state: &Arc<SignalReceiverState>, field: &str) {
         "gate_min_liquidity_failed" => metrics.gate_min_liquidity_failed += 1,
         "gate_invalid_timestamp" => metrics.gate_invalid_timestamp += 1,
         "gate_auth_failed" => metrics.gate_auth_failed += 1,
+        "gate_stale_copy_trade_signal" => metrics.gate_stale_copy_trade_signal += 1,
         _ => {}
     }
 }
@@ -1046,6 +1054,32 @@ async fn set_take_profit(
             (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "message": result })))
         } else {
             (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "status": "error", "message": "Invalid take_profit_percentage value" })))
+        }
+    } else {
+        (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
+    }
+}
+
+async fn get_copy_trade_signal_age(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> Json<Value> {
+    if let Some(engine) = &state.execution_engine {
+        Json(serde_json::json!({ "max_copy_trade_signal_age_seconds": engine.get_copy_trade_signal_age_async().await }))
+    } else {
+        Json(serde_json::json!({ "max_copy_trade_signal_age_seconds": 60u64 }))
+    }
+}
+
+async fn set_copy_trade_signal_age(
+    State(state): State<Arc<SignalReceiverState>>,
+    Json(payload): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Some(engine) = &state.execution_engine {
+        if let Some(seconds) = payload["max_copy_trade_signal_age_seconds"].as_u64() {
+            let result = engine.set_copy_trade_signal_age_async(seconds).await;
+            (StatusCode::OK, Json(serde_json::json!({ "status": "updated", "message": result })))
+        } else {
+            (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "status": "error", "message": "Invalid max_copy_trade_signal_age_seconds value" })))
         }
     } else {
         (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })))
