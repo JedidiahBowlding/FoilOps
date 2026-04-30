@@ -260,7 +260,10 @@ class Main {
       try {
         const tokenMint = typeof req.query?.tokenMint === 'string' ? req.query.tokenMint.trim() : ''
         const sourceWallet = typeof req.query?.sourceWallet === 'string' ? req.query.sourceWallet.trim() : ''
-        const botWallet = typeof req.query?.botWallet === 'string' ? req.query.botWallet.trim() : (process.env.FOILOPS_WALLET_ADDRESS?.trim() || '')
+        const botWallet =
+          typeof req.query?.botWallet === 'string'
+            ? req.query.botWallet.trim()
+            : process.env.FOILOPS_WALLET_ADDRESS?.trim() || ''
         const scanLimit = Math.min(Number(req.query?.scanLimit) || 200, 1000)
 
         if (!tokenMint) {
@@ -268,7 +271,8 @@ class Main {
           return
         }
 
-        const rpcUrl = process.env.QUICKNODE_RPC_URL || process.env.RPC_ENDPOINT || 'https://api.mainnet-beta.solana.com'
+        const rpcUrl =
+          process.env.QUICKNODE_RPC_URL || process.env.RPC_ENDPOINT || 'https://api.mainnet-beta.solana.com'
 
         const rpcCall = async (method: string, params: unknown[]): Promise<unknown> => {
           const response = await axios.post(rpcUrl, { jsonrpc: '2.0', id: 1, method, params }, { timeout: 20_000 })
@@ -277,9 +281,13 @@ class Main {
           return data.result
         }
 
-        const getSignaturesPage = async (address: string, before?: string, limit = 1000): Promise<Array<{ signature: string; blockTime: number | null }>> => {
+        const getSignaturesPage = async (
+          address: string,
+          before?: string,
+          limit = 1000,
+        ): Promise<Array<{ signature: string; blockTime: number | null }>> => {
           const result = await rpcCall('getSignaturesForAddress', [address, { limit, ...(before ? { before } : {}) }])
-          return Array.isArray(result) ? result as Array<{ signature: string; blockTime: number | null }> : []
+          return Array.isArray(result) ? (result as Array<{ signature: string; blockTime: number | null }>) : []
         }
 
         const getEarliestSig = async (address: string) => {
@@ -300,19 +308,43 @@ class Main {
           const sigs = await getSignaturesPage(walletAddress, undefined, scanLimit)
           for (const sig of [...sigs].reverse()) {
             let tx: unknown
-            try { tx = await rpcCall('getTransaction', [sig.signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }]) } catch { continue }
+            try {
+              tx = await rpcCall('getTransaction', [
+                sig.signature,
+                { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 },
+              ])
+            } catch {
+              continue
+            }
             if (!tx) continue
-            const meta = (tx as { meta?: { preTokenBalances?: Array<{ mint: string }>; postTokenBalances?: Array<{ mint: string }> } }).meta || {}
+            const meta =
+              (
+                tx as {
+                  meta?: { preTokenBalances?: Array<{ mint: string }>; postTokenBalances?: Array<{ mint: string }> }
+                }
+              ).meta || {}
             const balances = [...(meta.preTokenBalances || []), ...(meta.postTokenBalances || [])]
-            if (balances.some(b => b.mint === tokenMint) || JSON.stringify(tx).includes(tokenMint)) {
-              return { signature: sig.signature, blockTime: sig.blockTime, timestamp: sig.blockTime ? new Date(sig.blockTime * 1000).toISOString() : null }
+            if (balances.some((b) => b.mint === tokenMint) || JSON.stringify(tx).includes(tokenMint)) {
+              return {
+                signature: sig.signature,
+                blockTime: sig.blockTime,
+                timestamp: sig.blockTime ? new Date(sig.blockTime * 1000).toISOString() : null,
+              }
             }
           }
           return null
         }
 
         const [mintCreation, sourceBuy, botBuy] = await Promise.all([
-          getEarliestSig(tokenMint).then(r => r ? { signature: r.signature, blockTime: r.blockTime, timestamp: r.blockTime ? new Date(r.blockTime * 1000).toISOString() : null } : null),
+          getEarliestSig(tokenMint).then((r) =>
+            r
+              ? {
+                  signature: r.signature,
+                  blockTime: r.blockTime,
+                  timestamp: r.blockTime ? new Date(r.blockTime * 1000).toISOString() : null,
+                }
+              : null,
+          ),
           sourceWallet ? findFirstMintTx(sourceWallet) : Promise.resolve(null),
           botWallet ? findFirstMintTx(botWallet) : Promise.resolve(null),
         ])
@@ -547,7 +579,11 @@ class Main {
         }
         const parseDenyAllowList = (value: unknown): string[] | undefined => {
           if (Array.isArray(value)) return value.map(String).filter(Boolean)
-          if (typeof value === 'string') return value.split('\n').map((s) => s.trim()).filter(Boolean)
+          if (typeof value === 'string')
+            return value
+              .split('\n')
+              .map((s) => s.trim())
+              .filter(Boolean)
           return undefined
         }
         const operations = buildTradingSettingsOperations({

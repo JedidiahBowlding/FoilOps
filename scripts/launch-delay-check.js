@@ -148,7 +148,7 @@ function formatDelay(seconds) {
   return `${prefix}${mins}m ${secs}s`
 }
 
-;(async () => {
+; (async () => {
   console.log('═══════════════════════════════════════════════════')
   console.log('  Launch Delay Diagnostics')
   console.log('═══════════════════════════════════════════════════')
@@ -202,9 +202,9 @@ function formatDelay(seconds) {
   console.log('───────────────────────────────────────────────────')
 
   const rows = [
-    { label: 'Mint created',        data: mintCreation },
+    { label: 'Mint created', data: mintCreation },
     { label: 'Source wallet bought', data: sourceBuy },
-    { label: 'Bot wallet bought',    data: botBuy },
+    { label: 'Bot wallet bought', data: botBuy },
   ]
 
   rows.forEach(({ label, data }) => {
