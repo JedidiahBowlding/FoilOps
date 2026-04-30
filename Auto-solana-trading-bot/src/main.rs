@@ -18,6 +18,7 @@ use std::future::pending;
 use std::panic;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::time::Instant;
 use tokio_tungstenite::{connect_async, tungstenite::Message as WsMessage};
 
 fn mask(val: &str) -> String {
@@ -203,6 +204,8 @@ async fn main() {
     let mut active_rpc_https_url = primary_rpc_https_url.clone();
     let mut active_ws_url = primary_ws_url.clone();
     let mut active_provider_name = "primary".to_string();
+    let mut primary_short_disconnect_streak = 0u32;
+    let mut quicknode_short_disconnect_streak = 0u32;
 
     loop {
         let ws_stream = {
@@ -281,6 +284,8 @@ async fn main() {
         );
 
         let (mut write, mut read) = ws_stream.split();
+        let session_started_at = Instant::now();
+        let mut disconnect_reason = "stream closed by remote peer".to_string();
         let subscription_message = serde_json::json!({
             "jsonrpc": "2.0",
             "id": 1,
@@ -306,6 +311,7 @@ async fn main() {
                 "Failed to send subscription message on provider {}: {}. Reconnecting in 3s...",
                 active_provider_name, err
             );
+            disconnect_reason = format!("failed to send subscription: {}", err);
             tokio::time::sleep(std::time::Duration::from_secs(3)).await;
             continue;
         }
@@ -319,15 +325,38 @@ async fn main() {
                         "WebSocket read error on provider {}: {}",
                         active_provider_name, err
                     );
+                    disconnect_reason = format!("read error: {}", err);
                     break;
                 }
             };
+
+        if let WsMessage::Close(frame) = &msg {
+            disconnect_reason = match frame {
+                Some(close_frame) => format!(
+                    "close frame code={} reason={}",
+                    close_frame.code,
+                    close_frame.reason
+                ),
+                None => "close frame without details".to_string(),
+            };
+            break;
+        }
 
         if let WsMessage::Text(text) = msg {
             let json: Value = match serde_json::from_str(&text) {
                 Ok(value) => value,
                 Err(_) => continue,
             };
+
+            if !json["error"].is_null() {
+                disconnect_reason = format!("subscription error payload: {}", json["error"]);
+                eprintln!(
+                    "WebSocket provider {} returned error payload: {}",
+                    active_provider_name,
+                    json["error"]
+                );
+                break;
+            }
 
             // println!("json: {:#?}", json);
 
@@ -475,9 +504,47 @@ async fn main() {
         }
         }
 
+        let session_uptime_secs = session_started_at.elapsed().as_secs();
+        if session_uptime_secs < 15 {
+            if active_provider_name == "primary" {
+                primary_short_disconnect_streak += 1;
+            } else {
+                quicknode_short_disconnect_streak += 1;
+            }
+        } else if active_provider_name == "primary" {
+            primary_short_disconnect_streak = 0;
+        } else {
+            quicknode_short_disconnect_streak = 0;
+        }
+
+        if active_provider_name == "quicknode" && quicknode_short_disconnect_streak >= 3 {
+            active_provider_name = "primary".to_string();
+            active_rpc_https_url = primary_rpc_https_url.clone();
+            active_ws_url = primary_ws_url.clone();
+            quicknode_short_disconnect_streak = 0;
+            eprintln!(
+                "QuickNode websocket disconnected rapidly 3 times; rotating back to primary provider pair."
+            );
+        } else if active_provider_name == "primary"
+            && quicknode_enabled
+            && primary_short_disconnect_streak >= 3
+        {
+            if let Some((quicknode_rpc, quicknode_wss)) = &quicknode_pair {
+                active_provider_name = "quicknode".to_string();
+                active_rpc_https_url = quicknode_rpc.clone();
+                active_ws_url = quicknode_wss.clone();
+                primary_short_disconnect_streak = 0;
+                eprintln!(
+                    "Primary websocket disconnected rapidly 3 times; rotating to QuickNode provider pair."
+                );
+            }
+        }
+
         eprintln!(
-            "WebSocket stream ended on provider {}. Reconnecting in 3s...",
-            active_provider_name
+            "WebSocket stream ended on provider {} after {}s ({}). Reconnecting in 3s...",
+            active_provider_name,
+            session_uptime_secs,
+            disconnect_reason
         );
         tokio::time::sleep(std::time::Duration::from_secs(3)).await;
     }
