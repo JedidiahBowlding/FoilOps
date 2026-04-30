@@ -256,6 +256,91 @@ class Main {
       }
     })
 
+    this.app.get('/api/diagnostics/launch-delay', this.dashboardAuth.requireApiAuth, async (req, res) => {
+      try {
+        const tokenMint = typeof req.query?.tokenMint === 'string' ? req.query.tokenMint.trim() : ''
+        const sourceWallet = typeof req.query?.sourceWallet === 'string' ? req.query.sourceWallet.trim() : ''
+        const botWallet = typeof req.query?.botWallet === 'string' ? req.query.botWallet.trim() : (process.env.FOILOPS_WALLET_ADDRESS?.trim() || '')
+        const scanLimit = Math.min(Number(req.query?.scanLimit) || 200, 1000)
+
+        if (!tokenMint) {
+          res.status(400).json({ message: 'tokenMint query param is required' })
+          return
+        }
+
+        const rpcUrl = process.env.QUICKNODE_RPC_URL || process.env.RPC_ENDPOINT || 'https://api.mainnet-beta.solana.com'
+
+        const rpcCall = async (method: string, params: unknown[]): Promise<unknown> => {
+          const response = await axios.post(rpcUrl, { jsonrpc: '2.0', id: 1, method, params }, { timeout: 20_000 })
+          const data = response.data as { result?: unknown; error?: { message?: string } }
+          if (data.error) throw new Error(`RPC ${method}: ${data.error.message}`)
+          return data.result
+        }
+
+        const getSignaturesPage = async (address: string, before?: string, limit = 1000): Promise<Array<{ signature: string; blockTime: number | null }>> => {
+          const result = await rpcCall('getSignaturesForAddress', [address, { limit, ...(before ? { before } : {}) }])
+          return Array.isArray(result) ? result as Array<{ signature: string; blockTime: number | null }> : []
+        }
+
+        const getEarliestSig = async (address: string) => {
+          let before: string | undefined
+          let oldest: { signature: string; blockTime: number | null } | null = null
+          for (let i = 0; i < 10; i++) {
+            const batch = await getSignaturesPage(address, before)
+            if (!batch.length) break
+            oldest = batch[batch.length - 1]
+            before = oldest.signature
+            if (batch.length < 1000) break
+          }
+          return oldest
+        }
+
+        const findFirstMintTx = async (walletAddress: string) => {
+          if (!walletAddress) return null
+          const sigs = await getSignaturesPage(walletAddress, undefined, scanLimit)
+          for (const sig of [...sigs].reverse()) {
+            let tx: unknown
+            try { tx = await rpcCall('getTransaction', [sig.signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }]) } catch { continue }
+            if (!tx) continue
+            const meta = (tx as { meta?: { preTokenBalances?: Array<{ mint: string }>; postTokenBalances?: Array<{ mint: string }> } }).meta || {}
+            const balances = [...(meta.preTokenBalances || []), ...(meta.postTokenBalances || [])]
+            if (balances.some(b => b.mint === tokenMint) || JSON.stringify(tx).includes(tokenMint)) {
+              return { signature: sig.signature, blockTime: sig.blockTime, timestamp: sig.blockTime ? new Date(sig.blockTime * 1000).toISOString() : null }
+            }
+          }
+          return null
+        }
+
+        const [mintCreation, sourceBuy, botBuy] = await Promise.all([
+          getEarliestSig(tokenMint).then(r => r ? { signature: r.signature, blockTime: r.blockTime, timestamp: r.blockTime ? new Date(r.blockTime * 1000).toISOString() : null } : null),
+          sourceWallet ? findFirstMintTx(sourceWallet) : Promise.resolve(null),
+          botWallet ? findFirstMintTx(botWallet) : Promise.resolve(null),
+        ])
+
+        const delaySeconds = (a: number | null | undefined, b: number | null | undefined) =>
+          a != null && b != null ? b - a : null
+
+        res.status(200).json({
+          tokenMint,
+          sourceWallet: sourceWallet || null,
+          botWallet: botWallet || null,
+          scanLimit,
+          mintCreation,
+          sourceBuy,
+          botBuy,
+          delays: {
+            sourceVsLaunchSeconds: delaySeconds(mintCreation?.blockTime, sourceBuy?.blockTime),
+            botVsLaunchSeconds: delaySeconds(mintCreation?.blockTime, botBuy?.blockTime),
+            botVsSourceSeconds: delaySeconds(sourceBuy?.blockTime, botBuy?.blockTime),
+          },
+        })
+      } catch (error) {
+        console.error('Launch delay diagnostics error', error)
+        const message = error instanceof Error ? error.message : 'Failed to run launch delay diagnostics'
+        res.status(500).json({ message })
+      }
+    })
+
     this.app.get('/api/token-investigations', this.dashboardAuth.requireApiAuth, async (_req, res) => {
       try {
         const investigations = await this.scamWalletRepository.getTokenInvestigationRows()
@@ -456,6 +541,15 @@ class Main {
 
     this.app.post('/api/control/trading/settings', this.dashboardAuth.requireApiAuth, async (req, res) => {
       try {
+        const parseAllowedDexes = (value: unknown): string[] | undefined => {
+          if (Array.isArray(value)) return value.map(String).filter(Boolean)
+          return undefined
+        }
+        const parseDenyAllowList = (value: unknown): string[] | undefined => {
+          if (Array.isArray(value)) return value.map(String).filter(Boolean)
+          if (typeof value === 'string') return value.split('\n').map((s) => s.trim()).filter(Boolean)
+          return undefined
+        }
         const operations = buildTradingSettingsOperations({
           profile: typeof req.body?.profile === 'string' ? req.body.profile : undefined,
           mode: typeof req.body?.mode === 'string' ? req.body.mode : undefined,
@@ -463,9 +557,25 @@ class Main {
           buyAmountSol: this.parseOptionalNumber(req.body?.buyAmountSol),
           maxRiskScore: this.parseOptionalNumber(req.body?.maxRiskScore),
           slippage: this.parseOptionalNumber(req.body?.slippage),
+          stopLossPercentage: this.parseOptionalNumber(req.body?.stopLossPercentage),
+          takeProfitPercentage: this.parseOptionalNumber(req.body?.takeProfitPercentage),
           minAlertQualityScore: this.parseOptionalNumber(req.body?.minAlertQualityScore),
           minTraceAlerts: this.parseOptionalNumber(req.body?.minTraceAlerts),
           buyOncePerToken: this.parseOptionalBoolean(req.body?.buyOncePerToken),
+          mevService: typeof req.body?.mevService === 'string' ? req.body.mevService : undefined,
+          maxConcurrentTrades: this.parseOptionalNumber(req.body?.maxConcurrentTrades),
+          maxPositionSizeSol: this.parseOptionalNumber(req.body?.maxPositionSizeSol),
+          minLiquidityUsd: this.parseOptionalNumber(req.body?.minLiquidityUsd),
+          allowedDexes: parseAllowedDexes(req.body?.allowedDexes),
+          targetWallet: typeof req.body?.targetWallet === 'string' ? req.body.targetWallet : undefined,
+          autoBlockSourceWalletAfterBuy: this.parseOptionalBoolean(req.body?.autoBlockSourceWalletAfterBuy),
+          preBuyCheckSellRoute: this.parseOptionalBoolean(req.body?.preBuyCheckSellRoute),
+          preBuyCheckFreezeAuthority: this.parseOptionalBoolean(req.body?.preBuyCheckFreezeAuthority),
+          preBuyCheckToken2022Extensions: this.parseOptionalBoolean(req.body?.preBuyCheckToken2022Extensions),
+          preBuyCheckHoneypot: this.parseOptionalBoolean(req.body?.preBuyCheckHoneypot),
+          preBuyCheckSuspiciousTax: this.parseOptionalBoolean(req.body?.preBuyCheckSuspiciousTax),
+          denylist: parseDenyAllowList(req.body?.denylist),
+          allowlist: parseDenyAllowList(req.body?.allowlist),
         })
 
         if (operations.length === 0) {

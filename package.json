@@ -22,6 +22,7 @@
     "db:seed:enc": "BACKUP_FILE=database_backup.enc.json npx ts-node scripts/seed-db.ts",
     "signals:self-test": "node scripts/signal-receiver-self-test.js",
     "rpc:slot": "node scripts/quicknode-get-slot.js",
+    "diag:launch": "node scripts/launch-delay-check.js",
     "signals:ci:test": "SIGNAL_TEST_BASE_URL=http://127.0.0.1:8787 node scripts/signal-receiver-self-test.js",
     "wallets:cleanup": "npx ts-node scripts/cleanup-wallets.ts",
     "send:alert": "npx ts-node scripts/send-user-alerts.ts",
