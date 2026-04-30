@@ -32,10 +32,24 @@ describe('web control utils', () => {
 
     expect(operations).toEqual([
       { path: '/trading/profile', body: { profile: 'conservative' } },
-      { path: '/trading/execution-mode', body: { mode: 'paper' } },
       { path: '/trading/size', body: { buy_amount_sol: 0.01 } },
       { path: '/trading/alert-quality', body: { min_alert_quality_score: 70 } },
+      { path: '/trading/execution-mode', body: { mode: 'paper' } },
     ])
+  })
+
+  it('applies explicit mode after profile and all other settings', () => {
+    const operations = buildTradingSettingsOperations({
+      profile: 'conservative',
+      mode: 'copy_trade',
+      executionMode: 'live',
+      buyAmountSol: 0.01,
+      maxRiskScore: 90,
+    })
+
+    expect(operations[0]).toEqual({ path: '/trading/profile', body: { profile: 'conservative' } })
+    expect(operations[operations.length - 2]).toEqual({ path: '/trading/execution-mode', body: { mode: 'live' } })
+    expect(operations[operations.length - 1]).toEqual({ path: '/trading/mode', body: { mode: 'copy_trade' } })
   })
 
   it('prefers TRADING_BOT_URL and falls back to SIGNAL_RECEIVER_BIND', () => {

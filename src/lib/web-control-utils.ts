@@ -75,17 +75,19 @@ export function resolveTradingQuickActionPath(action: string): string | null {
 
 export function buildTradingSettingsOperations(input: TradingSettingsInput): TradingOperation[] {
   const operations: TradingOperation[] = []
+  let modeOperation: TradingOperation | null = null
+  let executionModeOperation: TradingOperation | null = null
 
   if (typeof input.profile === 'string' && input.profile.trim()) {
     operations.push({ path: '/trading/profile', body: { profile: input.profile.trim() } })
   }
 
   if (typeof input.mode === 'string' && input.mode.trim()) {
-    operations.push({ path: '/trading/mode', body: { mode: input.mode.trim() } })
+    modeOperation = { path: '/trading/mode', body: { mode: input.mode.trim() } }
   }
 
   if (typeof input.executionMode === 'string' && input.executionMode.trim()) {
-    operations.push({ path: '/trading/execution-mode', body: { mode: input.executionMode.trim() } })
+    executionModeOperation = { path: '/trading/execution-mode', body: { mode: input.executionMode.trim() } }
   }
 
   if (Number.isFinite(input.buyAmountSol) && (input.buyAmountSol as number) > 0) {
@@ -182,6 +184,15 @@ export function buildTradingSettingsOperations(input: TradingSettingsInput): Tra
 
   if (Array.isArray(input.allowlist)) {
     operations.push({ path: '/trading/allowlist', body: { allowlist: input.allowlist } })
+  }
+
+  // Apply execution/mode last so explicit operator intent is not overridden by
+  // profile presets or other setting mutations in the same request batch.
+  if (executionModeOperation) {
+    operations.push(executionModeOperation)
+  }
+  if (modeOperation) {
+    operations.push(modeOperation)
   }
 
   return operations
