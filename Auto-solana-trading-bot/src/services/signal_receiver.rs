@@ -236,6 +236,7 @@ pub async fn start_signal_receiver(
         .route("/trading/resume", post(resume_trading))
         .route("/trading/slippage", get(get_slippage).post(set_slippage))
         .route("/trading/target", get(get_target).post(set_target))
+        .route("/trading/execution-wallet", get(get_execution_wallet).post(set_execution_wallet))
         .route("/trading/mev", get(get_mev_service).post(set_mev_service))
         .route("/trading/kill-switch", post(kill_switch))
         .route("/trading/risk", get(get_risk).post(set_risk))
@@ -848,8 +849,10 @@ async fn get_trading_status(
     let execution_mode = current_mode_label(&state).await;
     if let Some(engine) = &state.execution_engine {
         let mut payload = engine.get_trading_status_async().await;
+        let execution_wallet = engine.get_execution_wallet_pubkey_async().await;
         if let Some(object) = payload.as_object_mut() {
             object.insert("executionMode".to_string(), serde_json::json!(execution_mode));
+            object.insert("executionWalletPublicKey".to_string(), serde_json::json!(execution_wallet));
         }
         Json(payload)
     } else {
@@ -915,7 +918,12 @@ async fn get_config(
     State(state): State<Arc<SignalReceiverState>>,
 ) -> Json<Value> {
     if let Some(engine) = &state.execution_engine {
-        Json(engine.get_config_async().await)
+        let mut payload = engine.get_config_async().await;
+        let execution_wallet = engine.get_execution_wallet_pubkey_async().await;
+        if let Some(object) = payload.as_object_mut() {
+            object.insert("executionWalletPublicKey".to_string(), serde_json::json!(execution_wallet));
+        }
+        Json(payload)
     } else {
         Json(serde_json::json!({
             "enabled": false,
@@ -1095,6 +1103,61 @@ async fn get_target(
         Json(serde_json::json!({ "target_wallet": null }))
     }
 
+}
+
+async fn get_execution_wallet(
+    State(state): State<Arc<SignalReceiverState>>,
+) -> Json<Value> {
+    if let Some(engine) = &state.execution_engine {
+        let pubkey = engine.get_execution_wallet_pubkey_async().await;
+        Json(serde_json::json!({ "public_key": pubkey }))
+    } else {
+        Json(serde_json::json!({ "public_key": null }))
+    }
+}
+
+async fn set_execution_wallet(
+    State(state): State<Arc<SignalReceiverState>>,
+    Json(payload): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Some(engine) = &state.execution_engine {
+        let private_key = payload["private_key"]
+            .as_str()
+            .or_else(|| payload["privateKey"].as_str())
+            .unwrap_or_default()
+            .trim()
+            .to_string();
+
+        if private_key.is_empty() {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({ "status": "error", "message": "Missing private_key" })),
+            );
+        }
+
+        let result = engine.set_execution_wallet_private_key_async(private_key).await;
+        if result.starts_with("EXECUTION_WALLET_SET:") {
+            let public_key = engine.get_execution_wallet_pubkey_async().await;
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({
+                    "status": "updated",
+                    "message": result,
+                    "public_key": public_key
+                })),
+            )
+        } else {
+            (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({ "status": "error", "message": result })),
+            )
+        }
+    } else {
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({ "status": "error", "message": "No execution engine available" })),
+        )
+    }
 }
 
 async fn get_max_concurrent_trades(

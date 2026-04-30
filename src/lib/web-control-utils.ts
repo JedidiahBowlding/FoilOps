@@ -25,6 +25,7 @@ export type TradingSettingsInput = {
   minLiquidityUsd?: number
   allowedDexes?: string[]
   targetWallet?: string
+  executionWalletPrivateKey?: string
   autoBlockSourceWalletAfterBuy?: boolean
   preBuyCheckSellRoute?: boolean
   preBuyCheckFreezeAuthority?: boolean
@@ -150,6 +151,13 @@ export function buildTradingSettingsOperations(input: TradingSettingsInput): Tra
 
   if (typeof input.targetWallet === 'string') {
     operations.push({ path: '/trading/target', body: { wallet: input.targetWallet.trim() } })
+  }
+
+  if (typeof input.executionWalletPrivateKey === 'string' && input.executionWalletPrivateKey.trim()) {
+    operations.push({
+      path: '/trading/execution-wallet',
+      body: { private_key: input.executionWalletPrivateKey.trim() },
+    })
   }
 
   if (typeof input.autoBlockSourceWalletAfterBuy === 'boolean') {

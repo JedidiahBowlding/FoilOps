@@ -13,6 +13,9 @@ Essential commands for managing your tracked wallets
 🔸 <b>/delete</b> - Remove a wallet from tracking
 🔸 <b>/manage</b> - View & manage all tracked wallets
 🔸 <b>/my_wallet</b> - Show your FoilOps wallet details
+🔸 <b>/wallets</b> - List your FoilOps personal trading wallets
+🔸 <b>/new_wallet</b> - Create a new FoilOps personal trading wallet
+🔸 <b>/use_wallet</b> [number] - Set the active FoilOps trading wallet
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -155,6 +158,9 @@ Using FoilOps in Telegram groups
         '/delete': 'Remove tracked wallet',
         '/manage': 'View & manage all wallets',
         '/my_wallet': 'Show your wallet details',
+        '/wallets': 'List FoilOps personal trading wallets',
+        '/new_wallet': 'Create a new FoilOps personal wallet',
+        '/use_wallet': 'Switch active FoilOps wallet',
       },
       'Trading Status': {
         '/trading_status': 'Current bot status & config',

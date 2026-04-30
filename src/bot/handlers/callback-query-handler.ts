@@ -254,6 +254,17 @@ export class CallbackQueryHandler {
         }
       }
 
+      if (data === 'personal_wallet_create') {
+        await this.myWalletCommand.createWalletHandler(message)
+        return
+      }
+
+      if (data?.startsWith('personal_wallet_activate:')) {
+        const walletId = data.slice('personal_wallet_activate:'.length)
+        await this.myWalletCommand.activateWalletHandler(message, walletId)
+        return
+      }
+
       switch (data) {
         case 'add':
           this.addCommand.addButtonHandler(message)

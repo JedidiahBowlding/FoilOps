@@ -1,5 +1,10 @@
-import { User } from '@prisma/client'
 import { UserBalances } from '../../lib/user-balances'
+import { PersonalTradingWalletSummary } from '../../types/prisma-types'
+
+type ActiveWalletView = {
+  personalWalletPubKey: string
+  personalWalletName?: string
+}
 
 export class WalletMessages {
   private userBalances: UserBalances
@@ -42,16 +47,29 @@ SoLAddress...
 eth:0xabc123...
 `
 
-  public async sendMyWalletMessage(
-    wallet: Pick<User, 'personalWalletPrivKey' | 'personalWalletPubKey'>,
-  ): Promise<string> {
+  public async sendMyWalletMessage(wallet: ActiveWalletView, wallets: PersonalTradingWalletSummary[]): Promise<string> {
     const solBalance = await this.userBalances.userPersonalSolBalance(wallet.personalWalletPubKey)
+    const walletLines = wallets
+      .map(
+        (personalWallet, index) => `${personalWallet.isActive ? '✅' : '▫️'} <b>${index + 1}. ${personalWallet.name}</b>
+<code>${personalWallet.publicKey}</code>`,
+      )
+      .join('\n\n')
 
     const responseText = `
-<b>Your wallet address:</b> 
-<code>${wallet && wallet.personalWalletPubKey}</code>
+<b>Active FoilOps trading wallet:</b>
+<code>${wallet.personalWalletPubKey}</code>
+
+<b>Active wallet name:</b> ${wallet.personalWalletName || 'Wallet'}
 
 <b>SOL:</b> ${solBalance ? solBalance / 1e9 : 0}
+
+<b>Total personal wallets:</b> ${wallets.length}
+
+<b>Wallet roster:</b>
+${walletLines}
+
+<i>Subscription charges and FoilOps wallet actions use the active wallet.</i>
 
 `
 

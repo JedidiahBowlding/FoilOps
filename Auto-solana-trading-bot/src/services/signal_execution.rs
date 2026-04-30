@@ -7,12 +7,13 @@ use anyhow::{anyhow, Result};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use solana_client::rpc_request::TokenAccountsFilter;
+use solana_sdk::signature::Keypair;
 use solana_sdk::signature::Signer;
 use solana_sdk::{program_pack::Pack, pubkey::Pubkey};
 use spl_token_2022::extension::{BaseStateWithExtensions, ExtensionType, StateWithExtensionsOwned};
 use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 use tokio::time::sleep;
@@ -190,6 +191,7 @@ impl Default for TradingState {
 pub struct SignalExecutionEngine {
     state: Arc<Mutex<TradingState>>,
     app_state: AppState,
+    execution_wallet: Arc<RwLock<Arc<Keypair>>>,
 }
 
 impl SignalExecutionEngine {
@@ -262,21 +264,39 @@ impl SignalExecutionEngine {
         
         let engine = Self {
             state: Arc::new(Mutex::new(trading_state)),
+            execution_wallet: Arc::new(RwLock::new(app_state.wallet.clone())),
             app_state,
         };
         
         // Spawn price monitoring loop in background
         let state_for_monitor = engine.state.clone();
         let app_state_for_monitor = engine.app_state.clone();
+        let execution_wallet_for_monitor = engine.execution_wallet.clone();
         tokio::spawn(async move {
             let monitor_engine = SignalExecutionEngine {
                 state: state_for_monitor,
                 app_state: app_state_for_monitor,
+                execution_wallet: execution_wallet_for_monitor,
             };
             monitor_engine.price_monitoring_loop().await;
         });
         
         engine
+    }
+
+    fn current_execution_wallet(&self) -> Arc<Keypair> {
+        self.execution_wallet
+            .read()
+            .map(|wallet| wallet.clone())
+            .unwrap_or_else(|_| self.app_state.wallet.clone())
+    }
+
+    fn app_state_for_execution(&self) -> AppState {
+        AppState {
+            rpc_client: self.app_state.rpc_client.clone(),
+            rpc_nonblocking_client: self.app_state.rpc_nonblocking_client.clone(),
+            wallet: self.current_execution_wallet(),
+        }
     }
 
     pub async fn execute_signal(&self, signal: &TradeSignalV1) -> Result<String> {
@@ -597,7 +617,7 @@ impl SignalExecutionEngine {
     }
 
     fn wallet_has_token_balance(&self, token_mint: &str) -> bool {
-        let owner = self.app_state.wallet.pubkey();
+        let owner = self.current_execution_wallet().pubkey();
         let mint_pubkey = match Pubkey::from_str(token_mint) {
             Ok(pk) => pk,
             Err(_) => return false,
@@ -708,7 +728,7 @@ impl SignalExecutionEngine {
         let result = match dex.as_str() {
             "pump_fun" => {
                 pump_swap(
-                    self.app_state.clone(),
+                    self.app_state_for_execution(),
                     actual_amount,
                     "buy",
                     "qty",
@@ -720,7 +740,7 @@ impl SignalExecutionEngine {
             "raydium" => {
                 let (pool_id, pool_state) = get_pool_state_by_mint(self.app_state.rpc_client.clone(), &token_mint).await?;
                 raydium_swap(
-                    self.app_state.clone(),
+                    self.app_state_for_execution(),
                     actual_amount,
                     "buy",
                     "qty",
@@ -1141,7 +1161,7 @@ impl SignalExecutionEngine {
         let result = match dex.as_str() {
             "pump_fun" => {
                 pump_swap(
-                    self.app_state.clone(),
+                    self.app_state_for_execution(),
                     position.amount,
                     "sell",
                     "pct", // Sell percentage of position
@@ -1153,7 +1173,7 @@ impl SignalExecutionEngine {
             "raydium" => {
                 let (pool_id, pool_state) = get_pool_state_by_mint(self.app_state.rpc_client.clone(), &token_mint).await?;
                 raydium_swap(
-                    self.app_state.clone(),
+                    self.app_state_for_execution(),
                     100.0, // Sell 100% of position
                     "sell",
                     "pct",
@@ -1391,6 +1411,33 @@ impl SignalExecutionEngine {
     pub async fn get_target_wallet_async(&self) -> Option<String> {
         let state = self.state.lock().await;
         state.config.target_wallet.clone()
+    }
+
+    pub async fn get_execution_wallet_pubkey_async(&self) -> String {
+        self.current_execution_wallet().pubkey().to_string()
+    }
+
+    pub async fn set_execution_wallet_private_key_async(&self, private_key: String) -> String {
+        let trimmed = private_key.trim();
+        if trimmed.is_empty() {
+            return "EXECUTION_WALLET_INVALID_PRIVATE_KEY".to_string();
+        }
+
+        let candidate = std::panic::catch_unwind(|| Keypair::from_base58_string(trimmed));
+        let keypair = match candidate {
+            Ok(wallet) => wallet,
+            Err(_) => return "EXECUTION_WALLET_INVALID_PRIVATE_KEY".to_string(),
+        };
+
+        let new_wallet = Arc::new(keypair);
+        let new_pubkey = new_wallet.pubkey().to_string();
+
+        if let Ok(mut wallet_guard) = self.execution_wallet.write() {
+            *wallet_guard = new_wallet;
+            format!("EXECUTION_WALLET_SET: {}", new_pubkey)
+        } else {
+            "EXECUTION_WALLET_SET_FAILED".to_string()
+        }
     }
 
     pub async fn set_max_concurrent_trades_async(&self, value: usize) -> String {

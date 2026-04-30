@@ -604,6 +604,8 @@ class Main {
           minLiquidityUsd: this.parseOptionalNumber(req.body?.minLiquidityUsd),
           allowedDexes: parseAllowedDexes(req.body?.allowedDexes),
           targetWallet: typeof req.body?.targetWallet === 'string' ? req.body.targetWallet : undefined,
+          executionWalletPrivateKey:
+            typeof req.body?.executionWalletPrivateKey === 'string' ? req.body.executionWalletPrivateKey : undefined,
           autoBlockSourceWalletAfterBuy: this.parseOptionalBoolean(req.body?.autoBlockSourceWalletAfterBuy),
           preBuyCheckSellRoute: this.parseOptionalBoolean(req.body?.preBuyCheckSellRoute),
           preBuyCheckFreezeAuthority: this.parseOptionalBoolean(req.body?.preBuyCheckFreezeAuthority),

@@ -1,10 +1,18 @@
-import { SubscriptionPlan } from '@prisma/client'
 import { CreateWallet } from '../../lib/create-wallet'
-import { CreateUserGroupInterface, CreateUserInterface } from '../../types/general-interfaces'
+import { CreateUserInterface } from '../../types/general-interfaces'
 import prisma from '../../providers/prisma'
+
+type ActivePersonalWallet = {
+  id: string
+  name: string
+  publicKey: string
+  privateKey: string
+  isActive: boolean
+}
 
 export class PrismaUserRepository {
   private createWallet: CreateWallet
+
   constructor() {
     this.createWallet = new CreateWallet()
   }
@@ -20,6 +28,14 @@ export class PrismaUserRepository {
         username,
         personalWalletPubKey: publicKey,
         personalWalletPrivKey: privateKey,
+        personalTradingWallets: {
+          create: {
+            name: 'Wallet 1',
+            publicKey,
+            privateKey,
+            isActive: true,
+          },
+        },
       },
     })
 
@@ -50,7 +66,20 @@ export class PrismaUserRepository {
       },
     })
 
-    return user
+    if (!user) {
+      return null
+    }
+
+    const activeWallet = await this.getActivePersonalTradingWallet(userId)
+    if (!activeWallet) {
+      return null
+    }
+
+    return {
+      ...user,
+      personalWalletPubKey: activeWallet.publicKey,
+      personalWalletPrivKey: activeWallet.privateKey,
+    }
   }
 
   public async getUserPlan(userId: string) {
@@ -59,7 +88,6 @@ export class PrismaUserRepository {
         id: userId,
       },
       select: {
-        personalWalletPubKey: true,
         userSubscription: {
           select: {
             plan: true,
@@ -69,21 +97,149 @@ export class PrismaUserRepository {
       },
     })
 
-    return user
+    if (!user) {
+      return null
+    }
+
+    const activeWallet = await this.getActivePersonalTradingWallet(userId)
+
+    return {
+      ...user,
+      personalWalletPubKey: activeWallet?.publicKey || '',
+    }
   }
 
   public async getPersonalWallet(userId: string) {
-    const walletBalance = await prisma.user.findUnique({
-      where: {
-        id: userId,
-      },
+    const activeWallet = await this.getActivePersonalTradingWallet(userId)
+    if (!activeWallet) {
+      return null
+    }
+
+    return {
+      personalWalletPubKey: activeWallet.publicKey,
+      personalWalletPrivKey: activeWallet.privateKey,
+      personalWalletId: activeWallet.id,
+      personalWalletName: activeWallet.name,
+    }
+  }
+
+  public async listPersonalTradingWallets(userId: string) {
+    let wallets = await prisma.personalTradingWallet.findMany({
+      where: { userId },
+      orderBy: [{ isActive: 'desc' }, { createdAt: 'asc' }],
       select: {
-        personalWalletPubKey: true,
-        personalWalletPrivKey: true,
+        id: true,
+        name: true,
+        publicKey: true,
+        isActive: true,
+        createdAt: true,
       },
     })
 
-    return walletBalance
+    if (wallets.length === 0) {
+      const activeWallet = await this.getActivePersonalTradingWallet(userId)
+      if (!activeWallet) {
+        return []
+      }
+
+      wallets = [
+        {
+          id: activeWallet.id,
+          name: activeWallet.name,
+          publicKey: activeWallet.publicKey,
+          isActive: true,
+          createdAt: new Date(),
+        },
+      ]
+    }
+
+    return wallets
+  }
+
+  public async createPersonalTradingWallet(userId: string, name?: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    })
+
+    if (!user) {
+      return null
+    }
+
+    const existingWallets = await this.listPersonalTradingWallets(userId)
+    const { publicKey, privateKey } = this.createWallet.create()
+    const walletName = name?.trim() || `Wallet ${existingWallets.length + 1}`
+    const shouldBeActive = existingWallets.length === 0
+
+    const createdWallet = await prisma.personalTradingWallet.create({
+      data: {
+        userId,
+        name: walletName,
+        publicKey,
+        privateKey,
+        isActive: shouldBeActive,
+      },
+      select: {
+        id: true,
+        name: true,
+        publicKey: true,
+        privateKey: true,
+        isActive: true,
+      },
+    })
+
+    if (shouldBeActive) {
+      await this.syncLegacyPersonalWallet(userId, createdWallet.publicKey, createdWallet.privateKey)
+    }
+
+    return createdWallet
+  }
+
+  public async setActivePersonalTradingWallet(userId: string, walletId: string) {
+    const wallet = await prisma.personalTradingWallet.findFirst({
+      where: {
+        id: walletId,
+        userId,
+      },
+      select: {
+        id: true,
+        name: true,
+        publicKey: true,
+        privateKey: true,
+        isActive: true,
+      },
+    })
+
+    if (!wallet) {
+      return null
+    }
+
+    if (wallet.isActive) {
+      return wallet
+    }
+
+    await prisma.$transaction([
+      prisma.personalTradingWallet.updateMany({
+        where: { userId },
+        data: { isActive: false },
+      }),
+      prisma.personalTradingWallet.update({
+        where: { id: walletId },
+        data: { isActive: true },
+      }),
+      prisma.user.update({
+        where: { id: userId },
+        data: {
+          personalWalletPubKey: wallet.publicKey,
+          personalWalletPrivKey: wallet.privateKey,
+        },
+      }),
+    ])
+
+    return {
+      ...wallet,
+      isActive: true,
+    }
   }
 
   public async hasDonated(userId: string) {
@@ -196,21 +352,14 @@ export class PrismaUserRepository {
 
   public async showUserPrivateKey(userId: string) {
     try {
-      const user = await prisma.user.findUnique({
-        where: {
-          id: userId,
-        },
-        select: {
-          personalWalletPrivKey: true,
-        },
-      })
+      const wallet = await this.getActivePersonalTradingWallet(userId)
 
-      if (!user) {
+      if (!wallet) {
         console.log('Failed to retrieve user private key')
         return
       }
 
-      const trimmedPrivateKey = user.personalWalletPrivKey.replace(/=*$/, '')
+      const trimmedPrivateKey = wallet.privateKey.replace(/=*$/, '')
 
       return trimmedPrivateKey
     } catch (error) {
@@ -278,5 +427,102 @@ export class PrismaUserRepository {
       console.log('GET_PAUSED_USERS_ERROR')
       return
     }
+  }
+
+  private async getActivePersonalTradingWallet(userId: string): Promise<ActivePersonalWallet | null> {
+    const activeWallet = await prisma.personalTradingWallet.findFirst({
+      where: {
+        userId,
+        isActive: true,
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
+      select: {
+        id: true,
+        name: true,
+        publicKey: true,
+        privateKey: true,
+        isActive: true,
+      },
+    })
+
+    if (activeWallet) {
+      return activeWallet
+    }
+
+    const firstWallet = await prisma.personalTradingWallet.findFirst({
+      where: { userId },
+      orderBy: {
+        createdAt: 'asc',
+      },
+      select: {
+        id: true,
+        name: true,
+        publicKey: true,
+        privateKey: true,
+        isActive: true,
+      },
+    })
+
+    if (firstWallet) {
+      await prisma.$transaction([
+        prisma.personalTradingWallet.update({
+          where: { id: firstWallet.id },
+          data: { isActive: true },
+        }),
+        prisma.user.update({
+          where: { id: userId },
+          data: {
+            personalWalletPubKey: firstWallet.publicKey,
+            personalWalletPrivKey: firstWallet.privateKey,
+          },
+        }),
+      ])
+
+      return {
+        ...firstWallet,
+        isActive: true,
+      }
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        personalWalletPubKey: true,
+        personalWalletPrivKey: true,
+      },
+    })
+
+    if (!user) {
+      return null
+    }
+
+    return prisma.personalTradingWallet.create({
+      data: {
+        userId,
+        name: 'Wallet 1',
+        publicKey: user.personalWalletPubKey,
+        privateKey: user.personalWalletPrivKey,
+        isActive: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        publicKey: true,
+        privateKey: true,
+        isActive: true,
+      },
+    })
+  }
+
+  private async syncLegacyPersonalWallet(userId: string, publicKey: string, privateKey: string) {
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        personalWalletPubKey: publicKey,
+        personalWalletPrivKey: privateKey,
+      },
+    })
   }
 }

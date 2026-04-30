@@ -19,6 +19,14 @@ export type UserWithSubscriptionPlan = {
   } | null
 }
 
+export type PersonalTradingWalletSummary = {
+  id: string
+  name: string
+  publicKey: string
+  isActive: boolean
+  createdAt: Date
+}
+
 export type UserPrisma = {
   userSubscription: {
     plan: SubscriptionPlan
