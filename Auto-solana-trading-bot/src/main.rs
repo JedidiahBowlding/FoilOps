@@ -204,104 +204,125 @@ async fn main() {
     let mut active_ws_url = primary_ws_url.clone();
     let mut active_provider_name = "primary".to_string();
 
-    let ws_stream = {
-        let mut attempt = 0u32;
-        let mut primary_failures = 0u32;
-        loop {
-            match connect_async(&active_ws_url).await {
-                Ok((stream, _)) => {
-                    println!(
-                        "Connected to {} provider websocket. Using paired RPC endpoint.",
-                        active_provider_name
-                    );
-                    break stream;
-                }
-                Err(err) => {
-                    attempt += 1;
-                    if active_provider_name == "primary" {
-                        primary_failures += 1;
+    loop {
+        let ws_stream = {
+            let mut attempt = 0u32;
+            let mut provider_failures = 0u32;
+            loop {
+                match connect_async(&active_ws_url).await {
+                    Ok((stream, _)) => {
+                        println!(
+                            "Connected to {} provider websocket. Using paired RPC endpoint.",
+                            active_provider_name
+                        );
+                        break stream;
                     }
+                    Err(err) => {
+                        attempt += 1;
+                        provider_failures += 1;
 
-                    let err_text = err.to_string();
-                    if active_provider_name == "primary"
-                        && quicknode_enabled
-                        && primary_failures >= 3
-                        && is_ws_rate_limited(&err_text)
-                    {
-                        if let Some((quicknode_rpc, quicknode_wss)) = &quicknode_pair {
-                            active_provider_name = "quicknode".to_string();
-                            active_rpc_https_url = quicknode_rpc.clone();
-                            active_ws_url = quicknode_wss.clone();
-                            eprintln!(
-                                "Primary websocket is repeatedly rate-limited; switching to QuickNode provider pair."
-                            );
-                            continue;
+                        let err_text = err.to_string();
+                        if active_provider_name == "primary"
+                            && quicknode_enabled
+                            && provider_failures >= 3
+                            && is_ws_rate_limited(&err_text)
+                        {
+                            if let Some((quicknode_rpc, quicknode_wss)) = &quicknode_pair {
+                                active_provider_name = "quicknode".to_string();
+                                active_rpc_https_url = quicknode_rpc.clone();
+                                active_ws_url = quicknode_wss.clone();
+                                eprintln!(
+                                    "Primary websocket is repeatedly rate-limited; switching to QuickNode provider pair."
+                                );
+                                continue;
+                            }
                         }
-                    }
 
-                    let delay_secs = std::cmp::min(5 * (1u64 << attempt.min(6)), 300);
-                    eprintln!(
-                        "WebSocket connect failed (attempt {}, provider {}): {}. Retrying in {}s...",
-                        attempt, active_provider_name, err, delay_secs
-                    );
-                    tokio::time::sleep(std::time::Duration::from_secs(delay_secs)).await;
+                        let delay_secs = std::cmp::min(5 * (1u64 << attempt.min(6)), 300);
+                        eprintln!(
+                            "WebSocket connect failed (attempt {}, provider {}): {}. Retrying in {}s...",
+                            attempt, active_provider_name, err, delay_secs
+                        );
+                        tokio::time::sleep(std::time::Duration::from_secs(delay_secs)).await;
+                    }
                 }
             }
-        }
-    };
+        };
 
-    // Create batch RPC client for optimized calls, paired to whichever WS provider connected.
-    let rpc_nonblocking = create_nonblocking_rpc_client_with_endpoint(&active_rpc_https_url)
-        .await
-        .expect("Failed to create RPC client");
-    let batch_client = Arc::new(BatchRpcClient::new(rpc_nonblocking));
-
-    println!(
-        "ENV loaded => SOL_PUBKEY={}, TARGET_PUBKEY={}, JUP_PUBKEY={}, RPC_ENDPOINT={}, RPC_WEBSOCKET_ENDPOINT={}, ACTIVE_PROVIDER={}, QUICKNODE_FALLBACK_ENABLED={}, SLIPPAGE={}, JITO_TIP_VALUE={}, NOZOMI_TIP_VALUE={}, ZERO_SLOT_TIP_VALUE={}, TELEGRAM_BOT_TOKEN={}, TELEGRAM_CHAT_ID={}",
-        mask(&sol_address),
-        mask(&target),
-        mask(&unwanted_key),
-        mask(&active_rpc_https_url),
-        mask(&active_ws_url),
-        active_provider_name,
-        quicknode_enabled,
-        env::var("SLIPPAGE").unwrap_or_else(|_| "MISSING".to_string()),
-        env_masked("JITO_TIP_VALUE"),
-        env_masked("NOZOMI_TIP_VALUE"),
-        env_masked("ZERO_SLOT_TIP_VALUE"),
-        env_masked("TELEGRAM_BOT_TOKEN"),
-        env_masked("TELEGRAM_CHAT_ID"),
-    );
-    let (mut write, mut read) = ws_stream.split();
-    // Subscribe to logs
-    let subscription_message = serde_json::json!({
-        "jsonrpc": "2.0",
-        "id": 1,
-        "method": "transactionSubscribe",
-        "params": [
-
-            {
-                "failed": false,
-                "accountInclude": ["675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8", target],
-                "accountExclude": [unwanted_key],
-                // Optionally specify accounts of interest
-            },
-            {
-                "commitment": "processed",
-                "encoding": "jsonParsed",
-                "transactionDetails": "full",
-                "maxSupportedTransactionVersion": 0
+        // Create batch RPC client for optimized calls, paired to whichever WS provider connected.
+        let rpc_nonblocking = match create_nonblocking_rpc_client_with_endpoint(&active_rpc_https_url).await {
+            Ok(client) => client,
+            Err(err) => {
+                eprintln!(
+                    "Failed to create RPC client for provider {}: {}. Retrying in 5s...",
+                    active_provider_name, err
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                continue;
             }
-        ]
-    });
+        };
+        let batch_client = Arc::new(BatchRpcClient::new(rpc_nonblocking));
 
-    write
-        .send(subscription_message.to_string().into())
-        .await
-        .expect("Failed to send subscription message");
+        println!(
+            "ENV loaded => SOL_PUBKEY={}, TARGET_PUBKEY={}, JUP_PUBKEY={}, RPC_ENDPOINT={}, RPC_WEBSOCKET_ENDPOINT={}, ACTIVE_PROVIDER={}, QUICKNODE_FALLBACK_ENABLED={}, SLIPPAGE={}, JITO_TIP_VALUE={}, NOZOMI_TIP_VALUE={}, ZERO_SLOT_TIP_VALUE={}, TELEGRAM_BOT_TOKEN={}, TELEGRAM_CHAT_ID={}",
+            mask(&sol_address),
+            mask(&target),
+            mask(&unwanted_key),
+            mask(&active_rpc_https_url),
+            mask(&active_ws_url),
+            active_provider_name,
+            quicknode_enabled,
+            env::var("SLIPPAGE").unwrap_or_else(|_| "MISSING".to_string()),
+            env_masked("JITO_TIP_VALUE"),
+            env_masked("NOZOMI_TIP_VALUE"),
+            env_masked("ZERO_SLOT_TIP_VALUE"),
+            env_masked("TELEGRAM_BOT_TOKEN"),
+            env_masked("TELEGRAM_CHAT_ID"),
+        );
 
-    // Listen for messages
-    while let Some(Ok(msg)) = read.next().await {
+        let (mut write, mut read) = ws_stream.split();
+        let subscription_message = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "transactionSubscribe",
+            "params": [
+
+                {
+                    "failed": false,
+                    "accountInclude": ["675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8", target],
+                    "accountExclude": [unwanted_key],
+                },
+                {
+                    "commitment": "processed",
+                    "encoding": "jsonParsed",
+                    "transactionDetails": "full",
+                    "maxSupportedTransactionVersion": 0
+                }
+            ]
+        });
+
+        if let Err(err) = write.send(subscription_message.to_string().into()).await {
+            eprintln!(
+                "Failed to send subscription message on provider {}: {}. Reconnecting in 3s...",
+                active_provider_name, err
+            );
+            tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+            continue;
+        }
+
+        // Listen for messages until disconnected, then reconnect in-process.
+        while let Some(msg_result) = read.next().await {
+            let msg = match msg_result {
+                Ok(msg) => msg,
+                Err(err) => {
+                    eprintln!(
+                        "WebSocket read error on provider {}: {}",
+                        active_provider_name, err
+                    );
+                    break;
+                }
+            };
+
         if let WsMessage::Text(text) = msg {
             let json: Value = match serde_json::from_str(&text) {
                 Ok(value) => value,
@@ -346,14 +367,14 @@ async fn main() {
                                     Ok(pubkey) => pubkey,
                                     Err(e) => {
                                         println!("Failed to parse Pubkey in: {}", e);
-                                        return;
+                                        continue;
                                     }
                                 };
                                 let pubkey_out_ata = match Pubkey::from_str(&out_ata) {
                                     Ok(pubkey) => pubkey,
                                     Err(e) => {
                                         println!("Failed to parse Pubkey out: {}", e);
-                                        return;
+                                        continue;
                                     }
                                 };
 
@@ -366,7 +387,7 @@ async fn main() {
                                     Ok(accounts) => accounts,
                                     Err(e) => {
                                         println!("Failed to fetch token accounts: {}", e);
-                                        return;
+                                        continue;
                                     }
                                 };
 
@@ -374,7 +395,7 @@ async fn main() {
                                     Some(data) => data,
                                     None => {
                                         println!("Token account not found: {}", pubkey_in_ata);
-                                        return;
+                                        continue;
                                     }
                                 };
 
@@ -382,7 +403,7 @@ async fn main() {
                                     Some(data) => data,
                                     None => {
                                         println!("Token account not found: {}", pubkey_out_ata);
-                                        return;
+                                        continue;
                                     }
                                 };
 
@@ -393,12 +414,12 @@ async fn main() {
                                             token_acc.mint
                                         } else {
                                             println!("Failed to unpack in token account");
-                                            return;
+                                            continue;
                                         }
                                     },
                                     Err(e) => {
                                         println!("Failed to get in account: {}", e);
-                                        return;
+                                        continue;
                                     }
                                 };
 
@@ -408,12 +429,12 @@ async fn main() {
                                             token_acc.mint
                                         } else {
                                             println!("Failed to unpack out token account");
-                                            return;
+                                            continue;
                                         }
                                     },
                                     Err(e) => {
                                         println!("Failed to get out account: {}", e);
-                                        return;
+                                        continue;
                                     }
                                 };
 
@@ -428,7 +449,7 @@ async fn main() {
                                 let in_decimal = 0u8; // decimals unavailable without mint fetch; default to 0
                                 let param_amount_in = match amount_in.parse::<f64>() {
                                     Ok(num) => num,
-                                    Err(_) => return,
+                                    Err(_) => continue,
                                 };
                                 
                                 if in_mint_pubkey.to_string() == sol_address {
@@ -452,6 +473,13 @@ async fn main() {
                 }
             }
         }
+        }
+
+        eprintln!(
+            "WebSocket stream ended on provider {}. Reconnecting in 3s...",
+            active_provider_name
+        );
+        tokio::time::sleep(std::time::Duration::from_secs(3)).await;
     }
 }
 
