@@ -527,12 +527,12 @@ export class DashboardAuth {
       const digest = hmac.digest()
 
       const offset = digest[digest.length - 1] & 0x0f
-      const value = (
-        ((digest[offset] & 0x7f) << 24) |
-        ((digest[offset + 1] & 0xff) << 16) |
-        ((digest[offset + 2] & 0xff) << 8) |
-        (digest[offset + 3] & 0xff)
-      ) % 1000000
+      const value =
+        (((digest[offset] & 0x7f) << 24) |
+          ((digest[offset + 1] & 0xff) << 16) |
+          ((digest[offset + 2] & 0xff) << 8) |
+          (digest[offset + 3] & 0xff)) %
+        1000000
 
       const otpCode = String(value).padStart(6, '0')
       if (otpCode === code) {
@@ -568,7 +568,6 @@ export class DashboardAuth {
 
     return Buffer.from(output)
   }
-}
 
   private renderLoginPage(options: {
     nextTarget?: string
