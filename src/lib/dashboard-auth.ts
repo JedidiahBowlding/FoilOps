@@ -9,12 +9,24 @@ type SessionPayload = {
 
 const SESSION_COOKIE_NAME = 'foilops_dashboard_session'
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7
+const LOGIN_WINDOW_MS = 15 * 60 * 1000
+const LOGIN_LOCKOUT_MS = 30 * 60 * 1000
+const DEFAULT_MAX_LOGIN_ATTEMPTS = 8
+
+type LoginAttemptState = {
+  attempts: number
+  windowStartedAt: number
+  lockedUntil?: number
+}
 
 export class DashboardAuth {
   private readonly username: string
   private readonly password?: string
   private readonly secret?: string
   private readonly secureCookies: boolean
+  private readonly failClosedAuth: boolean
+  private readonly maxLoginAttempts: number
+  private readonly loginAttempts = new Map<string, LoginAttemptState>()
 
   constructor() {
     this.username = process.env.DASHBOARD_USERNAME?.trim() || 'admin'
@@ -22,6 +34,9 @@ export class DashboardAuth {
     this.secret = process.env.DASHBOARD_SESSION_SECRET?.trim() || this.password
     const appUrl = process.env.APP_URL?.trim() || ''
     this.secureCookies = appUrl.startsWith('https://') || process.env.ENVIRONMENT === 'production'
+    this.failClosedAuth =
+      process.env.REQUIRE_DASHBOARD_AUTH?.trim().toLowerCase() !== 'false' || process.env.ENVIRONMENT === 'production'
+    this.maxLoginAttempts = Number(process.env.DASHBOARD_MAX_LOGIN_ATTEMPTS) || DEFAULT_MAX_LOGIN_ATTEMPTS
   }
 
   registerRoutes(app: Express): void {
@@ -48,7 +63,16 @@ export class DashboardAuth {
 
     app.post('/login', (req, res) => {
       if (!this.isEnabled()) {
-        res.status(503).send('Dashboard login is disabled until DASHBOARD_PASSWORD is configured.')
+        const message = this.failClosedAuth
+          ? 'Dashboard auth is required but not configured. Set DASHBOARD_PASSWORD and DASHBOARD_SESSION_SECRET.'
+          : 'Dashboard login is disabled until DASHBOARD_PASSWORD is configured.'
+        res.status(503).send(message)
+        return
+      }
+
+      const clientKey = this.getClientKey(req)
+      if (this.isRateLimited(clientKey)) {
+        res.status(429).send('Too many login attempts. Please wait before trying again.')
         return
       }
 
@@ -57,9 +81,12 @@ export class DashboardAuth {
       const nextTarget = this.getSafeNextTarget(req, req.body?.next)
 
       if (!this.matchesCredential(username, this.username) || !this.matchesCredential(password, this.password)) {
+        this.recordFailedAttempt(clientKey)
         res.redirect(302, this.buildLoginRedirect(nextTarget, 'invalid_credentials'))
         return
       }
+
+      this.clearFailedAttempts(clientKey)
 
       res.setHeader(
         'Set-Cookie',
@@ -104,7 +131,16 @@ export class DashboardAuth {
   }
 
   requirePageAuth: RequestHandler = (req, res, next) => {
-    if (!this.isEnabled() || this.isAuthenticated(req)) {
+    if (!this.isEnabled()) {
+      if (!this.failClosedAuth) {
+        next()
+        return
+      }
+      res.status(503).send('Dashboard authentication is required but not configured.')
+      return
+    }
+
+    if (this.isAuthenticated(req)) {
       next()
       return
     }
@@ -113,7 +149,16 @@ export class DashboardAuth {
   }
 
   requireApiAuth: RequestHandler = (req, res, next) => {
-    if (!this.isEnabled() || this.isAuthenticated(req)) {
+    if (!this.isEnabled()) {
+      if (!this.failClosedAuth) {
+        next()
+        return
+      }
+      res.status(503).json({ message: 'Dashboard authentication is required but not configured' })
+      return
+    }
+
+    if (this.isAuthenticated(req)) {
       next()
       return
     }
@@ -127,7 +172,7 @@ export class DashboardAuth {
 
   private isAuthenticated(req: Request): boolean {
     if (!this.isEnabled()) {
-      return true
+      return !this.failClosedAuth
     }
 
     const cookies = this.parseCookies(req.headers.cookie)
@@ -239,6 +284,55 @@ export class DashboardAuth {
 
   private getFormValue(value: unknown): string {
     return typeof value === 'string' ? value.trim() : ''
+  }
+
+  private getClientKey(req: Request): string {
+    const forwarded = req.headers['x-forwarded-for']
+    if (typeof forwarded === 'string' && forwarded.trim()) {
+      return forwarded.split(',')[0].trim()
+    }
+    if (Array.isArray(forwarded) && forwarded.length > 0) {
+      return String(forwarded[0]).trim()
+    }
+    return req.ip || req.socket.remoteAddress || 'unknown'
+  }
+
+  private isRateLimited(clientKey: string): boolean {
+    const now = Date.now()
+    const state = this.loginAttempts.get(clientKey)
+    if (!state) {
+      return false
+    }
+    if (state.lockedUntil && state.lockedUntil > now) {
+      return true
+    }
+    if (state.windowStartedAt + LOGIN_WINDOW_MS <= now) {
+      this.loginAttempts.delete(clientKey)
+      return false
+    }
+    return false
+  }
+
+  private recordFailedAttempt(clientKey: string): void {
+    const now = Date.now()
+    const existing = this.loginAttempts.get(clientKey)
+    if (!existing || existing.windowStartedAt + LOGIN_WINDOW_MS <= now) {
+      this.loginAttempts.set(clientKey, {
+        attempts: 1,
+        windowStartedAt: now,
+      })
+      return
+    }
+
+    existing.attempts += 1
+    if (existing.attempts >= this.maxLoginAttempts) {
+      existing.lockedUntil = now + LOGIN_LOCKOUT_MS
+    }
+    this.loginAttempts.set(clientKey, existing)
+  }
+
+  private clearFailedAttempts(clientKey: string): void {
+    this.loginAttempts.delete(clientKey)
   }
 
   private buildLoginRedirect(nextTarget?: string, error?: 'invalid_credentials'): string {
