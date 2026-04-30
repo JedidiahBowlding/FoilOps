@@ -65,8 +65,20 @@ export class WatchTransaction extends EventEmitter {
     this.prismaWalletRepository = new PrismaWalletRepository()
   }
 
+  // Delay between successive WebSocket subscriptions to avoid bursting the RPC
+  // endpoint and triggering 429 rate-limit responses. Configurable via env var.
+  private static readonly SUBSCRIPTION_STAGGER_MS = Math.max(
+    0,
+    Number(process.env.SUBSCRIPTION_STAGGER_MS || 300),
+  )
+
+  private static sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms))
+  }
+
   public async watchSocket(wallets: WalletWithUsers[]): Promise<void> {
     try {
+      let subscriptionIndex = 0
       for (const wallet of wallets) {
         const publicKey = new PublicKey(wallet.address)
         const walletAddress = publicKey.toBase58()
@@ -76,6 +88,12 @@ export class WatchTransaction extends EventEmitter {
           // console.log(`Already watching for: ${walletAddress}`)
           continue // Skip re-subscribing
         }
+
+        // Stagger subscriptions to avoid hitting the RPC WebSocket rate limit
+        if (subscriptionIndex > 0 && WatchTransaction.SUBSCRIPTION_STAGGER_MS > 0) {
+          await WatchTransaction.sleep(WatchTransaction.SUBSCRIPTION_STAGGER_MS)
+        }
+        subscriptionIndex++
 
         console.log(chalk.greenBright(`Watching transactions for wallet: `) + chalk.yellowBright.bold(walletAddress))
 
