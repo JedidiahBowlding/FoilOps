@@ -6,6 +6,8 @@ use crate::services::signal_receiver::{ExecutionRequest, TradeSignalV1};
 use anyhow::{anyhow, Result};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use solana_client::rpc_request::TokenAccountsFilter;
+use solana_sdk::signature::Signer;
 use solana_sdk::{program_pack::Pack, pubkey::Pubkey};
 use spl_token_2022::extension::{BaseStateWithExtensions, ExtensionType, StateWithExtensionsOwned};
 use std::collections::{HashMap, HashSet};
@@ -110,7 +112,7 @@ impl Default for TradingConfig {
             min_alert_quality_score: 0.0,
             min_trace_alerts: 0,
             auto_block_source_wallet_after_buy: false,
-            buy_once_per_token: false,
+            buy_once_per_token: true,
             pre_buy_checks: PreBuySafetyChecksConfig::default(),
         }
     }
@@ -577,6 +579,38 @@ impl SignalExecutionEngine {
         }
     }
 
+    fn wallet_has_token_balance(&self, token_mint: &str) -> bool {
+        let owner = self.app_state.wallet.pubkey();
+        let mint_pubkey = match Pubkey::from_str(token_mint) {
+            Ok(pk) => pk,
+            Err(_) => return false,
+        };
+
+        let accounts = match self
+            .app_state
+            .rpc_client
+            .get_token_accounts_by_owner(&owner, TokenAccountsFilter::Mint(mint_pubkey))
+        {
+            Ok(result) => result,
+            Err(_) => return false,
+        };
+
+        for keyed in accounts {
+            let token_account = match Pubkey::from_str(&keyed.pubkey) {
+                Ok(pk) => pk,
+                Err(_) => continue,
+            };
+
+            if let Ok(balance) = self.app_state.rpc_client.get_token_account_balance(&token_account) {
+                if balance.amount.parse::<u64>().unwrap_or(0) > 0 {
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+
     async fn execute_buy(&self, request: &ExecutionRequest) -> Result<String> {
         let token_mint = match &request.token_mint {
             Some(mint) => mint.clone(),
@@ -587,6 +621,9 @@ impl SignalExecutionEngine {
             let state = self.state.lock().await;
             if state.config.buy_once_per_token && state.bought_tokens.contains(&token_mint) {
                 return Ok("TOKEN_ALREADY_BOUGHT_ONCE".to_string());
+            }
+            if state.config.buy_once_per_token && self.wallet_has_token_balance(&token_mint) {
+                return Ok("TOKEN_ALREADY_HELD_IN_WALLET".to_string());
             }
             if state.active_positions.contains_key(&token_mint) {
                 return Ok("POSITION_ALREADY_EXISTS".to_string());
