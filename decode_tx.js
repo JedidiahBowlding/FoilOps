@@ -1,38 +1,40 @@
 const { Connection, PublicKey } = require('@solana/web3.js');
-const c = new Connection('https://api.mainnet-beta.solana.com');
+require('dotenv').config();
+const RPC_URL = process.env.QUICKNODE_RPC_URL || process.env.RPC_ENDPOINT || process.env.SOLANA_NETWORK || 'https://api.mainnet-beta.solana.com';
+const c = new Connection(RPC_URL);
 const sig = '5SZpjQn2C92gGQKjEnGYrufNzpkd1VfM1YBnJ6rzhTqahvD27oDk169T6XH96eeEFYPSdgQbKtZct6jPUu65K8wV';
 const M = 'EUX5SLDN9Ez8naTNJFJH7kow3QXeMwYcVNcZgcmCBZrs';
 const targetOwner = 'Gif9xQeWnLRsYAFYfrVDP2GSUyPafULEnArxgUNKG8Ce';
 
 async function run() {
-  const t = await c.getParsedTransaction(sig, {maxSupportedTransactionVersion: 0});
+  const t = await c.getParsedTransaction(sig, { maxSupportedTransactionVersion: 0 });
   if (!t) { console.log("Tx not found"); return; }
-  
+
   const accounts = t.transaction.message.accountKeys;
   const pre = t.meta.preTokenBalances || [];
   const post = t.meta.postTokenBalances || [];
-  
+
   const map = {};
   pre.forEach(b => {
     if (b.mint === M) {
-      map[b.accountIndex] = { 
-        pre: BigInt(b.uiTokenAmount.amount), 
-        post: BigInt(0), 
-        decimals: b.uiTokenAmount.decimals, 
-        owner: b.owner, 
-        tokenAccount: accounts[b.accountIndex].pubkey.toString() 
+      map[b.accountIndex] = {
+        pre: BigInt(b.uiTokenAmount.amount),
+        post: BigInt(0),
+        decimals: b.uiTokenAmount.decimals,
+        owner: b.owner,
+        tokenAccount: accounts[b.accountIndex].pubkey.toString()
       };
     }
   });
   post.forEach(b => {
     if (b.mint === M) {
       if (!map[b.accountIndex]) {
-        map[b.accountIndex] = { 
-          pre: BigInt(0), 
-          post: BigInt(b.uiTokenAmount.amount), 
-          decimals: b.uiTokenAmount.decimals, 
-          owner: b.owner, 
-          tokenAccount: accounts[b.accountIndex].pubkey.toString() 
+        map[b.accountIndex] = {
+          pre: BigInt(0),
+          post: BigInt(b.uiTokenAmount.amount),
+          decimals: b.uiTokenAmount.decimals,
+          owner: b.owner,
+          tokenAccount: accounts[b.accountIndex].pubkey.toString()
         };
       } else {
         map[b.accountIndex].post = BigInt(b.uiTokenAmount.amount);

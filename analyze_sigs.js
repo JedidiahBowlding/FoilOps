@@ -1,4 +1,5 @@
 const { Connection } = require('@solana/web3.js');
+require('dotenv').config();
 
 const signatures = [
   '4vWvfxaHjiG5owdj6Ec1fSRKddEyBqKd8Rru4xHG2KiRUW6mNRNGgmZzzwaXskZdR2bbvfGgW4o9hCVN9tzNVLB2',
@@ -12,7 +13,8 @@ const TARGET_MINT = 'EUX5SLDN9Ez8naTNJFJH7kow3QXeMwYcVNcZgcmCBZrs';
 const DEV_WALLET = 'E7iMadA9qRD4K9PeRsitYg19wP23FYnibXXVBJnGezj7';
 
 // Public endpoints often have tight rate limits. Use a delay between requests.
-const connection = new Connection('https://api.mainnet-beta.solana.com', 'confirmed');
+const RPC_URL = process.env.QUICKNODE_RPC_URL || process.env.RPC_ENDPOINT || process.env.SOLANA_NETWORK || 'https://api.mainnet-beta.solana.com';
+const connection = new Connection(RPC_URL, 'confirmed');
 
 async function analyze() {
   const aggregateTargetMint = {};
@@ -41,7 +43,7 @@ async function analyze() {
     console.log(`BlockTime: ${tx.blockTime}`);
 
     const logs = tx.meta.logMessages || [];
-    const isLiquidityAction = logs.some(log => 
+    const isLiquidityAction = logs.some(log =>
       /remove|burn|withdraw|close|initialize|liquidity/i.test(log)
     );
     console.log(`Liquidity Action: ${isLiquidityAction}`);
@@ -71,10 +73,10 @@ async function analyze() {
       const delta = (postBal[i] - pre) / 1e9;
       const addr = accountKeys[i].pubkey ? accountKeys[i].pubkey.toString() : accountKeys[i].toString();
       if (Math.abs(delta) > 0.0001) {
-          if (addr === DEV_WALLET || Math.abs(delta) > 1) {
-             console.log(`SOL Delta [${addr}]: ${delta.toFixed(4)}`);
-             aggregateSol[addr] = (aggregateSol[addr] || 0) + delta;
-          }
+        if (addr === DEV_WALLET || Math.abs(delta) > 1) {
+          console.log(`SOL Delta [${addr}]: ${delta.toFixed(4)}`);
+          aggregateSol[addr] = (aggregateSol[addr] || 0) + delta;
+        }
       }
     });
 
@@ -84,11 +86,11 @@ async function analyze() {
 
   console.log('\n--- AGGREGATE TOTALS ---');
   console.log('Target Mint Moves:');
-  Object.entries(aggregateTargetMint).sort((a,b) => b[1] - a[1]).forEach(([owner, total]) => {
+  Object.entries(aggregateTargetMint).sort((a, b) => b[1] - a[1]).forEach(([owner, total]) => {
     console.log(`  ${owner}: ${total}`);
   });
   console.log('SOL Deltas:');
-  Object.entries(aggregateSol).sort((a,b) => b[1] - a[1]).forEach(([addr, total]) => {
+  Object.entries(aggregateSol).sort((a, b) => b[1] - a[1]).forEach(([addr, total]) => {
     console.log(`  ${addr}: ${total.toFixed(4)}`);
   });
 }

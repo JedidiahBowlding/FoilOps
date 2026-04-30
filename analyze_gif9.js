@@ -1,9 +1,10 @@
 const { Connection, PublicKey } = require('@solana/web3.js');
+require('dotenv').config();
 
 const WALLET = 'Gif9xQeWnLRsYAFYfrVDP2GSUyPafULEnArxgUNKG8Ce';
 const MINT = 'EUX5SLDN9Ez8naTNJFJH7kow3QXeMwYcVNcZgcmCBZrs';
 const START_TIME = 1777306043;
-const RPC_URL = 'https://api.mainnet-beta.solana.com';
+const RPC_URL = process.env.QUICKNODE_RPC_URL || process.env.RPC_ENDPOINT || process.env.SOLANA_NETWORK || 'https://api.mainnet-beta.solana.com';
 
 async function run() {
     const connection = new Connection(RPC_URL, 'confirmed');
@@ -11,7 +12,7 @@ async function run() {
 
     console.log(`Fetching signatures for ${WALLET}...`);
     let signatures = await connection.getSignaturesForAddress(pubkey, { limit: 40 });
-    
+
     // Sort chronological
     signatures.reverse();
 
@@ -37,9 +38,9 @@ async function run() {
 
         const preBalances = tx.meta.preTokenBalances || [];
         const postBalances = tx.meta.postTokenBalances || [];
-        
+
         let euxDeltas = {};
-        
+
         // Track EUX deltas
         [...preBalances, ...postBalances].forEach(b => {
             if (b.mint === MINT) {
@@ -90,7 +91,7 @@ async function run() {
 
     console.log("Time       | Signature                                                                  | EUX Delta (UI) | SOL Delta | Counterpart");
     console.log("-----------|----------------------------------------------------------------------------|----------------|-----------|------------");
-    
+
     let totalIn = 0;
     let totalOut = 0;
     let routerAccount = {};
@@ -99,9 +100,9 @@ async function run() {
         console.log(`${r.blockTime} | ${r.signature.padEnd(88)} | ${r.uiEuxDelta.toFixed(2).padStart(14)} | ${r.solDelta.toFixed(4).padStart(9)} | ${r.counterpart}`);
         if (r.uiEuxDelta > 0) totalIn += r.uiEuxDelta;
         else totalOut += Math.abs(r.uiEuxDelta);
-        
+
         if (r.uiEuxDelta < 0 && r.counterpart !== "N/A") {
-             routerAccount[r.counterpart] = (routerAccount[r.counterpart] || 0) + Math.abs(r.uiEuxDelta);
+            routerAccount[r.counterpart] = (routerAccount[r.counterpart] || 0) + Math.abs(r.uiEuxDelta);
         }
     });
 
@@ -109,8 +110,8 @@ async function run() {
     console.log(`Total EUX Outflow: ${totalOut.toFixed(2)}`);
     console.log(`Total EUX Inflow:  ${totalIn.toFixed(2)}`);
     console.log(`Net EUX Change:    ${(totalIn - totalOut).toFixed(2)}`);
-    
-    const topRouter = Object.entries(routerAccount).sort((a,b) => b[1] - a[1])[0];
+
+    const topRouter = Object.entries(routerAccount).sort((a, b) => b[1] - a[1])[0];
     if (topRouter && topRouter[1] > 1) {
         console.log(`Significant routed onward to: ${topRouter[0]} (${topRouter[1].toFixed(2)} EUX)`);
     } else {

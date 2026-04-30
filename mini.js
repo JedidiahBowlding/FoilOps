@@ -1,6 +1,9 @@
 const { Connection, PublicKey } = require('@solana/web3.js');
+require('dotenv').config();
+
+const RPC_URL = process.env.QUICKNODE_RPC_URL || process.env.RPC_ENDPOINT || process.env.SOLANA_NETWORK || 'https://api.mainnet-beta.solana.com';
 async function run() {
-  const connection = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
+  const connection = new Connection(RPC_URL, "confirmed");
   const walletAddr = "Gif9xQeWnLRsYAFYfrVDP2GSUyPafULEnArxgUNKG8Ce";
   const mintAddr = "EUX5SLDN9Ez8naTNJFJH7kow3QXeMwYcVNcZgcmCBZrs";
   const startBlockTime = 1777306043;

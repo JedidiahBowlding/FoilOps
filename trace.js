@@ -1,6 +1,9 @@
 const { Connection, PublicKey } = require('@solana/web3.js');
+require('dotenv').config();
+
+const RPC_URL = process.env.QUICKNODE_RPC_URL || process.env.RPC_ENDPOINT || process.env.SOLANA_NETWORK || 'https://api.mainnet-beta.solana.com';
 async function main() {
-    const conn = new Connection('https://api.mainnet-beta.solana.com');
+    const conn = new Connection(RPC_URL);
     const mint = 'EUX5SLDN9Ez8naTNJFJH7kow3QXeMwYcVNcZgcmCBZrs';
     const sigs = await conn.getSignaturesForAddress(new PublicKey(mint), { limit: 5 });
     for (const s of sigs) {

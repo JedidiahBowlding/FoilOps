@@ -1,7 +1,9 @@
-import requests, time, sys
+import os
+import requests
+import time
 from datetime import datetime
 W = ["4gwbU7Q5sUzjC3ZHMd53AEk8MfhgjWmp1AgXL25zrAvR", "4Tzg41af34tjndWHys25fbSgPC3Qyxi29umWC55erjHJ", "7GFUN3bWzJMKMRZ34JLsvcqdssDbXnp589SiE33KVwcC", "7ybe6anz24RNJC47YJ5GnYwcxyyxhBtKFGHmC1bPBsF4", "94qWNrtmfn42h3ZjUZwWvK1MEo9uVmmrBPd2hpNjYDjb", "AwpF13wS7gDFhVjwkz4FPgiTspJdEAJqFU7EfUDqQvzt", "AZUzwQM28WHDVZTWZWd1PvDMNp974dbn1fabpCc4sKt5", "BdK16FWaNxfMrMQ7cZHGTA2bkRyTdA1dZ3zxVdgFaYE3", "BkLW1rh7yxHp8XfrRM37ezkYbP8Tui4XjEG8T8oWYqso", "Bvtgim23rfocUzxVX9j9QFxTbBnH8JZxnaGLCEkXvjKS", "Ccqybt7azGdoZmud2oEuPvY37oTuHWg43ERL1fv2Erto", "CNmv3wvNsMj65PLrYHLw6hSnnky5fZx2F9aa7oU7YpW1", "DWpvfqzGWuVy9jVSKSShdM2733nrEsnnhsUStYbkj6Nn", "F16svAz3mNo2CYsMGnAXqx2Q1KPJyF8ocfMDBBqSCFNo", "GLTy4XjfZCyBmzNzWuyrB4MJLTa8L8KYucg3gBr84qZz"]
-U = "https://api.mainnet-beta.solana.com"
+U = os.getenv("QUICKNODE_RPC_URL") or os.getenv("RPC_ENDPOINT") or os.getenv("SOLANA_NETWORK") or "https://api.mainnet-beta.solana.com"
 R = []
 for w in W:
     try:

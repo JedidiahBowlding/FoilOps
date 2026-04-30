@@ -1,9 +1,12 @@
 const { Connection, PublicKey } = require('@solana/web3.js');
+require('dotenv').config();
+
+const RPC_URL = process.env.QUICKNODE_RPC_URL || process.env.RPC_ENDPOINT || process.env.SOLANA_NETWORK || 'https://api.mainnet-beta.solana.com';
 
 async function main() {
-    const conn = new Connection('https://api.mainnet-beta.solana.com');
+    const conn = new Connection(RPC_URL);
     const mint = new PublicKey('EUX5SLDN9Ez8naTNJFJH7kow3QXeMwYcVNcZgcmCBZrs');
-    
+
     console.log("Fetching up to 80 signatures...");
     let sigs = [];
     try {
@@ -12,9 +15,9 @@ async function main() {
         console.error("Failed to fetch signatures:", e.message);
         return;
     }
-    
+
     const candidates = [];
-    const walletAgg = {}; 
+    const walletAgg = {};
     const limit = Math.min(sigs.length, 40);
 
     console.log("Processing " + limit + " txs with 7s delay...");
@@ -30,16 +33,16 @@ async function main() {
 
             const logs = tx.meta.logMessages || [];
             const isTargetLog = logs.some(l => /liquidity|remove|burn|withdraw|close|lp/i.test(l));
-            
+
             let mintDrop = false;
             const preToken = tx.meta.preTokenBalances || [];
             const postToken = tx.meta.postTokenBalances || [];
-            
+
             const preBal = preToken.find(b => b.mint === mint.toBase58());
             const postBal = postToken.find(b => b.mint === mint.toBase58());
             if (preBal && postBal) {
                 const diff = (postBal.uiTokenAmount.uiAmount || 0) - (preBal.uiTokenAmount.uiAmount || 0);
-                if (diff < -100) mintDrop = true; 
+                if (diff < -100) mintDrop = true;
             }
 
             if (isTargetLog || mintDrop) {
@@ -47,7 +50,7 @@ async function main() {
                 const pre = tx.meta.preBalances;
                 const post = tx.meta.postBalances;
                 const keys = tx.transaction.message.accountKeys;
-                
+
                 keys.forEach((k, idx) => {
                     const addr = k.pubkey ? k.pubkey.toBase58() : k.toString();
                     const delta = (post[idx] - pre[idx]) / 1e9;
@@ -59,7 +62,7 @@ async function main() {
                     }
                 });
 
-                gainers.sort((a,b) => b.delta - a.delta);
+                gainers.sort((a, b) => b.delta - a.delta);
                 candidates.push({
                     sig: s.signature,
                     ts: s.blockTime,
@@ -71,8 +74,8 @@ async function main() {
         } catch (e) {
             console.log("Error processing " + s.signature + ": " + e.message);
             if (e.message.indexOf('429') !== -1) {
-              await new Promise(r => setTimeout(r, 15000));
-              i--; 
+                await new Promise(r => setTimeout(r, 15000));
+                i--;
             }
         }
     }

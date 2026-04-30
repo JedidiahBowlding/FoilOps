@@ -1,7 +1,8 @@
 const { Connection, PublicKey } = require('@solana/web3.js');
+require('dotenv').config();
 
 async function main() {
-    const endpoint = process.env.SOLANA_NETWORK || 'https://api.mainnet-beta.solana.com';
+    const endpoint = process.env.QUICKNODE_RPC_URL || process.env.RPC_ENDPOINT || process.env.SOLANA_NETWORK || 'https://api.mainnet-beta.solana.com';
     const connection = new Connection(endpoint, 'confirmed');
     const walletAddress = new PublicKey('GEE4vCGGwdAaSrfLfv1r6ZcWDBh6Dohqt6rT5iFiMGPZ');
 
@@ -13,7 +14,7 @@ async function main() {
         process.stderr.write('Failed to fetch signatures: ' + err.message + '\n');
         return;
     }
-    
+
     const summary = {};
     let totalOutflow = 0;
 
@@ -47,7 +48,7 @@ async function main() {
             instructions.forEach(processInstruction);
             innerInstructions.forEach(inner => inner.instructions.forEach(processInstruction));
 
-            process.stderr.write('Processed ' + (i+1) + '/' + signatures.length + ' transactions...\n');
+            process.stderr.write('Processed ' + (i + 1) + '/' + signatures.length + ' transactions...\n');
             await new Promise(r => setTimeout(r, 3000));
 
         } catch (err) {

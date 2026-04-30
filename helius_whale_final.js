@@ -1,6 +1,7 @@
 const fs = require('fs');
+require('dotenv').config();
 
-const RPC_URL = 'https://mainnet.helius-rpc.com/?api-key=d965c9f1-7f28-43f3-8c78-a21f82fa045e';
+const RPC_URL = process.env.QUICKNODE_RPC_URL || process.env.RPC_ENDPOINT || process.env.SOLANA_NETWORK || 'https://api.mainnet-beta.solana.com';
 const MINT = '6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN';
 const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const USDT = 'Es9vMFrzaCERmJfrF4H2FYD8w2k7cD2qQxQq4Yk9B2w';

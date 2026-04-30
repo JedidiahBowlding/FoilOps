@@ -1,11 +1,14 @@
 const { Connection } = require('@solana/web3.js');
+require('dotenv').config();
+
+const RPC_URL = process.env.QUICKNODE_RPC_URL || process.env.RPC_ENDPOINT || process.env.SOLANA_NETWORK || 'https://api.mainnet-beta.solana.com';
 
 const SIG = '5SZpjQn2C92gGQKjEnGYrufNzpkd1VfM1YBnJ6rzhTqahvD27oDk169T6XH96eeEFYPSdgQbKtZct6jPUu65K8wV';
 const MINT_EUX = 'EUX5SLDN9Ez8naTNJFJH7kow3QXeMwYcVNcZgcmCBZrs';
 const MINT_WSOL = 'So11111111111111111111111111111111111111112';
 
 async function run() {
-    const conn = new Connection('https://api.mainnet-beta.solana.com', 'confirmed');
+    const conn = new Connection(RPC_URL, 'confirmed');
     const tx = await conn.getParsedTransaction(SIG, { maxSupportedTransactionVersion: 0 });
 
     if (!tx) {
@@ -25,9 +28,9 @@ async function run() {
         const programId = ix.programId.toString();
         console.log(`Index ${i}: ${programId}`);
         if (programId === '6EF8rrecthR5DkwiZycWn7Peb47VREXp9E52zM27') {
-           console.log(`  ^^ Detected Pump.fun`);
+            console.log(`  ^^ Detected Pump.fun`);
         } else if (programId === 'pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA') {
-           console.log(`  ^^ Detected Pump.fun AMM (Withdraw/Burn)`);
+            console.log(`  ^^ Detected Pump.fun AMM (Withdraw/Burn)`);
         }
     });
 
@@ -46,7 +49,7 @@ async function run() {
             const postAmt = post ? BigInt(post.uiTokenAmount.amount) : 0n;
             const delta = postAmt - preAmt;
             if (delta !== 0n) {
-                console.log(`Owner: ${owner} | Mint: ${mint.slice(0,4)}...`);
+                console.log(`Owner: ${owner} | Mint: ${mint.slice(0, 4)}...`);
                 console.log(`  Delta: ${delta.toString()} (UI: ${post?.uiTokenAmount?.uiAmountString || '0'} - ${pre?.uiTokenAmount?.uiAmountString || '0'})`);
             }
         });

@@ -1,8 +1,12 @@
 const SIG = '4CCwFdeqtgGEtFj7mjdtwguWMkNgm6iw72XGfTz8PGhRPUNuvsF2NA3d5DVS7eCqsnBsxNEMxXSqyR2PaxV16dR1';
 const EUX_MINT = 'EUX5SLDN9Ez8naTNJFJH7kow3QXeMwYcVNcZgcmCBZrs';
+const RPC_URL =
+  process.env.QUICKNODE_RPC_URL ||
+  process.env.RPC_ENDPOINT ||
+  'https://api.mainnet-beta.solana.com';
 
 async function rpc(method, params) {
-  const r = await fetch('https://api.mainnet-beta.solana.com', {
+  const r = await fetch(RPC_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params })

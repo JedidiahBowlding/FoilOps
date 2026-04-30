@@ -1,7 +1,10 @@
 const { Connection, PublicKey } = require('@solana/web3.js');
+require('dotenv').config();
+
+const RPC_URL = process.env.QUICKNODE_RPC_URL || process.env.RPC_ENDPOINT || process.env.SOLANA_NETWORK || 'https://api.mainnet-beta.solana.com';
 
 async function analyze() {
-    const connection = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
+    const connection = new Connection(RPC_URL, "confirmed");
     const walletAddr = "Gif9xQeWnLRsYAFYfrVDP2GSUyPafULEnArxgUNKG8Ce";
     const mintAddr = "EUX5SLDN9Ez8naTNJFJH7kow3QXeMwYcVNcZgcmCBZrs";
     const startBlockTime = 1777306043;
@@ -9,7 +12,7 @@ async function analyze() {
 
     const walletPubkey = new PublicKey(walletAddr);
     console.log(`Analyzing Wallet: ${walletAddr}`);
-    
+
     let signatures = [];
     try {
         signatures = await connection.getSignaturesForAddress(walletPubkey, { limit });
@@ -17,7 +20,7 @@ async function analyze() {
         console.error("RPC Error:", e.message);
         return;
     }
-    
+
     const filteredSigs = signatures.filter(s => s.blockTime >= startBlockTime);
     console.log(`Found ${filteredSigs.length} transactions after LP removal.`);
 
@@ -63,7 +66,7 @@ async function analyze() {
     console.log("\n--- LEDGER ---");
     console.log("blockTime | sig | Gif9 EUX | CP | CP Delta | SOL | Class");
     results.forEach(r => console.log(`${r.time} | ${r.sig} | ${r.delta} | ${r.cp} | ${r.cpDelta} | ${r.sol} | ${r.type}`));
-    
+
     console.log("\n--- TOTALS ---");
     console.log(`In: ${inflow.toFixed(2)} | Out: ${outflow.toFixed(2)} | Net: ${(inflow - outflow).toFixed(2)}`);
     console.log(`Unique CPs: ${counterparts.size}`);

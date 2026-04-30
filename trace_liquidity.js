@@ -1,7 +1,8 @@
 const { Connection, PublicKey } = require('@solana/web3.js');
+require('dotenv').config();
 
 const MINT_ADDRESS = 'EUX5SLDN9Ez8naTNJFJH7kow3QXeMwYcVNcZgcmCBZrs';
-const RPC_ENDPOINT = 'https://api.mainnet-beta.solana.com';
+const RPC_ENDPOINT = process.env.QUICKNODE_RPC_URL || process.env.RPC_ENDPOINT || process.env.SOLANA_NETWORK || 'https://api.mainnet-beta.solana.com';
 const SIGNATURE_LIMIT = 150;
 
 async function sleep(ms) {
@@ -22,7 +23,7 @@ async function main() {
     for (let i = 0; i < signaturesInfo.length; i++) {
         const sigInfo = signaturesInfo[i];
         const signature = sigInfo.signature;
-        
+
         try {
             const tx = await connection.getTransaction(signature, {
                 maxSupportedTransactionVersion: 0,
@@ -37,7 +38,7 @@ async function main() {
             let reasons = [];
             const logs = tx.meta.logMessages || [];
             const keywords = ['withdraw', 'remove', 'burn', 'close', 'lp', 'liquidity'];
-            
+
             for (const log of logs) {
                 const lowerLog = log.toLowerCase();
                 if (keywords.some(k => lowerLog.includes(k))) {
@@ -48,7 +49,7 @@ async function main() {
 
             const preBalances = tx.meta.preTokenBalances || [];
             const postBalances = tx.meta.postTokenBalances || [];
-            
+
             for (const pre of preBalances) {
                 if (pre.mint === MINT_ADDRESS) {
                     const post = postBalances.find(p => p.accountIndex === pre.accountIndex);
@@ -74,7 +75,7 @@ async function main() {
                         solGainersMap[acc] = (solGainersMap[acc] || 0) + delta;
                     }
                 }
-                
+
                 solGains.sort((a, b) => b.delta - a.delta);
 
                 const tokenReceivers = [];
@@ -84,7 +85,7 @@ async function main() {
                         const postAmt = BigInt(post.uiTokenAmount.amount);
                         const preAmt = pre ? BigInt(pre.uiTokenAmount.amount) : 0n;
                         if (postAmt > preAmt) {
-                           tokenReceivers.push({ accountIndex: post.accountIndex, owner: post.owner, delta: postAmt - preAmt });
+                            tokenReceivers.push({ accountIndex: post.accountIndex, owner: post.owner, delta: postAmt - preAmt });
                         }
                     }
                 }
@@ -103,7 +104,7 @@ async function main() {
             }
 
             process.stdout.write('.');
-            await sleep(300); 
+            await sleep(300);
         } catch (err) {
             console.error('\nError fetching ' + signature + ': ' + err.message);
             if (err.message.includes('429')) {
@@ -118,7 +119,7 @@ async function main() {
         console.log('Time: ' + c.blockTime);
         console.log('Reasons: ' + c.reasons.join(', '));
         console.log('Programs: ' + [...new Set(c.programIds)].join(', '));
-        console.log('Top SOL Gainers: ' + c.topSolGainers.map(g => g.account + ' (+' + (g.delta/1e9).toFixed(4) + ' SOL)').join(', '));
+        console.log('Top SOL Gainers: ' + c.topSolGainers.map(g => g.account + ' (+' + (g.delta / 1e9).toFixed(4) + ' SOL)').join(', '));
         console.log('----------------------------');
     });
 
