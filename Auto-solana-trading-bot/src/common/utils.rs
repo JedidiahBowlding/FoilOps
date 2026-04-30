@@ -21,10 +21,26 @@ pub fn import_env_var(key: &str) -> String {
     env::var(key).unwrap_or_else(|_| panic!("Environment variable {} is not set", key))
 }
 
+pub fn create_rpc_client_with_endpoint(
+    rpc_https: &str,
+) -> Result<Arc<solana_client::rpc_client::RpcClient>> {
+    let rpc_client = solana_client::rpc_client::RpcClient::new_with_commitment(
+        rpc_https.to_string(),
+        CommitmentConfig::processed(),
+    );
+    Ok(Arc::new(rpc_client))
+}
+
 pub fn create_rpc_client() -> Result<Arc<solana_client::rpc_client::RpcClient>> {
     let rpc_https = import_env_var("RPC_ENDPOINT");
-    let rpc_client = solana_client::rpc_client::RpcClient::new_with_commitment(
-        rpc_https,
+    create_rpc_client_with_endpoint(&rpc_https)
+}
+
+pub async fn create_nonblocking_rpc_client_with_endpoint(
+    rpc_https: &str,
+) -> Result<Arc<solana_client::nonblocking::rpc_client::RpcClient>> {
+    let rpc_client = solana_client::nonblocking::rpc_client::RpcClient::new_with_commitment(
+        rpc_https.to_string(),
         CommitmentConfig::processed(),
     );
     Ok(Arc::new(rpc_client))
@@ -33,11 +49,7 @@ pub fn create_rpc_client() -> Result<Arc<solana_client::rpc_client::RpcClient>> 
 pub async fn create_nonblocking_rpc_client(
 ) -> Result<Arc<solana_client::nonblocking::rpc_client::RpcClient>> {
     let rpc_https = import_env_var("RPC_ENDPOINT");
-    let rpc_client = solana_client::nonblocking::rpc_client::RpcClient::new_with_commitment(
-        rpc_https,
-        CommitmentConfig::processed(),
-    );
-    Ok(Arc::new(rpc_client))
+    create_nonblocking_rpc_client_with_endpoint(&rpc_https).await
 }
 
 pub fn import_wallet() -> Result<Arc<Keypair>> {

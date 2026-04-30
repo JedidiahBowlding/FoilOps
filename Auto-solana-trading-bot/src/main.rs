@@ -1,5 +1,6 @@
 use trading_bot::common::utils::{
-    create_nonblocking_rpc_client, create_rpc_client, import_env_var, import_wallet, AppState,
+    create_nonblocking_rpc_client, create_nonblocking_rpc_client_with_endpoint, create_rpc_client,
+    create_rpc_client_with_endpoint, import_env_var, import_wallet, AppState,
 };
 use trading_bot::dex::raydium::get_pool_state_by_mint;
 use trading_bot::engine::swap::raydium_swap;
@@ -35,6 +36,11 @@ fn mask(val: &str) -> String {
 
 fn env_masked(key: &str) -> String {
     env::var(key).map(|v| mask(&v)).unwrap_or_else(|_| "MISSING".to_string())
+}
+
+fn is_ws_rate_limited(error: &str) -> bool {
+    let lowered = error.to_ascii_lowercase();
+    lowered.contains("429") || lowered.contains("max usage reached")
 }
 
 #[tokio::main]
@@ -179,23 +185,86 @@ async fn main() {
     }
 
     let sol_address = env::var("SOL_PUBKEY").unwrap();
-    let rpc_https_url = env::var("RPC_ENDPOINT").unwrap();
-    let _rpc_client = RpcClient::new(rpc_https_url.clone());
+    let primary_rpc_https_url = env::var("RPC_ENDPOINT").unwrap();
+    let _rpc_client = RpcClient::new(primary_rpc_https_url.clone());
     let unwanted_key = env::var("JUP_PUBKEY").unwrap();
     let target = env::var("TARGET_PUBKEY").unwrap();
 
-    // Create batch RPC client for optimized calls
-    let rpc_nonblocking = create_nonblocking_rpc_client().await.expect("Failed to create RPC client");
+    let primary_ws_url = env::var("RPC_WEBSOCKET_ENDPOINT").unwrap();
+    let quicknode_pair = match (env::var("QUICKNODE_RPC_URL").ok(), env::var("QUICKNODE_WSS_URL").ok()) {
+        (Some(rpc), Some(wss)) if !rpc.trim().is_empty() && !wss.trim().is_empty() => {
+            Some((rpc.trim().to_string(), wss.trim().to_string()))
+        }
+        _ => None,
+    };
+
+    let quicknode_enabled = quicknode_pair.is_some();
+
+    let mut active_rpc_https_url = primary_rpc_https_url.clone();
+    let mut active_ws_url = primary_ws_url.clone();
+    let mut active_provider_name = "primary".to_string();
+
+    let ws_stream = {
+        let mut attempt = 0u32;
+        let mut primary_failures = 0u32;
+        loop {
+            match connect_async(&active_ws_url).await {
+                Ok((stream, _)) => {
+                    println!(
+                        "Connected to {} provider websocket. Using paired RPC endpoint.",
+                        active_provider_name
+                    );
+                    break stream;
+                }
+                Err(err) => {
+                    attempt += 1;
+                    if active_provider_name == "primary" {
+                        primary_failures += 1;
+                    }
+
+                    let err_text = err.to_string();
+                    if active_provider_name == "primary"
+                        && quicknode_enabled
+                        && primary_failures >= 3
+                        && is_ws_rate_limited(&err_text)
+                    {
+                        if let Some((quicknode_rpc, quicknode_wss)) = &quicknode_pair {
+                            active_provider_name = "quicknode".to_string();
+                            active_rpc_https_url = quicknode_rpc.clone();
+                            active_ws_url = quicknode_wss.clone();
+                            eprintln!(
+                                "Primary websocket is repeatedly rate-limited; switching to QuickNode provider pair."
+                            );
+                            continue;
+                        }
+                    }
+
+                    let delay_secs = std::cmp::min(5 * (1u64 << attempt.min(6)), 300);
+                    eprintln!(
+                        "WebSocket connect failed (attempt {}, provider {}): {}. Retrying in {}s...",
+                        attempt, active_provider_name, err, delay_secs
+                    );
+                    tokio::time::sleep(std::time::Duration::from_secs(delay_secs)).await;
+                }
+            }
+        }
+    };
+
+    // Create batch RPC client for optimized calls, paired to whichever WS provider connected.
+    let rpc_nonblocking = create_nonblocking_rpc_client_with_endpoint(&active_rpc_https_url)
+        .await
+        .expect("Failed to create RPC client");
     let batch_client = Arc::new(BatchRpcClient::new(rpc_nonblocking));
 
-    let ws_url = env::var("RPC_WEBSOCKET_ENDPOINT").unwrap();
     println!(
-        "ENV loaded => SOL_PUBKEY={}, TARGET_PUBKEY={}, JUP_PUBKEY={}, RPC_ENDPOINT={}, RPC_WEBSOCKET_ENDPOINT={}, SLIPPAGE={}, JITO_TIP_VALUE={}, NOZOMI_TIP_VALUE={}, ZERO_SLOT_TIP_VALUE={}, TELEGRAM_BOT_TOKEN={}, TELEGRAM_CHAT_ID={}",
+        "ENV loaded => SOL_PUBKEY={}, TARGET_PUBKEY={}, JUP_PUBKEY={}, RPC_ENDPOINT={}, RPC_WEBSOCKET_ENDPOINT={}, ACTIVE_PROVIDER={}, QUICKNODE_FALLBACK_ENABLED={}, SLIPPAGE={}, JITO_TIP_VALUE={}, NOZOMI_TIP_VALUE={}, ZERO_SLOT_TIP_VALUE={}, TELEGRAM_BOT_TOKEN={}, TELEGRAM_CHAT_ID={}",
         mask(&sol_address),
         mask(&target),
         mask(&unwanted_key),
-        mask(&rpc_https_url),
-        mask(&ws_url),
+        mask(&active_rpc_https_url),
+        mask(&active_ws_url),
+        active_provider_name,
+        quicknode_enabled,
         env::var("SLIPPAGE").unwrap_or_else(|_| "MISSING".to_string()),
         env_masked("JITO_TIP_VALUE"),
         env_masked("NOZOMI_TIP_VALUE"),
@@ -203,23 +272,6 @@ async fn main() {
         env_masked("TELEGRAM_BOT_TOKEN"),
         env_masked("TELEGRAM_CHAT_ID"),
     );
-    let ws_stream = {
-        let mut attempt = 0u32;
-        loop {
-            match connect_async(&ws_url).await {
-                Ok((stream, _)) => break stream,
-                Err(err) => {
-                    attempt += 1;
-                    let delay_secs = std::cmp::min(5 * (1u64 << attempt.min(6)), 300);
-                    eprintln!(
-                        "WebSocket connect failed (attempt {}): {}. Retrying in {}s...",
-                        attempt, err, delay_secs
-                    );
-                    tokio::time::sleep(std::time::Duration::from_secs(delay_secs)).await;
-                }
-            }
-        }
-    };
     let (mut write, mut read) = ws_stream.split();
     // Subscribe to logs
     let subscription_message = serde_json::json!({
@@ -390,6 +442,7 @@ async fn main() {
                                     param_mint,
                                     param_amount_in / 10_f64.powf(in_decimal as f64),
                                     param_dirs,
+                                    active_rpc_https_url.clone(),
                                 )
                                 .await;
                                 break;
@@ -404,9 +457,11 @@ async fn main() {
 
 // Listen all events with websocket
 
-pub async fn swap_to_events(mint: String, amount_in: f64, dirs: String) {
-    let rpc_client = create_rpc_client().unwrap();
-    let rpc_nonblocking_client = create_nonblocking_rpc_client().await.unwrap();
+pub async fn swap_to_events(mint: String, amount_in: f64, dirs: String, rpc_https_url: String) {
+    let rpc_client = create_rpc_client_with_endpoint(&rpc_https_url).unwrap();
+    let rpc_nonblocking_client = create_nonblocking_rpc_client_with_endpoint(&rpc_https_url)
+        .await
+        .unwrap();
     let wallet = import_wallet().unwrap();
     let in_type = "qty";
     let slippage = import_env_var("SLIPPAGE").parse::<u64>().unwrap_or(5);
