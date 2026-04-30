@@ -34,7 +34,7 @@ module.exports = {
       instances: 1,
       autorestart: true,
       watch: false,
-      restart_delay: 5000,
+      restart_delay: 60000,
       max_restarts: 30,
       min_uptime: '15s',
       kill_timeout: 5000,

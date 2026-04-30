@@ -203,9 +203,23 @@ async fn main() {
         env_masked("TELEGRAM_BOT_TOKEN"),
         env_masked("TELEGRAM_CHAT_ID"),
     );
-    let (ws_stream, _) = connect_async(ws_url)
-        .await
-        .expect("Failed to connect to WebSocket server");
+    let ws_stream = {
+        let mut attempt = 0u32;
+        loop {
+            match connect_async(&ws_url).await {
+                Ok((stream, _)) => break stream,
+                Err(err) => {
+                    attempt += 1;
+                    let delay_secs = std::cmp::min(5 * (1u64 << attempt.min(6)), 300);
+                    eprintln!(
+                        "WebSocket connect failed (attempt {}): {}. Retrying in {}s...",
+                        attempt, err, delay_secs
+                    );
+                    tokio::time::sleep(std::time::Duration::from_secs(delay_secs)).await;
+                }
+            }
+        }
+    };
     let (mut write, mut read) = ws_stream.split();
     // Subscribe to logs
     let subscription_message = serde_json::json!({
