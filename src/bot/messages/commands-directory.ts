@@ -16,6 +16,9 @@ Essential commands for managing your tracked wallets
 🔸 <b>/wallets</b> - List your FoilOps personal trading wallets
 🔸 <b>/new_wallet</b> - Create a new FoilOps personal trading wallet
 🔸 <b>/use_wallet</b> [number] - Set the active FoilOps trading wallet
+🔸 <b>/activate_wallet</b> [wallet] [weight] - Enable wallet for weighted execution
+🔸 <b>/deactivate_wallet</b> [wallet] - Disable wallet from execution rotation
+🔸 <b>/wallet_weight</b> [wallet] [weight] - Set weighted allocation multiplier
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -161,6 +164,9 @@ Using FoilOps in Telegram groups
         '/wallets': 'List FoilOps personal trading wallets',
         '/new_wallet': 'Create a new FoilOps personal wallet',
         '/use_wallet': 'Switch active FoilOps wallet',
+        '/activate_wallet': 'Enable wallet for weighted execution',
+        '/deactivate_wallet': 'Disable wallet from execution rotation',
+        '/wallet_weight': 'Set wallet allocation multiplier',
       },
       'Trading Status': {
         '/trading_status': 'Current bot status & config',

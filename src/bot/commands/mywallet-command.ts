@@ -36,6 +36,24 @@ export class MyWalletCommand {
       const selection = match?.[1]?.trim() || ''
       await this.useWalletSlashHandler(msg, selection)
     })
+
+    this.bot.onText(/^\/activate_wallet(?:@\w+)?\s+(.+?)(?:\s+([0-9]*\.?[0-9]+))?$/i, async (msg, match) => {
+      const selection = match?.[1]?.trim() || ''
+      const parsedWeight = Number(match?.[2] || '')
+      const weight = Number.isFinite(parsedWeight) ? parsedWeight : undefined
+      await this.activateWalletSlashHandler(msg, selection, weight)
+    })
+
+    this.bot.onText(/^\/deactivate_wallet(?:@\w+)?\s+(.+)$/i, async (msg, match) => {
+      const selection = match?.[1]?.trim() || ''
+      await this.deactivateWalletSlashHandler(msg, selection)
+    })
+
+    this.bot.onText(/^\/wallet_weight(?:@\w+)?\s+(.+?)\s+([0-9]*\.?[0-9]+)$/i, async (msg, match) => {
+      const selection = match?.[1]?.trim() || ''
+      const parsedWeight = Number(match?.[2] || '')
+      await this.setWalletWeightSlashHandler(msg, selection, parsedWeight)
+    })
   }
 
   public async myWalletCommandHandler(msg: TelegramBot.Message, isButton = true) {
@@ -158,6 +176,99 @@ Your private key (do not share with anyone!!!)
     return this.myWalletCommandHandler(msg, false)
   }
 
+  private async activateWalletSlashHandler(msg: TelegramBot.Message, selection: string, weight?: number) {
+    const userId = String(msg.chat.id)
+    const wallets = await this.prismaUserRepository.listPersonalTradingWallets(userId)
+    if (wallets.length === 0) {
+      return
+    }
+
+    const selectedWallet = this.resolveWalletSelection(wallets, selection)
+    if (!selectedWallet) {
+      return this.bot.sendMessage(
+        msg.chat.id,
+        'Unknown wallet selection. Use /wallets to list wallets, then /activate_wallet <number> [weight].',
+        { parse_mode: 'HTML' },
+      )
+    }
+
+    try {
+      await this.prismaUserRepository.enablePersonalTradingWalletExecution(userId, selectedWallet.id, weight)
+      return this.myWalletCommandHandler(msg, false)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'UNKNOWN_ERROR'
+      if (message.startsWith('MAX_ACTIVE_WALLETS_REACHED:')) {
+        const max = message.split(':')[1] || '3'
+        return this.bot.sendMessage(msg.chat.id, `Cannot activate more wallets. Max active wallets is ${max}.`, {
+          parse_mode: 'HTML',
+        })
+      }
+
+      return this.bot.sendMessage(msg.chat.id, 'Could not activate wallet for execution.', {
+        parse_mode: 'HTML',
+      })
+    }
+  }
+
+  private async deactivateWalletSlashHandler(msg: TelegramBot.Message, selection: string) {
+    const userId = String(msg.chat.id)
+    const wallets = await this.prismaUserRepository.listPersonalTradingWallets(userId)
+    if (wallets.length === 0) {
+      return
+    }
+
+    const selectedWallet = this.resolveWalletSelection(wallets, selection)
+    if (!selectedWallet) {
+      return this.bot.sendMessage(
+        msg.chat.id,
+        'Unknown wallet selection. Use /wallets to list wallets, then /deactivate_wallet <number>.',
+        { parse_mode: 'HTML' },
+      )
+    }
+
+    try {
+      await this.prismaUserRepository.disablePersonalTradingWalletExecution(userId, selectedWallet.id)
+      return this.myWalletCommandHandler(msg, false)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'UNKNOWN_ERROR'
+      if (message === 'CANNOT_DISABLE_LAST_ACTIVE_WALLET') {
+        return this.bot.sendMessage(msg.chat.id, 'At least one execution wallet must stay active.', {
+          parse_mode: 'HTML',
+        })
+      }
+
+      return this.bot.sendMessage(msg.chat.id, 'Could not deactivate wallet.', {
+        parse_mode: 'HTML',
+      })
+    }
+  }
+
+  private async setWalletWeightSlashHandler(msg: TelegramBot.Message, selection: string, weight: number) {
+    if (!Number.isFinite(weight) || weight <= 0) {
+      return this.bot.sendMessage(msg.chat.id, 'Weight must be a positive number.', {
+        parse_mode: 'HTML',
+      })
+    }
+
+    const userId = String(msg.chat.id)
+    const wallets = await this.prismaUserRepository.listPersonalTradingWallets(userId)
+    if (wallets.length === 0) {
+      return
+    }
+
+    const selectedWallet = this.resolveWalletSelection(wallets, selection)
+    if (!selectedWallet) {
+      return this.bot.sendMessage(
+        msg.chat.id,
+        'Unknown wallet selection. Use /wallets to list wallets, then /wallet_weight <number> <weight>.',
+        { parse_mode: 'HTML' },
+      )
+    }
+
+    await this.prismaUserRepository.updatePersonalTradingWalletAllocationWeight(userId, selectedWallet.id, weight)
+    return this.myWalletCommandHandler(msg, false)
+  }
+
   private async syncExecutionWallet(privateKey: string) {
     try {
       await axios.post(`${this.tradingBotUrl}/trading/execution-wallet`, {
@@ -166,6 +277,15 @@ Your private key (do not share with anyone!!!)
     } catch (error) {
       console.error('Failed to sync active FoilOps wallet with trading bot execution wallet', error)
     }
+  }
+
+  private resolveWalletSelection(wallets: PersonalTradingWalletSummary[], selection: string) {
+    const index = Number(selection)
+    if (Number.isInteger(index)) {
+      return wallets[index - 1]
+    }
+
+    return wallets.find((wallet) => wallet.id === selection || wallet.publicKey === selection)
   }
 
   private buildWalletMenu(wallets: PersonalTradingWalletSummary[]): InlineKeyboardMarkup {

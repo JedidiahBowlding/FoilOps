@@ -1,6 +1,7 @@
 import { createHmac, randomUUID } from 'crypto'
 import { ScamRisk } from './scam-risk'
 import { isTradeSignalV1, TradeActionHint, TradeSignalType, TradeSignalV1 } from '../types/trade-signal'
+import { executionWalletAllocator } from './execution-wallet-allocator'
 
 export class TradeSignalEmitter {
   private endpoint: string
@@ -8,6 +9,7 @@ export class TradeSignalEmitter {
   private authSecret?: string
   private requireAuth: boolean
   private signalIdempotencyMap: Map<string, number> = new Map() // For deduplication tracking
+  private executionWalletSwitchChain: Promise<void> = Promise.resolve()
 
   constructor() {
     this.endpoint = process.env.TRADE_SIGNAL_ENDPOINT || 'http://127.0.0.1:8787/signals'
@@ -100,55 +102,143 @@ export class TradeSignalEmitter {
       return
     }
 
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs)
+    const emitFlow = async () => {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), this.timeoutMs)
 
+      try {
+        const payload = JSON.stringify(signal)
+        const timestamp = String(Math.floor(Date.now() / 1000))
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'X-Signal-Source': 'foilops-intelligence',
+          'X-Idempotency-Key': signal.signalId,
+        }
+
+        // Phase 3: Authentication and signature generation
+        if (this.authSecret) {
+          const signature = createHmac('sha256', this.authSecret).update(`${timestamp}.${payload}`).digest('hex')
+          headers['X-Signal-Timestamp'] = timestamp
+          headers['X-Signal-Signature'] = signature
+        } else if (this.requireAuth) {
+          console.log('TRADE_SIGNAL_EMIT_BLOCKED missing TRADE_SIGNAL_AUTH_SECRET while auth is required')
+          return
+        }
+
+        // Phase 4: Live vs dry-run mode selection
+        const mode = signal.dryRun ? 'dry-run' : 'live'
+
+        const response = await fetch(this.endpoint, {
+          method: 'POST',
+          headers,
+          body: payload,
+          signal: controller.signal,
+        })
+
+        if (!response.ok) {
+          console.log(`TRADE_SIGNAL_EMIT_FAILED status=${response.status} id=${signal.signalId}`)
+          return
+        }
+
+        const responseData = await response.json()
+        console.log(
+          `TRADE_SIGNAL_EMITTED id=${signal.signalId} type=${signal.signalType} mode=${mode} status=${responseData.status || 'ok'}`,
+        )
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          console.log(`TRADE_SIGNAL_EMIT_TIMEOUT id=${signal.signalId}`)
+        } else {
+          console.log('TRADE_SIGNAL_EMIT_ERROR', error)
+        }
+      } finally {
+        clearTimeout(timeout)
+      }
+    }
+
+    if (this.shouldApplyWeightedExecutionWallet(signal)) {
+      await this.withExecutionWalletSwitch(async () => {
+        await this.applyExecutionWalletSelection(signal)
+        await emitFlow()
+      })
+      return
+    }
+
+    await emitFlow()
+  }
+
+  private shouldApplyWeightedExecutionWallet(signal: TradeSignalV1): boolean {
+    if (!executionWalletAllocator.isEnabled()) {
+      return false
+    }
+
+    return signal.actionHint === 'BUY' || signal.actionHint === 'SELL' || signal.actionHint === 'AUTO_SELL'
+  }
+
+  private async withExecutionWalletSwitch<T>(operation: () => Promise<T>): Promise<T> {
+    const previous = this.executionWalletSwitchChain
+    let release: () => void = () => {}
+    this.executionWalletSwitchChain = new Promise<void>((resolve) => {
+      release = resolve
+    })
+
+    await previous
     try {
-      const payload = JSON.stringify(signal)
-      const timestamp = String(Math.floor(Date.now() / 1000))
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        'X-Signal-Source': 'foilops-intelligence',
-        'X-Idempotency-Key': signal.signalId,
+      return await operation()
+    } finally {
+      release()
+    }
+  }
+
+  private async applyExecutionWalletSelection(signal: TradeSignalV1): Promise<void> {
+    const selected = await executionWalletAllocator.allocateForSignal(signal.signalId)
+    if (!selected) {
+      return
+    }
+
+    const switched = await this.switchExecutionWallet(selected.privateKey)
+    if (!switched) {
+      return
+    }
+
+    signal.metadata = {
+      ...(signal.metadata || {}),
+      executionWalletPublicKey: selected.publicKey,
+      executionWalletWeight: selected.allocationWeight,
+      executionWalletSelection: selected.strategy,
+    }
+  }
+
+  private async switchExecutionWallet(privateKey: string): Promise<boolean> {
+    try {
+      const executionWalletEndpoint = this.getExecutionWalletEndpoint()
+      if (!executionWalletEndpoint) {
+        return false
       }
 
-      // Phase 3: Authentication and signature generation
-      if (this.authSecret) {
-        const signature = createHmac('sha256', this.authSecret).update(`${timestamp}.${payload}`).digest('hex')
-        headers['X-Signal-Timestamp'] = timestamp
-        headers['X-Signal-Signature'] = signature
-      } else if (this.requireAuth) {
-        console.log('TRADE_SIGNAL_EMIT_BLOCKED missing TRADE_SIGNAL_AUTH_SECRET while auth is required')
-        return
-      }
-
-      // Phase 4: Live vs dry-run mode selection
-      const mode = signal.dryRun ? 'dry-run' : 'live'
-
-      const response = await fetch(this.endpoint, {
+      const response = await fetch(executionWalletEndpoint, {
         method: 'POST',
-        headers,
-        body: payload,
-        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ private_key: privateKey }),
       })
 
-      if (!response.ok) {
-        console.log(`TRADE_SIGNAL_EMIT_FAILED status=${response.status} id=${signal.signalId}`)
-        return
-      }
-
-      const responseData = await response.json()
-      console.log(
-        `TRADE_SIGNAL_EMITTED id=${signal.signalId} type=${signal.signalType} mode=${mode} status=${responseData.status || 'ok'}`,
-      )
+      return response.ok
     } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        console.log(`TRADE_SIGNAL_EMIT_TIMEOUT id=${signal.signalId}`)
-      } else {
-        console.log('TRADE_SIGNAL_EMIT_ERROR', error)
-      }
-    } finally {
-      clearTimeout(timeout)
+      console.log('TRADE_SIGNAL_EXECUTION_WALLET_SWITCH_FAILED', error)
+      return false
+    }
+  }
+
+  private getExecutionWalletEndpoint(): string | null {
+    try {
+      const signalEndpoint = new URL(this.endpoint)
+      signalEndpoint.pathname = '/trading/execution-wallet'
+      signalEndpoint.search = ''
+      signalEndpoint.hash = ''
+      return signalEndpoint.toString()
+    } catch {
+      return null
     }
   }
 

@@ -24,6 +24,7 @@ export type PersonalTradingWalletSummary = {
   name: string
   publicKey: string
   isActive: boolean
+  allocationWeight: number
   createdAt: Date
 }
 

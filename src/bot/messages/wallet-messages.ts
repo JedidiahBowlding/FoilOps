@@ -51,7 +51,10 @@ eth:0xabc123...
     const solBalance = await this.userBalances.userPersonalSolBalance(wallet.personalWalletPubKey)
     const walletLines = wallets
       .map(
-        (personalWallet, index) => `${personalWallet.isActive ? '✅' : '▫️'} <b>${index + 1}. ${personalWallet.name}</b>
+        (
+          personalWallet,
+          index,
+        ) => `${personalWallet.isActive ? '✅' : '▫️'} <b>${index + 1}. ${personalWallet.name}</b> (${personalWallet.allocationWeight.toFixed(2)}x)
 <code>${personalWallet.publicKey}</code>`,
       )
       .join('\n\n')

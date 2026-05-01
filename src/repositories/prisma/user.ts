@@ -9,6 +9,7 @@ type ActivePersonalWallet = {
   publicKey: string
   privateKey: string
   isActive: boolean
+  allocationWeight: number
 }
 
 export class PrismaUserRepository {
@@ -37,6 +38,7 @@ export class PrismaUserRepository {
             publicKey,
             privateKey: encryptedPrivKey,
             isActive: true,
+            allocationWeight: 1,
           },
         },
       },
@@ -135,6 +137,7 @@ export class PrismaUserRepository {
         name: true,
         publicKey: true,
         isActive: true,
+        allocationWeight: true,
         createdAt: true,
       },
     })
@@ -151,6 +154,7 @@ export class PrismaUserRepository {
           name: activeWallet.name,
           publicKey: activeWallet.publicKey,
           isActive: true,
+          allocationWeight: activeWallet.allocationWeight,
           createdAt: new Date(),
         },
       ]
@@ -183,6 +187,7 @@ export class PrismaUserRepository {
         publicKey,
         privateKey: encryptedPrivKey,
         isActive: shouldBeActive,
+        allocationWeight: 1,
       },
       select: {
         id: true,
@@ -190,6 +195,7 @@ export class PrismaUserRepository {
         publicKey: true,
         privateKey: true,
         isActive: true,
+        allocationWeight: true,
       },
     })
 
@@ -212,6 +218,7 @@ export class PrismaUserRepository {
         publicKey: true,
         privateKey: true,
         isActive: true,
+        allocationWeight: true,
       },
     })
 
@@ -248,6 +255,178 @@ export class PrismaUserRepository {
       privateKey: decryptedPrivKey,
       isActive: true,
     }
+  }
+
+  public async enablePersonalTradingWalletExecution(userId: string, walletId: string, allocationWeight?: number) {
+    const wallet = await prisma.personalTradingWallet.findFirst({
+      where: {
+        id: walletId,
+        userId,
+      },
+      select: {
+        id: true,
+        name: true,
+        publicKey: true,
+        privateKey: true,
+        isActive: true,
+        allocationWeight: true,
+      },
+    })
+
+    if (!wallet) {
+      return null
+    }
+
+    const normalizedWeight =
+      typeof allocationWeight === 'number' && Number.isFinite(allocationWeight)
+        ? Math.min(1000, Math.max(0.01, allocationWeight))
+        : undefined
+
+    const maxActiveWallets = Math.max(1, Number(process.env.MAX_ACTIVE_PERSONAL_WALLETS || 3))
+    const activeCount = await prisma.personalTradingWallet.count({
+      where: {
+        userId,
+        isActive: true,
+      },
+    })
+
+    if (!wallet.isActive && activeCount >= maxActiveWallets) {
+      throw new Error(`MAX_ACTIVE_WALLETS_REACHED:${maxActiveWallets}`)
+    }
+
+    const updated = await prisma.personalTradingWallet.update({
+      where: { id: wallet.id },
+      data: {
+        isActive: true,
+        ...(typeof normalizedWeight === 'number' ? { allocationWeight: normalizedWeight } : {}),
+      },
+      select: {
+        id: true,
+        name: true,
+        publicKey: true,
+        privateKey: true,
+        isActive: true,
+        allocationWeight: true,
+      },
+    })
+
+    if (activeCount === 0) {
+      await this.syncLegacyPersonalWallet(userId, updated.publicKey, updated.privateKey)
+    }
+
+    return { ...updated, privateKey: decryptPrivateKey(updated.privateKey) }
+  }
+
+  public async disablePersonalTradingWalletExecution(userId: string, walletId: string) {
+    const wallet = await prisma.personalTradingWallet.findFirst({
+      where: {
+        id: walletId,
+        userId,
+      },
+      select: {
+        id: true,
+        publicKey: true,
+        isActive: true,
+      },
+    })
+
+    if (!wallet) {
+      return null
+    }
+
+    if (!wallet.isActive) {
+      return { disabled: false, reason: 'ALREADY_INACTIVE' as const }
+    }
+
+    const activeWallets = await prisma.personalTradingWallet.findMany({
+      where: {
+        userId,
+        isActive: true,
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
+      select: {
+        id: true,
+        publicKey: true,
+        privateKey: true,
+      },
+    })
+
+    if (activeWallets.length <= 1) {
+      throw new Error('CANNOT_DISABLE_LAST_ACTIVE_WALLET')
+    }
+
+    await prisma.personalTradingWallet.update({
+      where: { id: wallet.id },
+      data: { isActive: false },
+    })
+
+    const fallback = activeWallets.find((candidate) => candidate.id !== wallet.id)
+    if (fallback) {
+      await this.syncLegacyPersonalWallet(userId, fallback.publicKey, fallback.privateKey)
+    }
+
+    return { disabled: true, reason: null as null }
+  }
+
+  public async updatePersonalTradingWalletAllocationWeight(userId: string, walletId: string, allocationWeight: number) {
+    const normalizedWeight = Math.min(1000, Math.max(0.01, allocationWeight))
+
+    const wallet = await prisma.personalTradingWallet.findFirst({
+      where: {
+        id: walletId,
+        userId,
+      },
+      select: {
+        id: true,
+      },
+    })
+
+    if (!wallet) {
+      return null
+    }
+
+    const updated = await prisma.personalTradingWallet.update({
+      where: { id: wallet.id },
+      data: {
+        allocationWeight: normalizedWeight,
+      },
+      select: {
+        id: true,
+        name: true,
+        publicKey: true,
+        privateKey: true,
+        isActive: true,
+        allocationWeight: true,
+      },
+    })
+
+    return { ...updated, privateKey: decryptPrivateKey(updated.privateKey) }
+  }
+
+  public async listActivePersonalTradingWalletsForExecution(userId: string) {
+    const activeWallets = await prisma.personalTradingWallet.findMany({
+      where: {
+        userId,
+        isActive: true,
+      },
+      orderBy: [{ createdAt: 'asc' }],
+      select: {
+        id: true,
+        name: true,
+        publicKey: true,
+        privateKey: true,
+        allocationWeight: true,
+      },
+    })
+
+    const maxActiveWallets = Math.max(1, Number(process.env.MAX_ACTIVE_PERSONAL_WALLETS || 3))
+    return activeWallets.slice(0, maxActiveWallets).map((wallet) => ({
+      ...wallet,
+      privateKey: decryptPrivateKey(wallet.privateKey),
+      allocationWeight: Math.min(1000, Math.max(0.01, wallet.allocationWeight || 1)),
+    }))
   }
 
   public async hasDonated(userId: string) {
@@ -452,6 +631,7 @@ export class PrismaUserRepository {
         publicKey: true,
         privateKey: true,
         isActive: true,
+        allocationWeight: true,
       },
     })
 
@@ -470,6 +650,7 @@ export class PrismaUserRepository {
         publicKey: true,
         privateKey: true,
         isActive: true,
+        allocationWeight: true,
       },
     })
 
@@ -524,6 +705,7 @@ export class PrismaUserRepository {
         publicKey: true,
         privateKey: true,
         isActive: true,
+        allocationWeight: true,
       },
     })
 
