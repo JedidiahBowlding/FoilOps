@@ -48,6 +48,8 @@ import {
 } from './lib/web-control-utils'
 import { registerFoilOpsRoutes } from './modules/foilops/api/foilOpsRoutes'
 import { FoilOpsRepository } from './modules/foilops/repository/foilOpsRepository'
+import { PrismaUserRepository } from './repositories/prisma/user'
+import { renderExecutionWalletsDashboard } from './lib/execution-wallets-dashboard'
 
 dotenv.config()
 
@@ -80,6 +82,7 @@ class Main {
   private dashboardAuth: DashboardAuth
   private prismaWalletRepository: PrismaWalletRepository
   private foilOpsRepository: FoilOpsRepository
+  private prismaUserRepository: PrismaUserRepository
   private readonly tradingBotUrl: string
 
   private isScamMonitorEnabled(): boolean {
@@ -115,6 +118,7 @@ class Main {
     this.dashboardAuth = new DashboardAuth()
     this.prismaWalletRepository = new PrismaWalletRepository()
     this.foilOpsRepository = new FoilOpsRepository()
+    this.prismaUserRepository = new PrismaUserRepository()
     this.tradingBotUrl = getTradingBotBaseUrl()
 
     // register routes after route dependencies are initialized
@@ -688,6 +692,108 @@ class Main {
         res.status(500).json({ message: 'Failed to update source wallet controls' })
       }
     })
+
+    // ── Execution wallet management ──────────────────────────────────────────
+
+    this.app.get('/dashboard/execution-wallets', this.dashboardAuth.requirePageAuth, async (_req, res) => {
+      try {
+        const adminUserId = this.getDashboardAdminUserId()
+        const wallets = await this.prismaUserRepository.listPersonalTradingWallets(adminUserId)
+        res.setHeader('Content-Type', 'text/html; charset=utf-8')
+        res.status(200).send(renderExecutionWalletsDashboard(wallets))
+      } catch (error) {
+        console.error('Execution wallets dashboard error', error)
+        res.status(500).send('Failed to render execution wallets dashboard')
+      }
+    })
+
+    this.app.get('/api/control/personal-wallets', this.dashboardAuth.requireApiAuth, async (_req, res) => {
+      try {
+        const adminUserId = this.getDashboardAdminUserId()
+        const wallets = await this.prismaUserRepository.listPersonalTradingWallets(adminUserId)
+        res.status(200).json({ wallets })
+      } catch (error) {
+        console.error('Personal wallets API error', error)
+        res.status(500).json({ message: 'Failed to load execution wallets' })
+      }
+    })
+
+    this.app.post('/api/control/personal-wallets', this.dashboardAuth.requireApiAuth, async (req, res) => {
+      try {
+        const adminUserId = this.getDashboardAdminUserId()
+        const action = typeof req.body?.action === 'string' ? req.body.action.trim().toLowerCase() : ''
+        const walletId = typeof req.body?.walletId === 'string' ? req.body.walletId.trim() : ''
+
+        if (!walletId) {
+          res.status(400).json({ message: 'walletId is required' })
+          return
+        }
+
+        if (action === 'activate') {
+          const weight = this.parseOptionalNumber(req.body?.weight)
+          const result = await this.prismaUserRepository.enablePersonalTradingWalletExecution(
+            adminUserId,
+            walletId,
+            weight,
+          )
+          if (!result) {
+            res.status(404).json({ message: 'Wallet not found' })
+            return
+          }
+          res.status(200).json({ message: `Wallet activated.` })
+          return
+        }
+
+        if (action === 'deactivate') {
+          const result = await this.prismaUserRepository.disablePersonalTradingWalletExecution(adminUserId, walletId)
+          if (!result) {
+            res.status(404).json({ message: 'Wallet not found' })
+            return
+          }
+          if (result.disabled === false) {
+            res.status(409).json({ message: 'Wallet is already inactive.' })
+            return
+          }
+          res.status(200).json({ message: 'Wallet deactivated.' })
+          return
+        }
+
+        if (action === 'set_weight') {
+          const weight = this.parseOptionalNumber(req.body?.weight)
+          if (typeof weight !== 'number') {
+            res.status(400).json({ message: 'weight must be a valid number >= 0.01' })
+            return
+          }
+          const result = await this.prismaUserRepository.updatePersonalTradingWalletAllocationWeight(
+            adminUserId,
+            walletId,
+            weight,
+          )
+          if (!result) {
+            res.status(404).json({ message: 'Wallet not found' })
+            return
+          }
+          res.status(200).json({ message: `Weight updated to ${result.allocationWeight.toFixed(2)}.` })
+          return
+        }
+
+        res.status(400).json({ message: 'Unsupported action. Use: activate, deactivate, set_weight' })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to update execution wallet'
+        console.error('Personal wallet control error', error)
+        if (message.startsWith('MAX_ACTIVE_WALLETS_REACHED')) {
+          res.status(409).json({ message: `Maximum active wallets reached. Deactivate one first.` })
+          return
+        }
+        if (message === 'CANNOT_DISABLE_LAST_ACTIVE_WALLET') {
+          res.status(409).json({ message: 'Cannot deactivate the last active execution wallet.' })
+          return
+        }
+        res.status(500).json({ message })
+      }
+    })
+
+    // ── Graph + FoilOps routes ───────────────────────────────────────────────
 
     registerGraphRoutes(this.app, {
       scamWalletRepository: this.scamWalletRepository,
