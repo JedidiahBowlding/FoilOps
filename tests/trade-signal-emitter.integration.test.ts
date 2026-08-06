@@ -64,4 +64,37 @@ describe('trade signal emitter integration', () => {
     expect(payload.actionHint).toBe('AUTO_AVOID')
     expect(payload.metadata.trigger).toBe('high_risk')
   })
+
+  it('emits smart money trade with score metadata', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: 'ok' }),
+    })
+
+    ;(globalThis as any).fetch = fetchMock
+
+    const emitter = new TradeSignalEmitter()
+
+    await emitter.emitSmartMoneyTradeSignal({
+      tokenMint: 'mint-3',
+      riskScore: 78,
+      direction: 'buy',
+      smartMoneyScore: 82,
+      smartMoneyConfidence: 'HIGH',
+      trackedWallet: 'wallet-D',
+      copiedWallet: 'wallet-E',
+      copiedTxSignature: 'sig-2',
+      rationale: ['wallet winrate: 72.0%', 'platform: pumpfun'],
+      metadata: { source: 'test' },
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const payload = JSON.parse(fetchMock.mock.calls[0][1].body)
+
+    expect(payload.signalType).toBe('SMART_MONEY_TRADE')
+    expect(payload.actionHint).toBe('BUY')
+    expect(payload.metadata.smartMoneyScore).toBe(82)
+    expect(payload.metadata.smartMoneyConfidence).toBe('HIGH')
+    expect(payload.metadata.copiedWallet).toBe('wallet-E')
+  })
 })

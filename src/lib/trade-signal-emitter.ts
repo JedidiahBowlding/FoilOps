@@ -288,6 +288,42 @@ export class TradeSignalEmitter {
     await this.emit(signal)
   }
 
+  async emitSmartMoneyTradeSignal(input: {
+    tokenMint: string
+    riskScore: number
+    direction: 'buy' | 'sell'
+    smartMoneyScore: number
+    smartMoneyConfidence: 'LOW' | 'MEDIUM' | 'HIGH'
+    trackedWallet?: string
+    developerWallet?: string
+    copiedWallet?: string
+    copiedTxSignature?: string
+    rationale?: string[]
+    metadata?: Record<string, unknown>
+  }): Promise<void> {
+    const actionHint: TradeActionHint = input.direction === 'sell' ? 'SELL' : 'BUY'
+
+    const signal = this.createSignal({
+      signalType: 'SMART_MONEY_TRADE',
+      riskScore: input.riskScore,
+      actionHint,
+      tokenMint: input.tokenMint,
+      trackedWallet: input.trackedWallet,
+      developerWallet: input.developerWallet,
+      metadata: {
+        ...input.metadata,
+        direction: input.direction,
+        smartMoneyScore: input.smartMoneyScore,
+        smartMoneyConfidence: input.smartMoneyConfidence,
+        smartMoneyRationale: input.rationale || [],
+        copiedWallet: input.copiedWallet,
+        copiedTxSignature: input.copiedTxSignature,
+      },
+    })
+
+    await this.emit(signal)
+  }
+
   async emitCopyTradeSignal(input: {
     tokenMint: string
     riskScore: number

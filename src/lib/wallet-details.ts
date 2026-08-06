@@ -3,6 +3,8 @@ import { RpcConnectionManager } from '../providers/solana'
 import { formatDistanceToNow } from 'date-fns'
 import { GmgnWalletResponse } from '../types/helius-types'
 
+type GmgnWalletProfile = GmgnWalletResponse['data']
+
 export class WalletDetails {
   constructor() {}
 
@@ -40,7 +42,7 @@ export class WalletDetails {
     return timeAgo
   }
 
-  public async getWalletPNL(walletAddress: string): Promise<GmgnWalletResponse | undefined> {
+  public async getWalletPNL(walletAddress: string): Promise<GmgnWalletProfile | undefined> {
     try {
       const res = await fetch(`https://gmgn.ai/defi/quotation/v1/smartmoney/sol/walletNew/${walletAddress}?period=7d`)
 

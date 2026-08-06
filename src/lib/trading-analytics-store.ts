@@ -14,6 +14,10 @@ export type TradingAnalyticsSnapshot = {
   trackedWalletCount: number | null
   avgWalletWinRate: number | null
   avgWalletPnl: number | null
+  smartMoneyActivePositions?: number
+  smartMoneyWatchedTokens?: number
+  smartMoneyConfirmedBuys?: number
+  smartMoneyConfirmedSells?: number
 }
 
 type TradingAnalyticsDocument = {

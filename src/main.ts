@@ -29,6 +29,7 @@ import { registerGraphRoutes } from './http/graph-routes'
 import { AiAnalyzer } from './lib/ai-analyzer'
 import { TradingOpsDashboard } from './lib/trading-ops-dashboard'
 import { TradingAnalyticsStore, TradingAnalyticsSnapshot } from './lib/trading-analytics-store'
+import { smartMoneyPortfolioStrategy } from './lib/smart-money-portfolio-strategy'
 import { DashboardAuth } from './lib/dashboard-auth'
 import { renderHomepageHtml } from './lib/homepage'
 import { renderFuturisticPage } from './lib/site-theme'
@@ -232,6 +233,15 @@ class Main {
       } catch (error) {
         console.error('Trading ops API error', error)
         res.status(500).json({ message: 'Failed to load trading ops data' })
+      }
+    })
+
+    this.app.get('/api/trading/strategy', this.dashboardAuth.requireApiAuth, async (_req, res) => {
+      try {
+        res.status(200).json(smartMoneyPortfolioStrategy.getSummary())
+      } catch (error) {
+        console.error('Trading strategy API error', error)
+        res.status(500).json({ message: 'Failed to load trading strategy state' })
       }
     })
 
@@ -925,6 +935,10 @@ class Main {
       trackedWalletCount,
       avgWalletWinRate: attributionMetrics.avgWalletWinRate,
       avgWalletPnl: attributionMetrics.avgWalletPnl,
+      smartMoneyActivePositions: smartMoneyPortfolioStrategy.getSummary().activePositions,
+      smartMoneyWatchedTokens: smartMoneyPortfolioStrategy.getSummary().watchedTokens,
+      smartMoneyConfirmedBuys: smartMoneyPortfolioStrategy.getSummary().confirmedBuys,
+      smartMoneyConfirmedSells: smartMoneyPortfolioStrategy.getSummary().confirmedSells,
     }
 
     return this.tradingAnalyticsStore.appendSnapshot(snapshot, minIntervalMinutes)

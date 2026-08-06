@@ -15,6 +15,8 @@ import { PrismaWalletRepository } from '../repositories/prisma/wallet'
 import { WalletPool } from '../config/wallet-pool'
 import TelegramBot from 'node-telegram-bot-api'
 import { tradeSignalEmitter } from './trade-signal-emitter'
+import { smartMoneyScorer } from './smart-money-scorer'
+import { smartMoneyPortfolioStrategy } from './smart-money-portfolio-strategy'
 
 export class WatchTransaction extends EventEmitter {
   private walletTransactions: Map<string, { count: number; startTime: number }>
@@ -48,6 +50,10 @@ export class WatchTransaction extends EventEmitter {
     Number(process.env.WATCHLIST_ROTATE_COOLDOWN_MS || 120000),
   )
   private static readonly watchlistRotateLastByWallet: Map<string, number> = new Map()
+  private static readonly smartMoneyWatchThreshold = Math.max(
+    0,
+    Math.min(100, Number(process.env.SMART_MONEY_WATCH_THRESHOLD || 60)),
+  )
   private static readonly MAX_RETRY_DELAY_MS = 15000 // Cap backoff at 15s (instead of unbounded exponential)
   private static readonly CONSECUTIVE_429_THRESHOLD = 5 // Mark endpoints unhealthy after 5 consecutive 429s
   private static consecutiveRateLimitErrors = 0
@@ -67,10 +73,7 @@ export class WatchTransaction extends EventEmitter {
 
   // Delay between successive WebSocket subscriptions to avoid bursting the RPC
   // endpoint and triggering 429 rate-limit responses. Configurable via env var.
-  private static readonly SUBSCRIPTION_STAGGER_MS = Math.max(
-    0,
-    Number(process.env.SUBSCRIPTION_STAGGER_MS || 300),
-  )
+  private static readonly SUBSCRIPTION_STAGGER_MS = Math.max(0, Number(process.env.SUBSCRIPTION_STAGGER_MS || 300))
 
   private static sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms))
@@ -255,22 +258,80 @@ export class WatchTransaction extends EventEmitter {
       return
     }
 
-    const copyTradeRiskScore = Number(process.env.COPY_TRADE_RISK_SCORE || 35)
-
     try {
-      await tradeSignalEmitter.emitCopyTradeSignal({
-        tokenMint,
-        riskScore: copyTradeRiskScore,
-        direction,
-        trackedWallet: walletAddress,
-        copiedWallet: walletAddress,
-        copiedTxSignature: transactionSignature,
-        metadata: {
-          source: 'wallet-watcher',
-          platform: parsed.platform,
-          autoBuyOnDeploy: isDeployEvent,
-        },
+      const smartMoneyScore = await smartMoneyScorer.scoreParsedSwap({
+        walletAddress,
+        parsed,
+        transactionSignature,
+        walletTxCount: this.walletTransactions.get(walletAddress)?.count,
       })
+
+      console.log(
+        `SMART_MONEY_SCORE wallet=${walletAddress} token=${tokenMint} direction=${smartMoneyScore.direction} score=${smartMoneyScore.score} confidence=${smartMoneyScore.confidence}`,
+      )
+
+      const tradeRiskScore = Math.max(Number(process.env.COPY_TRADE_RISK_SCORE || 35), smartMoneyScore.score)
+      const portfolioDecision = smartMoneyPortfolioStrategy.evaluate({
+        tokenMint,
+        walletAddress,
+        direction: smartMoneyScore.direction,
+        score: smartMoneyScore.score,
+        confidence: smartMoneyScore.confidence,
+        txSignature: transactionSignature,
+        rationale: smartMoneyScore.rationale,
+      })
+
+      console.log(
+        `SMART_MONEY_PORTFOLIO_DECISION token=${tokenMint} action=${portfolioDecision.action} confirmed=${portfolioDecision.confirmed} confirmations=${portfolioDecision.confirmationCount}`,
+      )
+
+      if (portfolioDecision.action === 'BUY' || portfolioDecision.action === 'SELL') {
+        await tradeSignalEmitter.emitSmartMoneyTradeSignal({
+          tokenMint,
+          riskScore: tradeRiskScore,
+          direction: portfolioDecision.action === 'SELL' ? 'sell' : 'buy',
+          smartMoneyScore: smartMoneyScore.score,
+          smartMoneyConfidence: smartMoneyScore.confidence,
+          trackedWallet: walletAddress,
+          copiedWallet: walletAddress,
+          copiedTxSignature: transactionSignature,
+          rationale: smartMoneyScore.rationale,
+          metadata: {
+            source: 'wallet-watcher',
+            platform: parsed.platform,
+            autoBuyOnDeploy: isDeployEvent,
+            smartMoneyWatchThreshold: WatchTransaction.smartMoneyWatchThreshold,
+            walletProfile: smartMoneyScore.walletProfile,
+            strategyAction: portfolioDecision.action,
+            strategyConfirmed: portfolioDecision.confirmed,
+            strategyConfirmationCount: portfolioDecision.confirmationCount,
+            portfolioTokenState: portfolioDecision.tokenState,
+          },
+        })
+      } else {
+        await tradeSignalEmitter.emitAutoActionSignal({
+          signalType: 'AUTO_WATCH',
+          actionHint: 'AUTO_WATCH',
+          tokenMint,
+          trackedWallet: walletAddress,
+          developerWallet: walletAddress,
+          riskScore: tradeRiskScore,
+          traceAlerts: smartMoneyScore.rationale,
+          metadata: {
+            source: 'wallet-watcher',
+            platform: parsed.platform,
+            autoBuyOnDeploy: isDeployEvent,
+            smartMoneyScore: smartMoneyScore.score,
+            smartMoneyConfidence: smartMoneyScore.confidence,
+            smartMoneyWatchThreshold: WatchTransaction.smartMoneyWatchThreshold,
+            walletProfile: smartMoneyScore.walletProfile,
+            strategyAction: portfolioDecision.action,
+            strategyConfirmed: portfolioDecision.confirmed,
+            strategyConfirmationCount: portfolioDecision.confirmationCount,
+            portfolioTokenState: portfolioDecision.tokenState,
+          },
+        })
+      }
     } catch (error) {
       console.log('COPY_TRADE_SIGNAL_EMIT_ERROR', error)
     }

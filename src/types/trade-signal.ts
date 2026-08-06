@@ -2,6 +2,7 @@ export type TradeSignalType =
   | 'TOKEN_INVESTIGATION'
   | 'SUSPICIOUS_TOKEN_LAUNCH'
   | 'SUSPICIOUS_PRELAUNCH_SIGNAL'
+  | 'SMART_MONEY_TRADE'
   | 'COPY_TRADE'
   | 'AUTO_SELL'
   | 'AUTO_AVOID'
@@ -41,6 +42,7 @@ export const isTradeSignalV1 = (value: unknown): value is TradeSignalV1 => {
     (candidate.signalType === 'TOKEN_INVESTIGATION' ||
       candidate.signalType === 'SUSPICIOUS_TOKEN_LAUNCH' ||
       candidate.signalType === 'SUSPICIOUS_PRELAUNCH_SIGNAL' ||
+      candidate.signalType === 'SMART_MONEY_TRADE' ||
       candidate.signalType === 'COPY_TRADE' ||
       candidate.signalType === 'AUTO_SELL' ||
       candidate.signalType === 'AUTO_AVOID' ||

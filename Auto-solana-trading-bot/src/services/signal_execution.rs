@@ -6,6 +6,7 @@ use crate::services::signal_receiver::{ExecutionRequest, TradeSignalV1};
 use anyhow::{anyhow, Result};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use solana_client::rpc_request::TokenAccountsFilter;
 use solana_sdk::signature::Keypair;
 use solana_sdk::signature::Signer;
@@ -26,6 +27,21 @@ struct MintGuardInfo {
     decimals: u8,
     freeze_authority: Option<String>,
     risky_extensions: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default)]
+struct TokenMarketRiskInfo {
+    liquidity_usd: Option<f64>,
+    top_10_holder_rate: Option<f64>,
+    rug_ratio: Option<f64>,
+    holder_rugged_num: Option<u64>,
+    holder_token_num: Option<u64>,
+    creator_percentage: Option<f64>,
+    creator_balance: Option<f64>,
+    is_honeypot: Option<bool>,
+    renounced: Option<bool>,
+    creator_close: Option<bool>,
+    dev_token_burn_ratio: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -195,6 +211,14 @@ pub struct SignalExecutionEngine {
 }
 
 impl SignalExecutionEngine {
+    const SMART_MONEY_MIN_SCORE: f64 = 75.0;
+    const SMART_MONEY_MIN_SELL_SCORE: f64 = 68.0;
+    const MAX_PRICE_IMPACT_PCT: f64 = 6.0;
+    const MAX_TOP_10_HOLDER_RATE: f64 = 0.65;
+    const MAX_CREATOR_PERCENTAGE_PCT: f64 = 8.0;
+    const MAX_RUG_RATIO: f64 = 0.30;
+    const MIN_HOLDER_COUNT: u64 = 120;
+
     fn build_source_wallet_profile(preset: &str, notes: Option<String>) -> Option<SourceWalletProfile> {
         let normalized = preset.trim().to_lowercase();
         let profile = match normalized.as_str() {
@@ -474,6 +498,33 @@ impl SignalExecutionEngine {
             }
         }
 
+        if signal.signal_type == "SMART_MONEY_TRADE" {
+            let smart_money_score = Self::extract_smart_money_score(signal)
+                .ok_or_else(|| "smart_money_score_missing".to_string())?;
+            let smart_money_confidence = Self::extract_smart_money_confidence(signal)
+                .ok_or_else(|| "smart_money_confidence_missing".to_string())?;
+            let direction = Self::resolve_signal_direction(signal)
+                .ok_or_else(|| "smart_money_direction_missing".to_string())?;
+
+            if smart_money_confidence != "high" {
+                return Err(format!("smart_money_confidence_too_low:{}", smart_money_confidence));
+            }
+
+            let min_required_score = if direction == "sell" {
+                Self::SMART_MONEY_MIN_SELL_SCORE
+            } else {
+                Self::SMART_MONEY_MIN_SCORE
+            };
+
+            if smart_money_score < min_required_score {
+                return Err(format!(
+                    "smart_money_score_too_low:{}<{}",
+                    smart_money_score,
+                    min_required_score
+                ));
+            }
+        }
+
         Ok(())
     }
 
@@ -490,6 +541,11 @@ impl SignalExecutionEngine {
             "AUTO_SELL" => "SELL_TOKEN",
             "AUTO_AVOID" => "WATCH_ONLY",
             "AUTO_WATCH" => "WATCH_ONLY",
+            "SMART_MONEY_TRADE" => match Self::resolve_signal_direction(signal).as_deref() {
+                Some("sell") => "SELL_TOKEN",
+                Some("buy") => "BUY_TOKEN",
+                _ => "WATCH_ONLY",
+            },
             "COPY_TRADE" => "COPY_TRADE",
             _ => "WATCH_ONLY",
         };
@@ -595,9 +651,42 @@ impl SignalExecutionEngine {
             })
     }
 
+    fn extract_smart_money_score(signal: &TradeSignalV1) -> Option<f64> {
+        signal
+            .metadata
+            .as_ref()
+            .and_then(|metadata| metadata.get("smartMoneyScore").and_then(|value| value.as_f64()))
+            .or_else(|| {
+                signal
+                    .metadata
+                    .as_ref()
+                    .and_then(|metadata| metadata.get("smart_money_score").and_then(|value| value.as_f64()))
+            })
+    }
+
+    fn extract_smart_money_confidence(signal: &TradeSignalV1) -> Option<String> {
+        signal
+            .metadata
+            .as_ref()
+            .and_then(|metadata| metadata.get("smartMoneyConfidence").and_then(|value| value.as_str()))
+            .or_else(|| {
+                signal
+                    .metadata
+                    .as_ref()
+                    .and_then(|metadata| metadata.get("smart_money_confidence").and_then(|value| value.as_str()))
+            })
+            .map(|value| value.trim().to_lowercase())
+    }
+
     fn signal_creates_position(signal: &TradeSignalV1) -> bool {
         match signal.signal_type.as_str() {
             "TOKEN_INVESTIGATION" => true,
+            "SMART_MONEY_TRADE" => signal
+                .metadata
+                .as_ref()
+                .and_then(|metadata| metadata.get("direction").and_then(|value| value.as_str()))
+                .map(|direction| matches!(direction.trim().to_lowercase().as_str(), "buy" | "long"))
+                .unwrap_or(matches!(signal.action_hint.as_str(), "BUY")),
             "COPY_TRADE" => signal
                 .metadata
                 .as_ref()
@@ -903,6 +992,9 @@ impl SignalExecutionEngine {
 
         self.validate_metadata_safety_flags(metadata, checks)?;
 
+        let market_risk = self.fetch_token_market_risk_info(token_mint).await?;
+        self.validate_token_market_risk(token_mint, &market_risk)?;
+
         if !checks.sell_route {
             return Ok(());
         }
@@ -916,6 +1008,25 @@ impl SignalExecutionEngine {
             .fetch_jupiter_quote(WSOL_MINT, token_mint, buy_amount_lamports, slippage)
             .await
             .map_err(|error| anyhow!("buy_quote_unavailable:{}", error))?;
+
+        let price_impact_pct = buy_quote
+            .get("priceImpactPct")
+            .and_then(|value| value.as_str())
+            .and_then(|value| value.parse::<f64>().ok())
+            .or_else(|| {
+                buy_quote.get("priceImpactPct").and_then(|value| {
+                    value.as_f64().map(|number| if number <= 1.0 { number * 100.0 } else { number })
+                })
+            })
+            .unwrap_or(0.0);
+
+        if price_impact_pct > Self::MAX_PRICE_IMPACT_PCT {
+            return Err(anyhow!(
+                "token_price_impact_too_high:{}>{}",
+                price_impact_pct,
+                Self::MAX_PRICE_IMPACT_PCT
+            ));
+        }
 
         let estimated_token_out = buy_quote
             .get("outAmount")
@@ -934,6 +1045,137 @@ impl SignalExecutionEngine {
             .map_err(|error| anyhow!("sell_quote_unavailable:{}", error))?;
 
         Ok(())
+    }
+
+    async fn fetch_token_market_risk_info(&self, token_mint: &str) -> Result<TokenMarketRiskInfo> {
+        let http_client = Client::builder()
+            .timeout(Duration::from_secs(8))
+            .build()
+            .map_err(|error| anyhow!("token_risk_http_client_build_failed:{}", error))?;
+
+        let response = http_client
+            .get(format!("https://gmgn.ai/defi/quotation/v1/tokens/sol/{}", token_mint))
+            .send()
+            .await
+            .map_err(|error| anyhow!("token_risk_fetch_failed:{}", error))?;
+
+        if !response.status().is_success() {
+            return Err(anyhow!("token_risk_fetch_http_error:{}", response.status()));
+        }
+
+        let payload = response
+            .json::<Value>()
+            .await
+            .map_err(|error| anyhow!("token_risk_decode_failed:{}", error))?;
+
+        let token = payload
+            .get("data")
+            .and_then(|data| data.get("token"))
+            .ok_or_else(|| anyhow!("token_risk_payload_missing_token"))?;
+
+        Ok(TokenMarketRiskInfo {
+            liquidity_usd: Self::value_to_f64(token.get("liquidity")),
+            top_10_holder_rate: Self::value_to_f64(token.get("top_10_holder_rate")),
+            rug_ratio: Self::value_to_f64(token.get("rug_ratio")),
+            holder_rugged_num: Self::value_to_u64(token.get("holder_rugged_num")),
+            holder_token_num: Self::value_to_u64(token.get("holder_token_num")),
+            creator_percentage: Self::value_to_f64(token.get("creator_percentage")),
+            creator_balance: Self::value_to_f64(token.get("creator_balance")),
+            is_honeypot: Self::value_to_bool(token.get("is_honeypot")),
+            renounced: Self::value_to_bool(token.get("renounced")),
+            creator_close: Self::value_to_bool(token.get("creator_close")),
+            dev_token_burn_ratio: Self::value_to_f64(token.get("dev_token_burn_ratio")),
+        })
+    }
+
+    fn validate_token_market_risk(&self, token_mint: &str, market_risk: &TokenMarketRiskInfo) -> Result<()> {
+        if let Some(true) = market_risk.is_honeypot {
+            return Err(anyhow!("token_flagged_honeypot:{}", token_mint));
+        }
+
+        if let Some(liquidity_usd) = market_risk.liquidity_usd {
+            let min_liquidity_usd = self.state.blocking_lock().config.min_liquidity_usd;
+            if liquidity_usd < min_liquidity_usd {
+                return Err(anyhow!(
+                    "token_liquidity_too_low:{}<{:.2}",
+                    liquidity_usd,
+                    min_liquidity_usd
+                ));
+            }
+        }
+
+        if let Some(holder_count) = market_risk.holder_token_num {
+            if holder_count < Self::MIN_HOLDER_COUNT {
+                return Err(anyhow!(
+                    "token_holder_count_too_low:{}<{}",
+                    holder_count,
+                    Self::MIN_HOLDER_COUNT
+                ));
+            }
+        }
+
+        if let Some(top_10_holder_rate) = market_risk.top_10_holder_rate {
+            if top_10_holder_rate > Self::MAX_TOP_10_HOLDER_RATE {
+                return Err(anyhow!(
+                    "token_holder_concentration_too_high:{:.3}>{:.3}",
+                    top_10_holder_rate,
+                    Self::MAX_TOP_10_HOLDER_RATE
+                ));
+            }
+        }
+
+        if let Some(creator_percentage) = market_risk.creator_percentage {
+            if creator_percentage > Self::MAX_CREATOR_PERCENTAGE_PCT {
+                return Err(anyhow!(
+                    "token_creator_concentration_too_high:{:.3}>{:.3}",
+                    creator_percentage,
+                    Self::MAX_CREATOR_PERCENTAGE_PCT
+                ));
+            }
+        }
+
+        if let Some(rug_ratio) = market_risk.rug_ratio {
+            if rug_ratio > Self::MAX_RUG_RATIO {
+                return Err(anyhow!("token_rug_ratio_too_high:{:.3}>{:.3}", rug_ratio, Self::MAX_RUG_RATIO));
+            }
+        }
+
+        if let Some(holder_rugged_num) = market_risk.holder_rugged_num {
+            if holder_rugged_num > 0 {
+                return Err(anyhow!("token_holder_rugged_history_detected:{}", holder_rugged_num));
+            }
+        }
+
+        if let Some(false) = market_risk.renounced {
+            if market_risk.creator_close == Some(false) && market_risk.dev_token_burn_ratio.unwrap_or(0.0) < 0.50 {
+                return Err(anyhow!("token_creator_controls_not_renounced"));
+            }
+        }
+
+        Ok(())
+    }
+
+    fn value_to_f64(value: Option<&Value>) -> Option<f64> {
+        value.and_then(|value| {
+            value
+                .as_f64()
+                .or_else(|| value.as_i64().map(|number| number as f64))
+                .or_else(|| value.as_u64().map(|number| number as f64))
+                .or_else(|| value.as_str().and_then(|number| number.parse::<f64>().ok()))
+        })
+    }
+
+    fn value_to_u64(value: Option<&Value>) -> Option<u64> {
+        value.and_then(|value| {
+            value
+                .as_u64()
+                .or_else(|| value.as_i64().and_then(|number| if number >= 0 { Some(number as u64) } else { None }))
+                .or_else(|| value.as_str().and_then(|number| number.parse::<u64>().ok()))
+        })
+    }
+
+    fn value_to_bool(value: Option<&Value>) -> Option<bool> {
+        value.and_then(|value| value.as_bool().or_else(|| value.as_str().and_then(|value| value.parse::<bool>().ok())))
     }
 
     async fn read_token_mint_guard_info(&self, token_mint: &str) -> Result<MintGuardInfo> {

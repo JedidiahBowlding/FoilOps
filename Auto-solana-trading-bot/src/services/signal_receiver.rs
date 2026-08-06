@@ -131,6 +131,16 @@ struct ReceiverMetrics {
     #[serde(default)]
     gate_min_liquidity_failed: u64,
     #[serde(default)]
+    gate_token_liquidity_too_low: u64,
+    #[serde(default)]
+    gate_token_holder_concentration: u64,
+    #[serde(default)]
+    gate_token_rug_heuristics: u64,
+    #[serde(default)]
+    gate_token_honeypot: u64,
+    #[serde(default)]
+    gate_token_creator_control: u64,
+    #[serde(default)]
     gate_invalid_timestamp: u64,
     #[serde(default)]
     gate_auth_failed: u64,
@@ -464,6 +474,26 @@ async fn receive_signal(
                     increment_metric(&state, "gate_source_wallet_cap_exceeded").await;
                     Some("source_wallet_cap_gate".to_string())
                 }
+                r if r.contains("token_liquidity_too_low") => {
+                    increment_metric(&state, "gate_token_liquidity_too_low").await;
+                    Some("token_liquidity_gate".to_string())
+                }
+                r if r.contains("token_holder_concentration_too_high") || r.contains("token_holder_count_too_low") => {
+                    increment_metric(&state, "gate_token_holder_concentration").await;
+                    Some("holder_concentration_gate".to_string())
+                }
+                r if r.contains("token_rug_ratio_too_high") || r.contains("token_holder_rugged_history_detected") => {
+                    increment_metric(&state, "gate_token_rug_heuristics").await;
+                    Some("rug_heuristics_gate".to_string())
+                }
+                r if r.contains("token_flagged_honeypot") => {
+                    increment_metric(&state, "gate_token_honeypot").await;
+                    Some("honeypot_gate".to_string())
+                }
+                r if r.contains("token_creator_controls_not_renounced") || r.contains("token_creator_concentration_too_high") => {
+                    increment_metric(&state, "gate_token_creator_control").await;
+                    Some("creator_control_gate".to_string())
+                }
                 r if r.contains("copy_trade_signal_too_old") => {
                     increment_metric(&state, "gate_stale_copy_trade_signal").await;
                     Some("stale_copy_trade_signal_gate".to_string())
@@ -647,6 +677,11 @@ async fn increment_metric(state: &Arc<SignalReceiverState>, field: &str) {
         "gate_source_wallet_cap_exceeded" => metrics.gate_source_wallet_cap_exceeded += 1,
         "gate_max_concurrent_positions" => metrics.gate_max_concurrent_positions += 1,
         "gate_min_liquidity_failed" => metrics.gate_min_liquidity_failed += 1,
+        "gate_token_liquidity_too_low" => metrics.gate_token_liquidity_too_low += 1,
+        "gate_token_holder_concentration" => metrics.gate_token_holder_concentration += 1,
+        "gate_token_rug_heuristics" => metrics.gate_token_rug_heuristics += 1,
+        "gate_token_honeypot" => metrics.gate_token_honeypot += 1,
+        "gate_token_creator_control" => metrics.gate_token_creator_control += 1,
         "gate_invalid_timestamp" => metrics.gate_invalid_timestamp += 1,
         "gate_auth_failed" => metrics.gate_auth_failed += 1,
         "gate_stale_copy_trade_signal" => metrics.gate_stale_copy_trade_signal += 1,
@@ -724,7 +759,7 @@ async fn evaluate_signal_safety(state: &Arc<SignalReceiverState>, signal: &Trade
     let mut reasons = Vec::new();
     let needs_token = matches!(
         signal.signal_type.as_str(),
-        "TOKEN_INVESTIGATION" | "SUSPICIOUS_TOKEN_LAUNCH" | "AUTO_SELL" | "COPY_TRADE"
+        "TOKEN_INVESTIGATION" | "SUSPICIOUS_TOKEN_LAUNCH" | "AUTO_SELL" | "COPY_TRADE" | "SMART_MONEY_TRADE"
     );
 
     if needs_token && signal.token_mint.is_none() {

@@ -46,3 +46,6 @@ solana-transaction-status-client-types = "=2.1.0"
 url = "2.3.1"
 teloxide = { version = "0.17", features = ["macros"] }
 uuid = { version = "1.6", features = ["v4", "serde"] }
+
+[patch.crates-io]
+ahash = { path = "vendor/ahash-0.8.4" }

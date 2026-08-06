@@ -50,8 +50,85 @@ export class TradingCommand {
       }
 
       try {
-        const response = await axios.get(`${this.tradingBotUrl}/trading/status`)
-        const status = response.data
+        const [statusResponse, safetyResponse, metricsResponse, decisionsResponse] = await Promise.all([
+          axios.get(`${this.tradingBotUrl}/trading/status`, { timeout: TradingCommand.REQUEST_TIMEOUT_MS }),
+          axios.get(`${this.tradingBotUrl}/trading/safety`, { timeout: TradingCommand.REQUEST_TIMEOUT_MS }),
+          axios.get(`${this.tradingBotUrl}/trading/metrics`, { timeout: TradingCommand.REQUEST_TIMEOUT_MS }),
+          axios.get(`${this.tradingBotUrl}/trading/decisions`, { timeout: TradingCommand.REQUEST_TIMEOUT_MS }),
+        ])
+
+        const status = statusResponse.data || {}
+        const safety = safetyResponse.data || {}
+        const metricsEnvelope = metricsResponse.data || {}
+        const metrics =
+          metricsEnvelope.metrics && typeof metricsEnvelope.metrics === 'object' ? metricsEnvelope.metrics : {}
+        const decisions = Array.isArray(decisionsResponse.data?.decisions) ? decisionsResponse.data.decisions : []
+
+        const executionMode = String(status.executionMode || metricsEnvelope.executionMode || 'paper')
+        const canaryPosture = status.enabled && executionMode === 'live' ? '🟢 LIVE' : '🟡 SAFE'
+        const minLiquidityUsd = safety.minLiquidityUsd ?? safety.min_liquidity_usd ?? 'n/a'
+        const maxPositionSizeSol = safety.maxPositionSizeSol ?? safety.max_position_size_sol ?? 'n/a'
+        const maxConcurrentTrades = safety.maxConcurrentTrades ?? safety.max_concurrent_trades ?? 'n/a'
+        const maxRiskScore = safety.maxRiskScore ?? safety.max_risk_score ?? 'n/a'
+        const minAlertQuality = safety.minAlertQualityScore ?? safety.min_alert_quality_score ?? 0
+        const minTraceAlerts = safety.minTraceAlerts ?? safety.min_trace_alerts ?? 0
+
+        const metricCount = (keys: string[]): number => {
+          for (const key of keys) {
+            const value = (metrics as Record<string, unknown>)[key]
+            if (typeof value === 'number' && Number.isFinite(value)) {
+              return value
+            }
+            if (typeof value === 'string') {
+              const parsed = Number(value)
+              if (Number.isFinite(parsed)) {
+                return parsed
+              }
+            }
+          }
+          return 0
+        }
+
+        const tokenLiquidityGateHits = metricCount([
+          'tokenLiquidityGateCount',
+          'token_liquidity_gate_count',
+          'token_liquidity_gate',
+        ])
+        const holderConcentrationGateHits = metricCount([
+          'holderConcentrationGateCount',
+          'holder_concentration_gate_count',
+          'holder_concentration_gate',
+        ])
+        const rugHeuristicsGateHits = metricCount([
+          'rugHeuristicsGateCount',
+          'rug_heuristics_gate_count',
+          'rug_heuristics_gate',
+        ])
+        const honeypotGateHits = metricCount(['honeypotGateCount', 'honeypot_gate_count', 'honeypot_gate'])
+        const creatorControlGateHits = metricCount([
+          'creatorControlGateCount',
+          'creator_control_gate_count',
+          'creator_control_gate',
+        ])
+        const marketRiskGateTotal =
+          tokenLiquidityGateHits +
+          holderConcentrationGateHits +
+          rugHeuristicsGateHits +
+          honeypotGateHits +
+          creatorControlGateHits
+
+        const smartMoneySignals = decisions.filter(
+          (entry: Record<string, unknown>) =>
+            String(entry?.signalType || entry?.signal_type || '').toUpperCase() === 'SMART_MONEY_TRADE',
+        )
+        const smartMoneyExecuted = smartMoneySignals.filter(
+          (entry: Record<string, unknown>) => String(entry?.status || '').toLowerCase() === 'executed',
+        ).length
+        const smartMoneyBlocked = smartMoneySignals.filter(
+          (entry: Record<string, unknown>) => String(entry?.status || '').toLowerCase() === 'blocked',
+        ).length
+        const smartMoneyExecutionRate =
+          smartMoneySignals.length > 0 ? Math.round((smartMoneyExecuted / smartMoneySignals.length) * 100) : 0
 
         const message = `
 🤖 <b>Trading Bot Status</b>
@@ -59,10 +136,23 @@ export class TradingCommand {
 📊 <b>Status:</b> ${status.enabled ? '✅ Enabled' : '❌ Disabled'}
 ⏸️ <b>Paused:</b> ${status.paused ? 'Yes' : 'No'}
 🎯 <b>Mode:</b> ${status.mode}
-      🧪 <b>Execution:</b> ${status.executionMode || 'paper'}
+🧪 <b>Execution:</b> ${executionMode}
 👛 <b>Target Wallet:</b> ${status.targetWallet ? `${status.targetWallet.substring(0, 8)}...` : 'Not set'}
 🛡️ <b>MEV Service:</b> ${status.mevService}
 📈 <b>Slippage:</b> ${status.slippage}%
+
+🚦 <b>Canary Posture:</b> ${canaryPosture}
+• Max risk: <b>${maxRiskScore}</b> | Min quality: <b>${minAlertQuality}</b> | Min trace: <b>${minTraceAlerts}</b>
+• Min liquidity: <b>$${minLiquidityUsd}</b> | Max position: <b>${maxPositionSizeSol} SOL</b> | Max concurrent: <b>${maxConcurrentTrades}</b>
+
+🧠 <b>Smart-Money Flow:</b>
+• Signals: <b>${smartMoneySignals.length}</b> | Executed: <b>${smartMoneyExecuted}</b> | Blocked: <b>${smartMoneyBlocked}</b>
+• Execution rate: <b>${smartMoneyExecutionRate}%</b>
+
+🛑 <b>Token Market Gates:</b>
+• Total gate hits: <b>${marketRiskGateTotal}</b>
+• Liquidity: ${tokenLiquidityGateHits} | Holders: ${holderConcentrationGateHits} | Rug: ${rugHeuristicsGateHits}
+• Honeypot: ${honeypotGateHits} | Creator control: ${creatorControlGateHits}
         `.trim()
 
         this.bot.sendMessage(chatId, message, { parse_mode: 'HTML' })

@@ -12,6 +12,7 @@ type DashboardSnapshot = {
   failures: Array<Record<string, unknown>>
   decisions: Array<Record<string, unknown>>
   slippage: Record<string, unknown>
+  strategy: Record<string, unknown>
 }
 
 export class TradingOpsDashboard {
@@ -22,17 +23,24 @@ export class TradingOpsDashboard {
   }
 
   async getDashboardData(): Promise<DashboardSnapshot> {
-    const [status, config, safety, sources, metrics, journal, failures, decisions, slippage] = await Promise.all([
-      this.fetchJson('/trading/status', {}),
-      this.fetchJson('/trading/config', {}),
-      this.fetchJson('/trading/safety', {}),
-      this.fetchJson('/trading/source-wallets', { watchlist: [], caps: {}, profiles: {} }),
-      this.fetchJson('/trading/metrics', { executionMode: 'paper', deadLetterCount: 0, metrics: {} }),
-      this.fetchJson('/trading/journal', { entries: [] }),
-      this.fetchJson('/trading/dead-letters', { entries: [] }),
-      this.fetchJson('/trading/decisions', { decisions: [] }),
-      this.fetchJson('/trading/slippage', { slippage: 0 }),
-    ])
+    const [status, config, safety, sources, metrics, journal, failures, decisions, slippage, strategy] =
+      await Promise.all([
+        this.fetchJson('/trading/status', {}),
+        this.fetchJson('/trading/config', {}),
+        this.fetchJson('/trading/safety', {}),
+        this.fetchJson('/trading/source-wallets', { watchlist: [], caps: {}, profiles: {} }),
+        this.fetchJson('/trading/metrics', { executionMode: 'paper', deadLetterCount: 0, metrics: {} }),
+        this.fetchJson('/trading/journal', { entries: [] }),
+        this.fetchJson('/trading/dead-letters', { entries: [] }),
+        this.fetchJson('/trading/decisions', { decisions: [] }),
+        this.fetchJson('/trading/slippage', { slippage: 0 }),
+        this.fetchJson('/api/trading/strategy', {
+          activePositions: 0,
+          watchedTokens: 0,
+          confirmedBuys: 0,
+          confirmedSells: 0,
+        }),
+      ])
 
     return {
       status,
@@ -44,6 +52,7 @@ export class TradingOpsDashboard {
       failures: Array.isArray(failures.entries) ? failures.entries : [],
       decisions: Array.isArray(decisions.decisions) ? decisions.decisions : [],
       slippage,
+      strategy,
     }
   }
 
@@ -180,6 +189,54 @@ export class TradingOpsDashboard {
       .slice(0, 8)
     const failureCount = data.failures.length
     const decisionCount = data.decisions.length
+    const strategy = (data.strategy as Record<string, unknown>) || {}
+    const strategyActivePositions = Number(strategy.activePositions || 0)
+    const strategyWatchedTokens = Number(strategy.watchedTokens || 0)
+    const strategyConfirmedBuys = Number(strategy.confirmedBuys || 0)
+    const strategyConfirmedSells = Number(strategy.confirmedSells || 0)
+    const smartMoneySignals = data.decisions.filter(
+      (entry) => String(entry.signalType || entry.signal_type || '').toUpperCase() === 'SMART_MONEY_TRADE',
+    )
+    const smartMoneyExecuted = smartMoneySignals.filter(
+      (entry) => String(entry.status || '').toLowerCase() === 'executed',
+    )
+    const smartMoneyBlocked = smartMoneySignals.filter(
+      (entry) => String(entry.status || '').toLowerCase() === 'blocked',
+    )
+    const smartMoneyExecutionRate = smartMoneySignals.length
+      ? Math.round((smartMoneyExecuted.length / smartMoneySignals.length) * 100)
+      : 0
+    const tokenLiquidityGateHits = this.pickMetricCount(metrics, [
+      'tokenLiquidityGateCount',
+      'token_liquidity_gate_count',
+      'token_liquidity_gate',
+    ])
+    const holderConcentrationGateHits = this.pickMetricCount(metrics, [
+      'holderConcentrationGateCount',
+      'holder_concentration_gate_count',
+      'holder_concentration_gate',
+    ])
+    const rugHeuristicsGateHits = this.pickMetricCount(metrics, [
+      'rugHeuristicsGateCount',
+      'rug_heuristics_gate_count',
+      'rug_heuristics_gate',
+    ])
+    const honeypotGateHits = this.pickMetricCount(metrics, [
+      'honeypotGateCount',
+      'honeypot_gate_count',
+      'honeypot_gate',
+    ])
+    const creatorControlGateHits = this.pickMetricCount(metrics, [
+      'creatorControlGateCount',
+      'creator_control_gate_count',
+      'creator_control_gate',
+    ])
+    const marketRiskGateTotal =
+      tokenLiquidityGateHits +
+      holderConcentrationGateHits +
+      rugHeuristicsGateHits +
+      honeypotGateHits +
+      creatorControlGateHits
     const driftAlertHtml = driftAlerts.length
       ? driftAlerts.map((alert) => `<div class="notice warning">${this.escapeHtml(alert)}</div>`).join('')
       : '<div class="notice">No profile drift alerts detected from current telemetry.</div>'
@@ -318,6 +375,8 @@ export class TradingOpsDashboard {
         <span class="signal-pill"><strong>Profile</strong>${currentProfile}</span>
         <span class="signal-pill"><strong>Buy Once/Token</strong>${buyOncePerToken ? 'on' : 'off'}</span>
         <span class="signal-pill"><strong>Pre-Buy Checks</strong>${preBuyChecksEnabledCount}/5 on</span>
+        <span class="signal-pill"><strong>Min Liquidity</strong>$${minLiquidityUsdValue || 0}</span>
+        <span class="signal-pill"><strong>Max Position</strong>${maxPositionSizeSolValue || 'n/a'} SOL</span>
         <span class="signal-pill"><strong>Watchlist</strong>${watchlistCount}</span>
         <span class="signal-pill"><strong>Dead Letters</strong>${failureCount}</span>
       </div>
@@ -326,6 +385,43 @@ export class TradingOpsDashboard {
         <article class="summary-tile"><p class="summary-tile-label">Attributed Wallets</p><div class="summary-tile-value">${attributedWalletCount}</div><p class="summary-tile-copy">Wallets with enough telemetry to show attribution, drift, or replay context.</p></article>
         <article class="summary-tile"><p class="summary-tile-label">Decision History</p><div class="summary-tile-value">${decisionCount}</div><p class="summary-tile-copy">Recent decision records available for replay and guardrail tuning.</p></article>
         <article class="summary-tile"><p class="summary-tile-label">Alert Pressure</p><div class="summary-tile-value">${driftAlertCount}</div><p class="summary-tile-copy">Drift alerts currently calling for review before loosening execution posture.</p></article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-header">
+        <div class="section-header-copy">
+          <h2>Portfolio Strategy</h2>
+          <p class="section-subtitle">Multi-signal confirmation and open-position tracking for smart-money execution.</p>
+        </div>
+      </div>
+      <div class="summary-grid">
+        <article class="summary-tile"><p class="summary-tile-label">Active Positions</p><div class="summary-tile-value">${strategyActivePositions}</div><p class="summary-tile-copy">Tokens currently open in the smart-money portfolio.</p></article>
+        <article class="summary-tile"><p class="summary-tile-label">Watched Tokens</p><div class="summary-tile-value">${strategyWatchedTokens}</div><p class="summary-tile-copy">Unique token mints seen by the confirmation engine.</p></article>
+        <article class="summary-tile"><p class="summary-tile-label">Confirmed Buys</p><div class="summary-tile-value">${strategyConfirmedBuys}</div><p class="summary-tile-copy">Buy decisions promoted after repeated confirmation.</p></article>
+        <article class="summary-tile"><p class="summary-tile-label">Confirmed Sells</p><div class="summary-tile-value">${strategyConfirmedSells}</div><p class="summary-tile-copy">Exit decisions promoted after confirmation.</p></article>
+      </div>
+    </section>
+
+    <section class="section" id="smart-money">
+      <div class="section-header">
+        <div class="section-header-copy">
+          <h2>Smart-Money Canary Telemetry</h2>
+          <p class="section-subtitle">Live readout for SMART_MONEY_TRADE flow and token market-risk gate pressure.</p>
+        </div>
+      </div>
+      <div class="summary-grid">
+        <article class="summary-tile"><p class="summary-tile-label">Smart-Money Signals</p><div class="summary-tile-value">${smartMoneySignals.length}</div><p class="summary-tile-copy">Total SMART_MONEY_TRADE decisions captured in the current feed.</p></article>
+        <article class="summary-tile"><p class="summary-tile-label">Execution Rate</p><div class="summary-tile-value">${smartMoneyExecutionRate}%</div><p class="summary-tile-copy">Executed ${smartMoneyExecuted.length} of ${smartMoneySignals.length}; blocked ${smartMoneyBlocked.length}.</p></article>
+        <article class="summary-tile"><p class="summary-tile-label">Market Risk Gate Hits</p><div class="summary-tile-value">${marketRiskGateTotal}</div><p class="summary-tile-copy">Token market checks currently rejecting risky live entries.</p></article>
+        <article class="summary-tile"><p class="summary-tile-label">Canary Posture</p><div class="summary-tile-value">${currentExecutionMode === 'live' && data.status.enabled ? 'LIVE' : 'SAFE'}</div><p class="summary-tile-copy">Mode ${currentExecutionMode} | ${data.status.enabled ? 'enabled' : 'disabled'} | max risk ${maxRiskScore || 'n/a'}.</p></article>
+      </div>
+      <div class="micro-grid" style="margin-top: 10px;">
+        <div class="card"><p class="eyebrow">Liquidity Gate</p><p><strong>${tokenLiquidityGateHits}</strong> blocks</p></div>
+        <div class="card"><p class="eyebrow">Holder Concentration</p><p><strong>${holderConcentrationGateHits}</strong> blocks</p></div>
+        <div class="card"><p class="eyebrow">Rug Heuristics</p><p><strong>${rugHeuristicsGateHits}</strong> blocks</p></div>
+        <div class="card"><p class="eyebrow">Honeypot</p><p><strong>${honeypotGateHits}</strong> blocks</p></div>
+        <div class="card"><p class="eyebrow">Creator Control</p><p><strong>${creatorControlGateHits}</strong> blocks</p></div>
       </div>
     </section>
 
@@ -372,6 +468,7 @@ export class TradingOpsDashboard {
       </div>
       <div class="quick-nav">
         <a class="fx-button secondary" href="#controls">Controls</a>
+        <a class="fx-button secondary" href="#smart-money">Smart Money</a>
         <a class="fx-button secondary" href="#profiles">Profiles</a>
         <a class="fx-button secondary" href="#attribution">Attribution</a>
         <a class="fx-button secondary" href="#exposure">Exposure</a>
@@ -521,6 +618,7 @@ export class TradingOpsDashboard {
             </div>
             <div class="button-row" id="safe-preset-buttons">
               <button type="button" data-safe-preset="paper-test">Paper Test</button>
+              <button type="button" data-safe-preset="strict-canary-live">Strict Canary Live</button>
               <button type="button" data-safe-preset="cautious-live">Cautious Live</button>
               <button type="button" data-safe-preset="aggressive-live">Aggressive Live</button>
               <button type="button" data-one-click-buy-once="true">Enable Buy Once</button>
@@ -1122,6 +1220,24 @@ export class TradingOpsDashboard {
           set('slippage', '2')
           set('minAlertQualityScore', '60')
           set('minTraceAlerts', '2')
+          set('buyOncePerToken', true)
+          return
+        }
+
+        if (preset === 'strict-canary-live') {
+          set('executionMode', 'live')
+          set('profile', 'conservative')
+          set('mode', 'signal_based')
+          set('buyAmountSol', '0.002')
+          set('maxRiskScore', '55')
+          set('slippage', '1')
+          set('minAlertQualityScore', '70')
+          set('minTraceAlerts', '1')
+          set('maxConcurrentTrades', '1')
+          set('maxPositionSizeSol', '0.01')
+          set('minLiquidityUsd', '10000')
+          set('stopLossPercentage', '12')
+          set('takeProfitPercentage', '18')
           set('buyOncePerToken', true)
           return
         }
@@ -1752,5 +1868,22 @@ export class TradingOpsDashboard {
   private csv(value: unknown): string {
     const raw = value == null ? '' : String(value)
     return `"${raw.replace(/"/g, '""')}"`
+  }
+
+  private pickMetricCount(metrics: Record<string, number | string | undefined>, keys: string[]): number {
+    for (const key of keys) {
+      const value = metrics[key]
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        return value
+      }
+      if (typeof value === 'string') {
+        const parsed = Number(value)
+        if (Number.isFinite(parsed)) {
+          return parsed
+        }
+      }
+    }
+
+    return 0
   }
 }

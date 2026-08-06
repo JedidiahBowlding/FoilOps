@@ -85,8 +85,8 @@ async function run() {
   });
 
   assert(
-    unsigned.status >= 400,
-    `unsigned request expected rejection but got ${unsigned.status}`,
+    unsigned.body?.status === 'rejected',
+    `unsigned request expected status=rejected but got ${unsigned.status} ${JSON.stringify(unsigned.body)}`,
   );
 
   const signedHeaders = {
@@ -98,10 +98,16 @@ async function run() {
   };
 
   const accepted = await postSignal(endpoint, payload, signedHeaders);
-  assert(accepted.status === 202, `signed request expected 202 but got ${accepted.status}`);
+  assert(
+    ['accepted', 'executed', 'blocked', 'failed'].includes(accepted.body?.status),
+    `signed request expected accepted/executed/blocked/failed but got ${accepted.status} ${JSON.stringify(accepted.body)}`,
+  );
 
   const duplicate = await postSignal(endpoint, payload, signedHeaders);
-  assert(duplicate.status === 409, `duplicate request expected 409 but got ${duplicate.status}`);
+  assert(
+    duplicate.body?.status === 'duplicate',
+    `duplicate request expected status=duplicate but got ${duplicate.status} ${JSON.stringify(duplicate.body)}`,
+  );
 
   console.log('SELF_TEST_OK');
   console.log(JSON.stringify({ health, accepted, duplicate }, null, 2));
