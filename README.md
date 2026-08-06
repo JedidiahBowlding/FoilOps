@@ -25,6 +25,8 @@
 FoilOps is a Telegram bot that can track any Solana wallet in real time, it provides relevant information
 of each transaction made in Raydium, Jupiter, Pump.fun and Pump AMM(PumpSwap) including transaction hash, tokens and amount swapped, price of the token in SOL, token market cap and much more.
 
+The current stack also includes a smart-money execution layer with conservative canary controls, a Rust signal receiver, and mirrored web/Telegram trading posture summaries.
+
 ## Features
 
 - 📈 Tracks in Real-Time any SOL transfer
@@ -39,6 +41,9 @@ of each transaction made in Raydium, Jupiter, Pump.fun and Pump AMM(PumpSwap) in
 - 🪙 Investigates a token contract to identify the likely developer wallet and related token history
 - 📡 Monitors flagged developer wallets for future suspicious token launches and sends alerts
 - 🖥️ Includes a scam-intelligence dashboard and JSON API for flagged wallets, trace history and token investigations
+- 🧠 Emits SMART_MONEY_TRADE signals with portfolio confirmation and live canary posture tracking
+- 🛡️ Applies live token market-risk gates for liquidity, concentration, honeypot and creator-control checks
+- 📟 Mirrors trading posture and canary safety summaries in both the web dashboard and Telegram status commands
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -256,6 +261,23 @@ The script validates:
 - Signed request is accepted.
 - Replayed duplicate request is rejected with HTTP 409.
 
+### Smart-Money Canary Controls
+
+When you enable the live trading receiver, keep the following posture aligned across the TypeScript app and Rust bot:
+
+```env
+TRADE_SIGNAL_ENDPOINT=http://127.0.0.1:8787/signals
+TRADE_SIGNAL_AUTH_SECRET=shared_hmac_secret
+SIGNAL_RECEIVER_BIND=127.0.0.1:8787
+SIGNAL_RECEIVER_DRY_RUN=false
+SIGNAL_REQUIRE_AUTH=true
+SIGNAL_AUTH_SECRET=shared_hmac_secret
+SIGNAL_DEDUP_WINDOW_SECONDS=300
+SIGNAL_MAX_TIMESTAMP_SKEW_SECONDS=120
+```
+
+For a conservative canary, use the dashboard or Telegram controls to keep buy size small, max concurrent trades at 1, and liquidity / alert-quality gates tight.
+
 Example CI sequence:
 
 ```sh
@@ -272,15 +294,17 @@ SIGNAL_TEST_AUTH_SECRET=test-secret \
 pnpm signals:self-test
 ```
 
-9. Start the bot
+9. Start the combined stack
 
 ```sh
-  pnpm start
+./start-both.sh
+# or
+pnpm start-both
 ```
 
 ### Starting Both Services
 
-To start both the FoilOps bot and the Auto Solana Trading Bot simultaneously:
+To start both the FoilOps bot and the Auto Solana Trading Bot simultaneously on a server or local machine:
 
 ```sh
 # Option 1: Using the convenience script
@@ -295,11 +319,23 @@ This will start:
 - 🤖 **FoilOps Wallet Tracker** (TypeScript/Node.js bot)
 - 📈 **Auto Solana Trading Bot** (Rust trading bot with copy trading)
 
-Both services will run in the background. Press `Ctrl+C` to stop both services.
+Both services will run in the background and the startup script will verify health automatically.
+
+If the stack is managed by PM2 on the server, restart it with:
+
+```sh
+pm2 restart ecosystem.config.js --update-env
+```
+
+After any restart, run the health check:
+
+```sh
+bash scripts/start-both-health-check.sh
+```
 
 **Note**: Make sure you have configured both bots' environment variables before starting.
 
-10. That's it! now your local version of FoilOps is ready to use.
+10. That's it! your local or server deployment is ready to use.
 
 <p align="center"><img src="./showcase/cli-pic.png" width="95%" alt="Screenshot of bot succesfully running"/></>
 
