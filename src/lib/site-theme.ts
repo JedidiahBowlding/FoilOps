@@ -48,22 +48,23 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
     <style>
       :root {
         color-scheme: dark;
-        --fx-bg-0: #080508;
-        --fx-bg-1: #080508;
-        --fx-bg-2: #080508;
-        --fx-panel: rgba(20, 5, 7, 0.85);
-        --fx-panel-strong: rgba(20, 5, 7, 0.92);
-        --fx-panel-soft: rgba(20, 5, 7, 0.72);
-        --fx-line: rgba(255, 40, 60, 0.16);
-        --fx-line-strong: rgba(255, 50, 70, 0.34);
-        --fx-ink: #f8eded;
-        --fx-muted: #b89898;
-        --fx-primary: #ff2233;
-        --fx-secondary: #cc0820;
-        --fx-acid: #ff7744;
-        --fx-danger: #ff4060;
-        --fx-warning: #ffbc68;
-        --fx-shadow: 0 14px 36px rgba(8, 2, 3, 0.32);
+        --fx-bg-0: #030611;
+        --fx-bg-1: #07101f;
+        --fx-bg-2: #0b1629;
+        --fx-panel: rgba(8, 18, 35, 0.78);
+        --fx-panel-strong: rgba(9, 20, 39, 0.94);
+        --fx-panel-soft: rgba(10, 23, 43, 0.62);
+        --fx-line: rgba(103, 232, 249, 0.14);
+        --fx-line-strong: rgba(103, 232, 249, 0.36);
+        --fx-ink: #effaff;
+        --fx-muted: #8fa8bd;
+        --fx-primary: #67e8f9;
+        --fx-secondary: #8b5cf6;
+        --fx-acid: #a3ff12;
+        --fx-danger: #fb7185;
+        --fx-warning: #fbbf24;
+        --fx-success: #34d399;
+        --fx-shadow: 0 22px 70px rgba(0, 0, 0, 0.34);
       }
 
       * { box-sizing: border-box; }
@@ -75,7 +76,25 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         min-height: 100vh;
         color: var(--fx-ink);
         font-family: "Space Grotesk", "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
-        background: var(--fx-bg-0);
+        background:
+          radial-gradient(circle at 14% -10%, rgba(34,211,238,.15), transparent 30rem),
+          radial-gradient(circle at 90% 8%, rgba(139,92,246,.14), transparent 34rem),
+          linear-gradient(180deg, var(--fx-bg-0), #050b17 46%, #030611);
+        background-attachment: fixed;
+        overflow-x: hidden;
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        opacity: .22;
+        background-image:
+          linear-gradient(rgba(103,232,249,.055) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(103,232,249,.055) 1px, transparent 1px);
+        background-size: 44px 44px;
+        mask-image: linear-gradient(to bottom, black, transparent 78%);
       }
 
       a { color: inherit; }
@@ -91,8 +110,27 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         cursor: pointer;
       }
 
+      :focus-visible {
+        outline: 2px solid var(--fx-primary);
+        outline-offset: 3px;
+      }
+
+      .fx-skip-link {
+        position: fixed;
+        top: 8px;
+        left: 12px;
+        z-index: 999;
+        padding: 10px 14px;
+        border-radius: 999px;
+        background: var(--fx-ink);
+        color: var(--fx-bg-0);
+        transform: translateY(-150%);
+      }
+
+      .fx-skip-link:focus { transform: translateY(0); }
+
       .fx-shell {
-        max-width: 1280px;
+        max-width: 1440px;
         margin: 0 auto;
         padding: 20px 24px 42px;
       }
@@ -103,15 +141,15 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         align-items: center;
         gap: 20px;
         margin-bottom: 0;
-        padding: 0.75rem 2rem;
+        padding: 0.75rem max(18px, calc((100vw - 1440px) / 2 + 24px));
         border-bottom: 1px solid var(--fx-line);
         border-radius: 0;
-        background: var(--fx-panel);
+        background: rgba(3, 8, 20, 0.76);
         position: sticky;
         top: 0;
         z-index: 100;
-        box-shadow: none;
-        backdrop-filter: blur(10px);
+        box-shadow: 0 10px 40px rgba(0,0,0,.22);
+        backdrop-filter: blur(18px) saturate(140%);
       }
 
       .fx-header-left {
@@ -121,10 +159,11 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
 
       .fx-logo {
         text-decoration: none;
-        color: var(--fx-primary);
+        color: var(--fx-ink);
         font-weight: 800;
         letter-spacing: 0.06em;
-        font-size: 1rem;
+        font-size: 1.05rem;
+        text-shadow: 0 0 22px rgba(103,232,249,.7);
       }
 
       .fx-nav {
@@ -138,7 +177,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
 
       .fx-nav-link {
         padding: 8px 11px;
-        border-radius: 7px;
+        border-radius: 999px;
         text-decoration: none;
         color: var(--fx-muted);
         border: 1px solid transparent;
@@ -152,8 +191,8 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       .fx-nav-link.active {
         color: var(--fx-ink);
         border-color: var(--fx-line);
-        background: rgba(255, 255, 255, 0.02);
-        box-shadow: none;
+        background: linear-gradient(135deg, rgba(103,232,249,.12), rgba(139,92,246,.1));
+        box-shadow: inset 0 0 18px rgba(103,232,249,.04);
       }
 
       .fx-header-actions,
@@ -169,8 +208,8 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
 
       .fx-main {
         display: grid;
-        gap: 16px;
-        margin-top: 18px;
+        gap: 22px;
+        margin-top: 24px;
       }
 
       .fx-hero,
@@ -206,10 +245,10 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       .mini {
         position: relative;
         border: 1px solid var(--fx-line);
-        border-radius: 10px;
-        background: var(--fx-panel);
+        border-radius: 22px;
+        background: linear-gradient(145deg, rgba(12,26,48,.86), rgba(5,13,27,.74));
         box-shadow: var(--fx-shadow);
-        backdrop-filter: blur(6px);
+        backdrop-filter: blur(14px) saturate(130%);
         overflow: hidden;
       }
 
@@ -227,7 +266,12 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       .intel::before,
       .step::before,
       .mini::before {
-        content: none;
+        content: "";
+        position: absolute;
+        inset: 0 0 auto;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(103,232,249,.58), rgba(139,92,246,.45), transparent);
+        pointer-events: none;
       }
 
       .fx-card,
@@ -240,7 +284,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       .intel,
       .step,
       .mini {
-        padding: 16px;
+        padding: clamp(18px, 2.4vw, 28px);
       }
 
       .table-card,
@@ -266,7 +310,12 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       .page-title {
         margin: 0;
         line-height: 0.95;
-        font-size: clamp(1.8rem, 4.8vw, 3.4rem);
+        font-size: clamp(2.15rem, 5vw, 4.8rem);
+        letter-spacing: -.045em;
+        background: linear-gradient(110deg, #ffffff 12%, #baf7ff 52%, #b7a7ff 96%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
       }
 
       h2 {
@@ -350,8 +399,8 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         display: grid;
         gap: 12px;
         border: 1px solid var(--fx-line);
-        border-radius: 10px;
-        background: var(--fx-panel);
+        border-radius: 22px;
+        background: linear-gradient(145deg, rgba(12,26,48,.8), rgba(5,13,27,.72));
         box-shadow: var(--fx-shadow);
         overflow: hidden;
       }
@@ -372,8 +421,8 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         flex-wrap: wrap;
         padding-top: 12px;
         padding-bottom: 12px;
-        border-bottom: 1px solid rgba(255, 40, 60, 0.16);
-        background: rgba(12, 4, 6, 0.62);
+        border-bottom: 1px solid var(--fx-line);
+        background: rgba(5, 13, 27, 0.58);
       }
 
       .section-header-copy {
@@ -464,7 +513,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         font-size: clamp(1.7rem, 3vw, 2.6rem);
         color: var(--fx-ink);
         margin: 8px 0 6px;
-        text-shadow: 0 0 24px rgba(255, 30, 50, 0.20);
+        text-shadow: 0 0 28px rgba(103, 232, 249, 0.2);
       }
 
       .pill,
@@ -477,8 +526,8 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         gap: 6px;
         padding: 6px 11px;
         border-radius: 999px;
-        background: rgba(255, 30, 50, 0.12);
-        border: 1px solid rgba(255, 30, 50, 0.18);
+        background: rgba(103, 232, 249, 0.1);
+        border: 1px solid rgba(103, 232, 249, 0.2);
         color: var(--fx-primary);
         font-size: 0.74rem;
         font-weight: 700;
@@ -517,7 +566,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         text-decoration: none;
         color: var(--fx-ink);
         border: 1px solid var(--fx-line);
-        background: linear-gradient(180deg, rgba(28, 8, 10, 0.88), rgba(18, 5, 7, 0.88));
+        background: linear-gradient(180deg, rgba(17, 34, 57, 0.9), rgba(8, 19, 37, 0.9));
         box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
       }
 
@@ -526,9 +575,9 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       .button-row button.primary,
       .control-form button,
       .actions .primary {
-        border-color: rgba(255, 30, 50, 0.30);
-        background: linear-gradient(135deg, rgba(255, 30, 50, 0.32), rgba(180, 0, 20, 0.24));
-        box-shadow: 0 0 32px rgba(255, 30, 50, 0.18);
+        border-color: rgba(103, 232, 249, 0.36);
+        background: linear-gradient(135deg, rgba(14,165,233,.3), rgba(124,58,237,.3));
+        box-shadow: 0 0 34px rgba(34,211,238,.13);
       }
 
       .fx-button.secondary,
@@ -552,7 +601,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       .wallet-popup-actions button:hover,
       .button-row button:hover {
         transform: translateY(-1px);
-        box-shadow: 0 0 30px rgba(255, 30, 50, 0.18);
+        box-shadow: 0 0 34px rgba(34, 211, 238, 0.18);
       }
 
       input,
@@ -562,9 +611,9 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       .analysis-panel,
       svg {
         width: 100%;
-        border: 1px solid rgba(255, 40, 60, 0.18);
+        border: 1px solid rgba(103, 232, 249, 0.18);
         border-radius: 16px;
-        background: rgba(12, 4, 5, 0.88);
+        background: rgba(3, 10, 23, 0.88);
         color: var(--fx-ink);
       }
 
@@ -746,6 +795,87 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         background: linear-gradient(90deg, transparent, rgba(255, 40, 60, 0.18), transparent);
       }
 
+      .viz-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .viz-card {
+        min-height: 260px;
+        display: grid;
+        align-content: start;
+        gap: 16px;
+      }
+
+      .viz-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .viz-title { margin: 0; font-size: 1rem; }
+      .viz-caption { margin: 3px 0 0; font-size: .82rem; }
+
+      .donut-wrap {
+        display: grid;
+        grid-template-columns: minmax(130px, 170px) 1fr;
+        align-items: center;
+        gap: 24px;
+      }
+
+      .donut {
+        width: min(44vw, 170px);
+        aspect-ratio: 1;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: conic-gradient(var(--fx-primary) 0 var(--p1, 35%), var(--fx-secondary) var(--p1, 35%) var(--p2, 60%), var(--fx-warning) var(--p2, 60%) var(--p3, 75%), var(--fx-danger) var(--p3, 75%) 100%);
+        box-shadow: 0 0 45px rgba(34,211,238,.12);
+        position: relative;
+      }
+
+      .donut::after {
+        content: "";
+        width: 68%;
+        aspect-ratio: 1;
+        border-radius: 50%;
+        background: #07101f;
+        border: 1px solid var(--fx-line);
+      }
+
+      .donut-label {
+        position: absolute;
+        z-index: 1;
+        text-align: center;
+        font-size: 1.5rem;
+        font-weight: 800;
+      }
+
+      .donut-label small { display:block; font-size:.62rem; color:var(--fx-muted); text-transform:uppercase; letter-spacing:.12em; }
+
+      .bar-list { display:grid; gap:12px; }
+      .bar-row { display:grid; gap:6px; }
+      .bar-meta { display:flex; justify-content:space-between; gap:12px; font-size:.78rem; color:var(--fx-muted); }
+      .bar-track { height:9px; border-radius:999px; background:rgba(143,168,189,.12); overflow:hidden; }
+      .bar-fill { display:block; height:100%; width:var(--value,0%); border-radius:inherit; background:linear-gradient(90deg,var(--fx-primary),var(--fx-secondary)); box-shadow:0 0 18px rgba(103,232,249,.28); }
+
+      .flow-diagram {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 28px;
+        align-items: stretch;
+      }
+
+      .flow-node { position:relative; min-width:0; }
+      .flow-node:not(:last-child)::after { content:"→"; position:absolute; right:-22px; top:50%; color:var(--fx-primary); font-size:1.3rem; }
+
+      .sparkline { width:100%; height:90px; border:0; background:transparent; overflow:visible; }
+      .sparkline-grid { stroke:rgba(143,168,189,.12); stroke-width:1; }
+      .sparkline-area { fill:url(#fxArea); opacity:.42; }
+      .sparkline-line { fill:none; stroke:var(--fx-primary); stroke-width:3; stroke-linecap:round; stroke-linejoin:round; filter:drop-shadow(0 0 6px rgba(103,232,249,.55)); }
+
       @media (max-width: 1080px) {
         .fx-header,
         .fx-hero,
@@ -789,6 +919,16 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
           grid-template-columns: 1fr;
         }
 
+        .viz-grid,
+        .flow-diagram { grid-template-columns: 1fr; }
+        .flow-node:not(:last-child)::after { content:"↓"; right:auto; left:50%; top:auto; bottom:-24px; }
+        .donut-wrap { grid-template-columns:1fr; justify-items:center; }
+
+        .fx-card,
+        .panel,
+        .card,
+        .section { border-radius:18px; }
+
         /* Tables scroll horizontally instead of breaking layout */
         table {
           display: block;
@@ -818,6 +958,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
           flex-wrap: nowrap;
           scrollbar-width: none;
           padding-bottom: 4px;
+          margin-inline: -4px;
         }
         .fx-nav::-webkit-scrollbar {
           display: none;
@@ -864,19 +1005,29 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         .fx-nav-link {
           min-height: 48px;
         }
+
+        .fx-shell { padding-inline:10px; }
+        .fx-main { gap:14px; }
+        .fx-card, .panel, .card, .mini-card, .control-shell, .control-card, .timeline, .intel, .step, .mini { padding:16px; }
+        th, td { min-width:120px; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { scroll-behavior:auto !important; transition:none !important; animation:none !important; }
       }
 
       ${options.extraStyles || ''}
     </style>
   </head>
   <body class="${options.bodyClassName || ''}">
+    <a class="fx-skip-link" href="#main-content">Skip to main content</a>
     <header class="fx-header">
       <div class="fx-header-left"><a class="fx-logo" href="/">FOILOPS</a></div>
-      <nav class="fx-nav">${renderNav(options.activeNav)}</nav>
+      <nav class="fx-nav" aria-label="Primary navigation">${renderNav(options.activeNav)}</nav>
       ${renderActions(options.headerActionsHtml)}
     </header>
     <div class="fx-shell">
-      <main class="fx-main">
+      <main class="fx-main" id="main-content">
         ${options.heroHtml || ''}
         ${options.contentHtml}
       </main>

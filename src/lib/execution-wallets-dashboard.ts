@@ -69,6 +69,7 @@ function renderWalletTable(wallets: ExecutionWalletRow[]): string {
 export function renderExecutionWalletsDashboard(wallets: ExecutionWalletRow[]): string {
   const activeCount = wallets.filter((w) => w.isActive).length
   const totalWeight = wallets.filter((w) => w.isActive).reduce((sum, w) => sum + w.allocationWeight, 0)
+  const activePercent = wallets.length ? (activeCount / wallets.length) * 100 : 0
 
   return renderFuturisticPage({
     title: 'FoilOps — Execution Wallets',
@@ -97,11 +98,40 @@ export function renderExecutionWalletsDashboard(wallets: ExecutionWalletRow[]): 
       .fx-button.danger { background:#7f1d1d; color:#fca5a5; border-color:#b91c1c; }
       .fx-button.danger:hover { background:#991b1b; }
       .fx-button.sm { padding:3px 10px; font-size:0.82em; }
+      .wallet-bars { align-content:center; }
+      .wallet-bar-name { max-width:70%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
       #status-banner { margin-bottom:1rem; padding:10px 16px; border-radius:6px; font-size:0.9em; display:none; }
       #status-banner.success { background:#14532d; color:#86efac; border:1px solid #16a34a; display:block; }
       #status-banner.error { background:#7f1d1d; color:#fca5a5; border:1px solid #b91c1c; display:block; }
     `,
     contentHtml: `
+      <section class="viz-grid">
+        <article class="card viz-card">
+          <div class="viz-head"><div><p class="eyebrow">Execution topology</p><h2 class="viz-title">Wallet activation</h2><p class="viz-caption">Only active wallets can receive deterministic trade allocation.</p></div><span class="badge">${wallets.length} total</span></div>
+          <div class="donut-wrap">
+            <div class="donut" style="--p1:${activePercent.toFixed(2)}%;--p2:100%;--p3:100%"><div class="donut-label">${activeCount}<small>active</small></div></div>
+            <div class="bar-list">
+              <div class="bar-row"><div class="bar-meta"><span>Active wallets</span><strong>${activeCount}</strong></div><div class="bar-track"><span class="bar-fill" style="--value:${activePercent.toFixed(2)}%"></span></div></div>
+              <div class="bar-row"><div class="bar-meta"><span>Inactive wallets</span><strong>${wallets.length - activeCount}</strong></div><div class="bar-track"><span class="bar-fill" style="--value:${(100 - activePercent).toFixed(2)}%;background:var(--fx-secondary)"></span></div></div>
+            </div>
+          </div>
+        </article>
+        <article class="card viz-card">
+          <div class="viz-head"><div><p class="eyebrow">Capital routing</p><h2 class="viz-title">Active allocation weights</h2><p class="viz-caption">Relative share used by deterministic weighted wallet selection.</p></div><span class="badge">Σ ${totalWeight.toFixed(2)}</span></div>
+          <div class="bar-list wallet-bars">
+            ${
+              wallets
+                .filter((wallet) => wallet.isActive)
+                .map((wallet) => {
+                  const share = totalWeight > 0 ? (wallet.allocationWeight / totalWeight) * 100 : 0
+                  return `<div class="bar-row"><div class="bar-meta"><span class="wallet-bar-name">${wallet.name || truncate(wallet.publicKey)}</span><strong>${share.toFixed(1)}%</strong></div><div class="bar-track"><span class="bar-fill" style="--value:${share.toFixed(2)}%"></span></div></div>`
+                })
+                .join('') ||
+              '<div class="empty-state"><strong>No active allocation</strong><span>Activate a wallet to visualize execution weight.</span></div>'
+            }
+          </div>
+        </article>
+      </section>
       <section class="section">
         <div class="section-header">
           <div class="section-header-copy">

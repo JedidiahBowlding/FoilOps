@@ -22,6 +22,16 @@ export class ScamDashboard {
 
   async renderHtmlDashboard() {
     const { wallets, tokenInvestigations } = await this.getDashboardData()
+    const highRisk = wallets.filter((wallet) => wallet.riskScore >= 70).length
+    const mediumRisk = wallets.filter((wallet) => wallet.riskScore >= 40 && wallet.riskScore < 70).length
+    const lowRisk = Math.max(0, wallets.length - highRisk - mediumRisk)
+    const riskTotal = Math.max(1, wallets.length)
+    const highRiskEnd = (highRisk / riskTotal) * 100
+    const mediumRiskEnd = highRiskEnd + (mediumRisk / riskTotal) * 100
+    const averageRisk = wallets.length
+      ? Math.round(wallets.reduce((total, wallet) => total + wallet.riskScore, 0) / wallets.length)
+      : 0
+    const riskiestWallets = [...wallets].sort((a, b) => b.riskScore - a.riskScore).slice(0, 6)
 
     const cards = wallets
       .map((row) => {
@@ -110,8 +120,27 @@ export class ScamDashboard {
         </section>
       `,
       extraStyles:
-        '.control-form { grid-template-columns:minmax(0,1fr) auto; align-items:end; } .card.flagged { border-color: rgba(255,90,122,.36); } .card.unflagged { border-color: rgba(76,255,193,.2); } .investigation-card { border-color: rgba(255,30,50,.26); } @media (max-width: 720px) { .control-form { grid-template-columns:1fr; } }',
+        '.control-form { grid-template-columns:minmax(0,1fr) auto; align-items:end; } .card.flagged { border-color: rgba(251,113,133,.36); } .card.unflagged { border-color: rgba(52,211,153,.2); } .investigation-card { border-color: rgba(139,92,246,.28); } .risk-donut { background:conic-gradient(var(--fx-danger) 0 var(--p1),var(--fx-secondary) var(--p1) var(--p2),var(--fx-success) var(--p2) 100%); } .legend-row{display:flex;justify-content:space-between;gap:10px;color:var(--fx-muted)} .legend-row span{display:flex;align-items:center;gap:9px}.legend-row i{width:10px;height:10px;border-radius:50%;background:var(--dot);box-shadow:0 0 12px var(--dot)} .risk-fill{background:linear-gradient(90deg,var(--fx-warning),var(--fx-danger));} @media (max-width: 720px) { .control-form { grid-template-columns:1fr; } }',
       contentHtml: `
+        <section class="viz-grid">
+          <article class="card viz-card">
+            <div class="viz-head"><div><p class="eyebrow">Threat posture</p><h2 class="viz-title">Risk distribution</h2><p class="viz-caption">Monitored wallets grouped by their current risk score.</p></div><span class="badge">Avg ${averageRisk}</span></div>
+            <div class="donut-wrap">
+              <div class="donut risk-donut" style="--p1:${highRiskEnd.toFixed(2)}%;--p2:${mediumRiskEnd.toFixed(2)}%"><div class="donut-label">${highRisk}<small>high risk</small></div></div>
+              <div class="bar-list">
+                <div class="legend-row"><span><i style="--dot:var(--fx-danger)"></i>High · 70–100</span><strong>${highRisk}</strong></div>
+                <div class="legend-row"><span><i style="--dot:var(--fx-secondary)"></i>Medium · 40–69</span><strong>${mediumRisk}</strong></div>
+                <div class="legend-row"><span><i style="--dot:var(--fx-success)"></i>Low · 0–39</span><strong>${lowRisk}</strong></div>
+              </div>
+            </div>
+          </article>
+          <article class="card viz-card">
+            <div class="viz-head"><div><p class="eyebrow">Priority queue</p><h2 class="viz-title">Highest-risk wallets</h2><p class="viz-caption">The records that deserve analyst attention first.</p></div><span class="badge">${wallets.length} watched</span></div>
+            <div class="bar-list">
+              ${riskiestWallets.map((wallet) => `<div class="bar-row"><div class="bar-meta"><span class="mono">${wallet.address.slice(0, 8)}…${wallet.address.slice(-4)}</span><strong>${wallet.riskScore}</strong></div><div class="bar-track"><span class="bar-fill risk-fill" style="--value:${Math.max(0, Math.min(100, wallet.riskScore))}%"></span></div></div>`).join('') || '<div class="empty-state"><strong>No monitored wallets</strong><span>Flagged records will appear here.</span></div>'}
+            </div>
+          </article>
+        </section>
         <section class="section panel">
           <div class="section-header">
             <div class="section-header-copy">

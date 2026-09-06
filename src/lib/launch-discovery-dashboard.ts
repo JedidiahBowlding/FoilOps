@@ -8,14 +8,21 @@ export class LaunchDiscoveryDashboard {
 
   async renderHtmlDashboard(): Promise<string> {
     const candidates = await this.repository.list({ limit: 100 })
-    const ranked = candidates
-      .filter((candidate) => candidate.classification !== 'REJECT')
-      .slice(0, 3)
+    const ranked = candidates.filter((candidate) => candidate.classification !== 'REJECT').slice(0, 3)
     const rankedIds = new Set(ranked.map((candidate) => candidate.id))
     const displayed = [...ranked, ...candidates.filter((candidate) => !rankedIds.has(candidate.id))].slice(0, 3)
     const robinhoodCandidates = candidates.filter((candidate) => candidate.chain === 'robinhood').slice(0, 3)
     const solanaCount = candidates.filter((candidate) => candidate.chain === 'solana').length
     const robinhoodCount = candidates.filter((candidate) => candidate.chain === 'robinhood').length
+    const promisingCount = candidates.filter((candidate) => candidate.classification === 'PROMISING').length
+    const watchCount = candidates.filter((candidate) => candidate.classification === 'WATCH').length
+    const officialCount = candidates.filter((candidate) => candidate.classification === 'OFFICIAL_STOCK_TOKEN').length
+    const otherCount = Math.max(0, candidates.length - promisingCount - watchCount - officialCount)
+    const verdictTotal = Math.max(1, candidates.length)
+    const promisingEnd = (promisingCount / verdictTotal) * 100
+    const watchEnd = promisingEnd + (watchCount / verdictTotal) * 100
+    const officialEnd = watchEnd + (officialCount / verdictTotal) * 100
+    const chartCandidates = candidates.slice(0, 6)
 
     return renderFuturisticPage({
       title: 'FoilOps Launch Discovery',
@@ -41,6 +48,35 @@ export class LaunchDiscoveryDashboard {
         </section>
       `,
       contentHtml: `
+        <section class="viz-grid">
+          <article class="card viz-card">
+            <div class="viz-head"><div><p class="eyebrow">Signal composition</p><h2 class="viz-title">Candidate verdicts</h2><p class="viz-caption">How the evidence pipeline currently classifies collected launches.</p></div><span class="badge">${candidates.length} total</span></div>
+            <div class="donut-wrap">
+              <div class="donut" style="--p1:${promisingEnd.toFixed(2)}%;--p2:${watchEnd.toFixed(2)}%;--p3:${officialEnd.toFixed(2)}%"><div class="donut-label">${promisingCount + watchCount}<small>qualified</small></div></div>
+              <div class="bar-list">
+                ${this.legendRow('Promising', promisingCount, 'var(--fx-primary)')}
+                ${this.legendRow('Watch', watchCount, 'var(--fx-secondary)')}
+                ${this.legendRow('Official stock', officialCount, 'var(--fx-warning)')}
+                ${this.legendRow('Rejected / other', otherCount, 'var(--fx-danger)')}
+              </div>
+            </div>
+          </article>
+          <article class="card viz-card">
+            <div class="viz-head"><div><p class="eyebrow">Opportunity radar</p><h2 class="viz-title">Top evidence scores</h2><p class="viz-caption">Opportunity strength versus the 100-point scoring ceiling.</p></div><span class="badge">Live</span></div>
+            <div class="bar-list score-bars">
+              ${
+                chartCandidates
+                  .map((candidate) => {
+                    const evidence = (candidate.evidence || {}) as Record<string, unknown>
+                    const label = String(evidence.symbol || evidence.name || candidate.tokenMint.slice(0, 8))
+                    return `<div class="bar-row"><div class="bar-meta"><span>${this.escape(label)} · ${this.escape(candidate.chain)}</span><strong>${candidate.opportunityScore}</strong></div><div class="bar-track"><span class="bar-fill" style="--value:${Math.max(0, Math.min(100, candidate.opportunityScore))}%"></span></div></div>`
+                  })
+                  .join('') ||
+                '<div class="empty-state"><strong>Waiting for candidates</strong><span>Run a scan to populate the score chart.</span></div>'
+              }
+            </div>
+          </article>
+        </section>
         <section class="section">
           <div class="section-header">
             <div class="section-header-copy">
@@ -78,6 +114,10 @@ export class LaunchDiscoveryDashboard {
         .classification { display:inline-flex; padding:5px 9px; border-radius:999px; border:1px solid var(--fx-line-strong); color:var(--fx-warning); font-size:.75rem; }
         .evidence-list { margin:0; padding-left:18px; color:var(--fx-muted); }
         .candidate-meta { display:flex; gap:8px; flex-wrap:wrap; color:var(--fx-muted); font-size:.8rem; }
+        .score-bars { align-content:center; height:100%; }
+        .legend-row { display:flex;align-items:center;justify-content:space-between;gap:12px;color:var(--fx-muted);font-size:.84rem; }
+        .legend-key { display:inline-flex;align-items:center;gap:9px; }
+        .legend-dot { width:10px;height:10px;border-radius:50%;background:var(--dot);box-shadow:0 0 14px var(--dot); }
         @media (max-width:900px) { .discovery-grid { grid-template-columns:1fr; } }
       `,
       scriptHtml: `
@@ -183,10 +223,14 @@ export class LaunchDiscoveryDashboard {
         <section class="section table-card">
           <div class="section-header"><div class="section-header-copy"><h2>Score History</h2><p class="section-subtitle">Each observation is preserved so you can see how the evidence and verdict changed.</p></div></div>
           <table><thead><tr><th>Observed</th><th>Verdict</th><th>Opportunity</th><th>Risk</th><th>Liquidity</th><th>Top 10</th></tr></thead>
-          <tbody>${history.observations.map((observation) => {
-            const snapshot = (observation.evidence || {}) as Record<string, unknown>
-            return `<tr><td>${this.formatDate(observation.observedAt)}</td><td>${this.escape(observation.classification)}</td><td>${observation.opportunityScore}</td><td>${observation.riskScore}</td><td>${this.money(snapshot.liquidityUsd)}</td><td>${this.percent(snapshot.top10HolderPercent)}</td></tr>`
-          }).join('') || '<tr><td colspan="6">No observations recorded.</td></tr>'}</tbody></table>
+          <tbody>${
+            history.observations
+              .map((observation) => {
+                const snapshot = (observation.evidence || {}) as Record<string, unknown>
+                return `<tr><td>${this.formatDate(observation.observedAt)}</td><td>${this.escape(observation.classification)}</td><td>${observation.opportunityScore}</td><td>${observation.riskScore}</td><td>${this.money(snapshot.liquidityUsd)}</td><td>${this.percent(snapshot.top10HolderPercent)}</td></tr>`
+              })
+              .join('') || '<tr><td colspan="6">No observations recorded.</td></tr>'
+          }</tbody></table>
         </section>
         ${errors.length ? `<section class="section"><div class="notice warning"><strong>Collection issues</strong><ul>${errors.map((error) => `<li>${this.escape(error)}</li>`).join('')}</ul></div></section>` : ''}
       `,
@@ -242,6 +286,10 @@ export class LaunchDiscoveryDashboard {
       .replace(/'/g, '&#039;')
   }
 
+  private legendRow(label: string, count: number, color: string): string {
+    return `<div class="legend-row"><span class="legend-key"><i class="legend-dot" style="--dot:${color}"></i>${this.escape(label)}</span><strong>${count}</strong></div>`
+  }
+
   private metric(label: string, value: unknown, description: string): string {
     return `<article class="card"><div class="eyebrow">${this.escape(label)}</div><div class="big">${this.escape(value)}</div><p>${this.escape(description)}</p></article>`
   }
@@ -252,7 +300,9 @@ export class LaunchDiscoveryDashboard {
 
   private money(value: unknown): string {
     const amount = typeof value === 'number' ? value : Number(value)
-    return Number.isFinite(amount) && value !== null ? `$${amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : 'Not verified'
+    return Number.isFinite(amount) && value !== null
+      ? `$${amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+      : 'Not verified'
   }
 
   private percent(value: unknown): string {
@@ -262,7 +312,9 @@ export class LaunchDiscoveryDashboard {
 
   private formatDate(value: Date | string): string {
     const date = value instanceof Date ? value : new Date(value)
-    return Number.isNaN(date.getTime()) ? 'Unknown' : date.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
+    return Number.isNaN(date.getTime())
+      ? 'Unknown'
+      : date.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
   }
 
   private safeUrl(value: unknown): string | null {

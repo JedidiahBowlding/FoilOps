@@ -47,7 +47,7 @@ export function renderHomepageHtml(): string {
         <article class="panel">
           <p class="fx-eyebrow">Operating sequence</p>
           <h2>From raw chain activity to supervised action</h2>
-          <div class="steps">
+          <div class="flow-diagram">
             <article class="step"><div class="step-number">1</div><h3>Collect</h3><p>Normalize live wallet activity from launches, swaps, transfers, and route-level metadata.</p></article>
             <article class="step"><div class="step-number">2</div><h3>Enrich</h3><p>Attach market context, platform identity, token intelligence, and risk attributes.</p></article>
             <article class="step"><div class="step-number">3</div><h3>Investigate</h3><p>Trace flows hop-by-hop, connect suspicious wallets, and resolve likely developer ownership.</p></article>
