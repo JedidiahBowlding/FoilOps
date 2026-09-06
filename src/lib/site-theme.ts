@@ -152,6 +152,34 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         backdrop-filter: blur(18px) saturate(140%);
       }
 
+      .fx-menu-toggle,
+      .fx-menu-backdrop { display: none; }
+
+      .fx-menu-toggle {
+        border: 1px solid var(--fx-line-strong);
+        color: var(--fx-ink);
+        background: rgba(7, 16, 31, .9);
+        box-shadow: 0 14px 42px rgba(0,0,0,.38), 0 0 24px rgba(103,232,249,.12);
+        backdrop-filter: blur(18px) saturate(140%);
+      }
+
+      .fx-menu-icon,
+      .fx-menu-icon::before,
+      .fx-menu-icon::after {
+        display: block;
+        width: 20px;
+        height: 2px;
+        border-radius: 999px;
+        background: currentColor;
+        transition: transform 180ms ease, opacity 180ms ease;
+      }
+
+      .fx-menu-icon { position: relative; }
+      .fx-menu-icon::before,
+      .fx-menu-icon::after { content: ""; position: absolute; left: 0; }
+      .fx-menu-icon::before { transform: translateY(-6px); }
+      .fx-menu-icon::after { transform: translateY(6px); }
+
       .fx-header-left {
         display: inline-flex;
         align-items: center;
@@ -897,6 +925,67 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       }
 
       @media (max-width: 720px) {
+        body { padding-top: 74px; }
+
+        .fx-menu-toggle {
+          display: grid;
+          place-items: center;
+          position: fixed;
+          top: 14px;
+          right: 14px;
+          z-index: 302;
+          width: 52px;
+          height: 52px;
+          padding: 0;
+          border-radius: 17px;
+        }
+
+        .fx-menu-backdrop {
+          display: block;
+          position: fixed;
+          inset: 0;
+          z-index: 299;
+          background: rgba(1, 4, 12, .68);
+          backdrop-filter: blur(5px);
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 180ms ease;
+        }
+
+        .fx-header {
+          position: fixed;
+          inset: 12px 12px auto;
+          z-index: 301;
+          max-height: calc(100dvh - 24px);
+          overflow-y: auto;
+          padding: 22px;
+          border: 1px solid var(--fx-line-strong);
+          border-radius: 24px;
+          box-shadow: 0 28px 90px rgba(0,0,0,.55), 0 0 42px rgba(103,232,249,.08);
+          opacity: 0;
+          transform: translateY(-18px) scale(.97);
+          transform-origin: top right;
+          pointer-events: none;
+          transition: opacity 180ms ease, transform 180ms ease;
+          align-items: stretch;
+        }
+
+        body.fx-menu-open { overflow: hidden; }
+        body.fx-menu-open .fx-header { opacity: 1; transform: none; pointer-events: auto; }
+        body.fx-menu-open .fx-menu-backdrop { opacity: 1; pointer-events: auto; }
+        body.fx-menu-open .fx-menu-icon { background: transparent; }
+        body.fx-menu-open .fx-menu-icon::before { transform: rotate(45deg); }
+        body.fx-menu-open .fx-menu-icon::after { transform: rotate(-45deg); }
+
+        .fx-header-left { padding-right: 58px; }
+        .fx-logo { font-size: 1.2rem; }
+        .fx-nav { display:grid; width:100%; gap:7px; }
+        .fx-nav-link { display:flex; justify-content:flex-start; width:100%; padding:13px 15px; min-height:46px; }
+        .fx-header-actions { display:grid; width:100%; }
+        .fx-header-actions > *,
+        .fx-header-actions .fx-button,
+        .fx-header-actions button { width:100%; }
+
         .fx-shell {
           padding: 14px 12px 26px;
         }
@@ -951,17 +1040,11 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       }
 
       @media (max-width: 480px) {
-        /* Nav scrolls horizontally rather than wrapping into a tall block */
         .fx-nav {
           width: 100%;
-          overflow-x: auto;
-          flex-wrap: nowrap;
-          scrollbar-width: none;
-          padding-bottom: 4px;
-          margin-inline: -4px;
-        }
-        .fx-nav::-webkit-scrollbar {
-          display: none;
+          overflow: visible;
+          padding: 0;
+          margin: 0;
         }
 
         /* Header actions wrap to a second row and fill available width */
@@ -1021,7 +1104,9 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
   </head>
   <body class="${options.bodyClassName || ''}">
     <a class="fx-skip-link" href="#main-content">Skip to main content</a>
-    <header class="fx-header">
+    <button class="fx-menu-toggle" type="button" aria-label="Open navigation" aria-controls="site-navigation" aria-expanded="false"><span class="fx-menu-icon" aria-hidden="true"></span></button>
+    <div class="fx-menu-backdrop" aria-hidden="true"></div>
+    <header class="fx-header" id="site-navigation">
       <div class="fx-header-left"><a class="fx-logo" href="/">FOILOPS</a></div>
       <nav class="fx-nav" aria-label="Primary navigation">${renderNav(options.activeNav)}</nav>
       ${renderActions(options.headerActionsHtml)}
@@ -1033,6 +1118,37 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       </main>
     </div>
     ${options.scriptHtml || ''}
+    <script>
+      (() => {
+        const toggle = document.querySelector('.fx-menu-toggle')
+        const backdrop = document.querySelector('.fx-menu-backdrop')
+        const header = document.querySelector('.fx-header')
+        if (!toggle || !header) return
+
+        const closeMenu = () => {
+          document.body.classList.remove('fx-menu-open')
+          toggle.setAttribute('aria-expanded', 'false')
+          toggle.setAttribute('aria-label', 'Open navigation')
+        }
+        const openMenu = () => {
+          document.body.classList.add('fx-menu-open')
+          toggle.setAttribute('aria-expanded', 'true')
+          toggle.setAttribute('aria-label', 'Close navigation')
+        }
+
+        toggle.addEventListener('click', () => document.body.classList.contains('fx-menu-open') ? closeMenu() : openMenu())
+        backdrop?.addEventListener('click', closeMenu)
+        header.addEventListener('click', (event) => {
+          if (event.target instanceof HTMLAnchorElement && window.matchMedia('(max-width: 720px)').matches) closeMenu()
+        })
+        document.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape') closeMenu()
+        })
+        window.addEventListener('resize', () => {
+          if (!window.matchMedia('(max-width: 720px)').matches) closeMenu()
+        })
+      })()
+    </script>
   </body>
 </html>`
 }
