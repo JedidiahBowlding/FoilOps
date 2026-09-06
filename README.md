@@ -345,10 +345,6 @@ bash scripts/start-both-health-check.sh
 
 ## Contact
 
-<!-- [@your_twitter](https://twitter.com/your_username)  --> - rdraco039@gmail.com
-
-My solana wallet for the struggles - `5EVQsbVErvJruJvi3v8i3sDSy58GUnGfewwRb8pJk8N1`
-
 Project Link: [https://github.com/JedidiahBowlding/FoilOps](https://github.com/JedidiahBowlding/FoilOps)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
