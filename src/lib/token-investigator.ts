@@ -21,6 +21,10 @@ type DexScreenerPair = {
   chainId?: string
   dexId?: string
   pairCreatedAt?: number
+  info?: {
+    websites?: Array<{ label?: string; url?: string }>
+    socials?: Array<{ type?: string; url?: string }>
+  }
 }
 
 type DexScreenerResponse = {
@@ -43,6 +47,7 @@ export type TokenEnrichmentData = {
   website?: string
   createdTimestamp?: number
   bondingCurve?: string
+  bondingCurveTokenAccount?: string
   raydiumPool?: string
   graduated?: boolean
   currentMarketCapUsd?: number
@@ -200,11 +205,14 @@ export class TokenInvestigator {
       name: pumpData?.name,
       symbol: pumpData?.symbol,
       description: pumpData?.description,
-      twitter: pumpData?.twitter || undefined,
-      telegram: pumpData?.telegram || undefined,
-      website: pumpData?.website || undefined,
+      twitter:
+        pumpData?.twitter || dexData?.info?.socials?.find((link) => link.type?.toLowerCase() === 'twitter')?.url,
+      telegram:
+        pumpData?.telegram || dexData?.info?.socials?.find((link) => link.type?.toLowerCase() === 'telegram')?.url,
+      website: pumpData?.website || dexData?.info?.websites?.find((link) => link.url)?.url,
       createdTimestamp,
       bondingCurve: pumpData?.bonding_curve,
+      bondingCurveTokenAccount: pumpData?.associated_bonding_curve,
       raydiumPool: pumpData?.raydium_pool || undefined,
       graduated: pumpData?.complete,
       currentMarketCapUsd: gmgnData?.market_cap ?? pumpData?.usd_market_cap,

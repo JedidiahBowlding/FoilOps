@@ -8,6 +8,7 @@ const BOT_TOKEN = process.env.BOT_TOKEN
 const TEST_BOT_TOKEN = process.env.TEST_BOT_TOKEN
 const APP_URL = process.env.APP_URL
 const ENVIRONMENT = process.env.ENVIRONMENT as 'development' | 'production'
+const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET?.trim()
 
 const WEBHOOK_TARGET_URL = APP_URL ? `${APP_URL}/webhook/telegram` : ''
 const REDACTED_WEBHOOK_TARGET_URL = SecretRedaction.redactUrl(WEBHOOK_TARGET_URL)
@@ -21,7 +22,7 @@ export const bot = (() => {
     }
 
     instance
-      .setWebHook(WEBHOOK_TARGET_URL)
+      .setWebHook(WEBHOOK_TARGET_URL, WEBHOOK_SECRET ? { secret_token: WEBHOOK_SECRET } : undefined)
       .then(() => {
         console.log(`Webhook configured successfully: ${REDACTED_WEBHOOK_TARGET_URL}`)
       })

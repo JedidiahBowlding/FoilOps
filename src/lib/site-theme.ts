@@ -1,4 +1,4 @@
-export type SiteNavKey = 'home' | 'trading' | 'scam' | 'graph' | 'foilops' | 'wallets'
+export type SiteNavKey = 'home' | 'discovery' | 'trading' | 'scam' | 'graph' | 'foilops' | 'wallets'
 
 type SiteNavLink = {
   key: SiteNavKey
@@ -19,6 +19,7 @@ type RenderFuturisticPageOptions = {
 
 const NAV_LINKS: SiteNavLink[] = [
   { key: 'home', href: '/', label: 'Overview' },
+  { key: 'discovery', href: '/dashboard/discovery', label: 'Discovery' },
   { key: 'trading', href: '/dashboard/trading-ops', label: 'Trading Ops' },
   { key: 'wallets', href: '/dashboard/execution-wallets', label: 'Exec Wallets' },
   { key: 'scam', href: '/dashboard/scam-wallets', label: 'Scam Intel' },

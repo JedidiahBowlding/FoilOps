@@ -51,6 +51,11 @@ import { registerFoilOpsRoutes } from './modules/foilops/api/foilOpsRoutes'
 import { FoilOpsRepository } from './modules/foilops/repository/foilOpsRepository'
 import { PrismaUserRepository } from './repositories/prisma/user'
 import { renderExecutionWalletsDashboard } from './lib/execution-wallets-dashboard'
+import { requireTelegramWebhookSecret } from './lib/telegram-webhook-auth'
+import { NewLaunchIngestor } from './lib/new-launch-ingestor'
+import { PrismaLaunchCandidateRepository } from './repositories/prisma/launch-candidate'
+import { registerNewLaunchRoutes } from './http/new-launch-routes'
+import { LaunchDiscoveryDashboard } from './lib/launch-discovery-dashboard'
 
 dotenv.config()
 
@@ -85,6 +90,9 @@ class Main {
   private foilOpsRepository: FoilOpsRepository
   private prismaUserRepository: PrismaUserRepository
   private readonly tradingBotUrl: string
+  private newLaunchIngestor: NewLaunchIngestor
+  private launchCandidateRepository: PrismaLaunchCandidateRepository
+  private launchDiscoveryDashboard: LaunchDiscoveryDashboard
 
   private isScamMonitorEnabled(): boolean {
     return process.env.SCAM_MONITOR_ENABLED === 'true'
@@ -120,6 +128,9 @@ class Main {
     this.prismaWalletRepository = new PrismaWalletRepository()
     this.foilOpsRepository = new FoilOpsRepository()
     this.prismaUserRepository = new PrismaUserRepository()
+    this.launchCandidateRepository = new PrismaLaunchCandidateRepository()
+    this.launchDiscoveryDashboard = new LaunchDiscoveryDashboard(this.launchCandidateRepository)
+    this.newLaunchIngestor = new NewLaunchIngestor(undefined, undefined, this.launchCandidateRepository)
     this.tradingBotUrl = getTradingBotBaseUrl()
 
     // register routes after route dependencies are initialized
@@ -136,6 +147,12 @@ class Main {
 
   private setupRoutes() {
     this.dashboardAuth.registerRoutes(this.app)
+    registerNewLaunchRoutes(
+      this.app,
+      this.dashboardAuth.requireApiAuth,
+      this.newLaunchIngestor,
+      this.launchCandidateRepository,
+    )
 
     // Default endpoint
     this.app.get('/', async (req, res) => {
@@ -147,7 +164,7 @@ class Main {
         res.status(500).send('Error processing default route')
       }
     })
-    this.app.post(`/webhook/telegram`, async (req, res) => {
+    this.app.post(`/webhook/telegram`, requireTelegramWebhookSecret(), async (req, res) => {
       try {
         bot.processUpdate(req.body)
 
@@ -189,6 +206,35 @@ class Main {
       } catch (error) {
         console.error('Trading ops dashboard error', error)
         res.status(500).send('Failed to render trading ops dashboard')
+      }
+    })
+
+    this.app.get('/dashboard/discovery', this.dashboardAuth.requirePageAuth, async (_req, res) => {
+      try {
+        const dashboard = await this.launchDiscoveryDashboard.renderHtmlDashboard()
+        res.setHeader('Content-Type', 'text/html; charset=utf-8')
+        res.status(200).send(dashboard)
+      } catch (error) {
+        console.error('Launch discovery dashboard error', error)
+        res.status(500).send('Failed to render launch discovery dashboard')
+      }
+    })
+
+    this.app.get('/dashboard/discovery/:chain/:tokenMint', this.dashboardAuth.requirePageAuth, async (req, res) => {
+      try {
+        const dashboard = await this.launchDiscoveryDashboard.renderEvidenceHistory(
+          String(req.params.chain || '').toLowerCase(),
+          String(req.params.tokenMint || ''),
+        )
+        if (!dashboard) {
+          res.status(404).send('Discovery candidate not found')
+          return
+        }
+        res.setHeader('Content-Type', 'text/html; charset=utf-8')
+        res.status(200).send(dashboard)
+      } catch (error) {
+        console.error('Launch evidence history dashboard error', error)
+        res.status(500).send('Failed to render launch evidence history')
       }
     })
 
@@ -1259,6 +1305,7 @@ class Main {
     await this.cronJobs.monthlySubscriptionFee()
     await this.cronJobs.updateSolPrice()
     await this.cronJobs.sendRenewalReminder()
+    this.newLaunchIngestor.start()
 
     // setup
     await this.trackWallets.setupWalletWatcher({ event: 'initial' })

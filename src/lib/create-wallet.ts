@@ -9,8 +9,7 @@ export class CreateWallet {
     const publicKey = keypair.publicKey.toString()
     const privateKey = Buffer.from(keypair.secretKey).toString('base64')
 
-    console.log('Public Key (wallet Address):', publicKey)
-    console.log('Private Key:', privateKey)
+    console.log('Created wallet:', publicKey)
 
     return { publicKey, privateKey }
   }

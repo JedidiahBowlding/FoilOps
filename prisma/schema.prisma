@@ -371,3 +371,51 @@ model WalletClusterEdge {
   @@index([linkType])
   @@index([confidence])
 }
+
+model LaunchIngestionCheckpoint {
+  source    String   @id
+  cursor    String?
+  updatedAt DateTime @updatedAt
+}
+
+model LaunchCandidate {
+  id              String   @id @default(cuid())
+  chain           String
+  tokenMint       String
+  signature       String
+  creatorWallet   String?
+  source          String
+  slot            BigInt
+  detectedAt      DateTime
+  status          String
+  opportunityScore Int
+  riskScore       Int
+  classification String
+  evidence        Json
+  scoredAt        DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  observations    LaunchCandidateObservation[]
+
+  @@index([detectedAt])
+  @@index([opportunityScore])
+  @@index([riskScore])
+  @@index([status])
+  @@unique([chain, tokenMint])
+  @@unique([source, signature])
+}
+
+model LaunchCandidateObservation {
+  id               String   @id @default(cuid())
+  candidateId      String
+  opportunityScore Int
+  riskScore        Int
+  classification  String
+  evidence         Json
+  observedAt       DateTime @default(now())
+
+  candidate LaunchCandidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([candidateId])
+  @@index([observedAt])
+}

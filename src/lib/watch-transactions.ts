@@ -17,6 +17,7 @@ import TelegramBot from 'node-telegram-bot-api'
 import { tradeSignalEmitter } from './trade-signal-emitter'
 import { smartMoneyScorer } from './smart-money-scorer'
 import { smartMoneyPortfolioStrategy } from './smart-money-portfolio-strategy'
+import { resolveSmartMoneyTradeRiskScore } from './smart-money-risk'
 
 export class WatchTransaction extends EventEmitter {
   private walletTransactions: Map<string, { count: number; startTime: number }>
@@ -270,7 +271,9 @@ export class WatchTransaction extends EventEmitter {
         `SMART_MONEY_SCORE wallet=${walletAddress} token=${tokenMint} direction=${smartMoneyScore.direction} score=${smartMoneyScore.score} confidence=${smartMoneyScore.confidence}`,
       )
 
-      const tradeRiskScore = Math.max(Number(process.env.COPY_TRADE_RISK_SCORE || 35), smartMoneyScore.score)
+      // Opportunity and risk are independent dimensions. Never reuse the smart-money
+      // opportunity score as risk: the execution receiver correctly rejects high risk.
+      const tradeRiskScore = resolveSmartMoneyTradeRiskScore(process.env.COPY_TRADE_RISK_SCORE)
       const portfolioDecision = smartMoneyPortfolioStrategy.evaluate({
         tokenMint,
         walletAddress,
