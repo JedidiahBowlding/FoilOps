@@ -896,6 +896,21 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         align-items: stretch;
       }
 
+      .home-operations {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 22px;
+      }
+
+      .home-operations .flow-node {
+        min-height: 220px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+      }
+
+      .home-operations .flow-node p { margin-bottom: 0; }
+
       .flow-node { position:relative; min-width:0; }
       .flow-node:not(:last-child)::after { content:"→"; position:absolute; right:-22px; top:50%; color:var(--fx-primary); font-size:1.3rem; }
 

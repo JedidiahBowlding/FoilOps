@@ -43,15 +43,15 @@ export function renderHomepageHtml(): string {
         <article class="card"><p class="eyebrow">Safety Model</p><div class="big">Layered</div><p>Risk score limits, sizing controls, dead-letter handling, and kill-switch operations.</p></article>
       </section>
 
-      <section class="grid">
+      <section class="home-operations">
         <article class="panel">
           <p class="fx-eyebrow">Operating sequence</p>
           <h2>From raw chain activity to supervised action</h2>
           <div class="flow-diagram">
-            <article class="step"><div class="step-number">1</div><h3>Collect</h3><p>Normalize live wallet activity from launches, swaps, transfers, and route-level metadata.</p></article>
-            <article class="step"><div class="step-number">2</div><h3>Enrich</h3><p>Attach market context, platform identity, token intelligence, and risk attributes.</p></article>
-            <article class="step"><div class="step-number">3</div><h3>Investigate</h3><p>Trace flows hop-by-hop, connect suspicious wallets, and resolve likely developer ownership.</p></article>
-            <article class="step"><div class="step-number">4</div><h3>Control</h3><p>Review decisions in protected dashboards and only allow guarded execution when the operator intends it.</p></article>
+            <article class="step flow-node"><div class="step-number">1</div><h3>Collect</h3><p>Normalize live wallet activity from launches, swaps, transfers, and route-level metadata.</p></article>
+            <article class="step flow-node"><div class="step-number">2</div><h3>Enrich</h3><p>Attach market context, platform identity, token intelligence, and risk attributes.</p></article>
+            <article class="step flow-node"><div class="step-number">3</div><h3>Investigate</h3><p>Trace flows hop-by-hop, connect suspicious wallets, and resolve likely developer ownership.</p></article>
+            <article class="step flow-node"><div class="step-number">4</div><h3>Control</h3><p>Review decisions in protected dashboards and only allow guarded execution when the operator intends it.</p></article>
           </div>
         </article>
 
