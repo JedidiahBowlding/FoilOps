@@ -6,7 +6,7 @@
 <br />
 <div align="center">
   <a href="https://github.com/JedidiahBowlding/FoilOps">
-    <img src="showcase/logo.jpg" alt="Logo" width="80" height="80">
+    <img src="showcase/logo.jpeg" alt="FoilOps logo" width="80" height="80">
   </a>
 
   <h3 align="center">FoilOps | Wallet Tracker</h3>
@@ -337,7 +337,19 @@ bash scripts/start-both-health-check.sh
 
 10. That's it! your local or server deployment is ready to use.
 
-<p align="center"><img src="./showcase/cli-pic.png" width="95%" alt="Screenshot of bot succesfully running"/></>
+## Screenshots
+
+### Discovery dashboard
+
+<p align="center"><img src="./showcase/dashboard_graph.jpeg" width="95%" alt="FoilOps discovery dashboard showing token signals and market activity" /></p>
+
+### Trading operations
+
+<p align="center"><img src="./showcase/dashboard_trading_ops.jpeg" width="95%" alt="FoilOps trading operations dashboard" /></p>
+
+### Scam intelligence
+
+<p align="center"><img src="./showcase/dashboard_scam_intel.jpeg" width="95%" alt="FoilOps scam intelligence dashboard" /></p>
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -352,4 +364,4 @@ Project Link: [https://github.com/JedidiahBowlding/FoilOps](https://github.com/J
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
 
-[product-screenshot]: showcase/notifications-new.png
+[product-screenshot]: showcase/dashboard_graph.jpeg
