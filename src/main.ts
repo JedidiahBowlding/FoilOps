@@ -56,6 +56,7 @@ import { NewLaunchIngestor } from './lib/new-launch-ingestor'
 import { PrismaLaunchCandidateRepository } from './repositories/prisma/launch-candidate'
 import { registerNewLaunchRoutes } from './http/new-launch-routes'
 import { LaunchDiscoveryDashboard } from './lib/launch-discovery-dashboard'
+import { DiscoveryCommand } from './bot/commands/discovery-command'
 
 dotenv.config()
 
@@ -93,6 +94,7 @@ class Main {
   private newLaunchIngestor: NewLaunchIngestor
   private launchCandidateRepository: PrismaLaunchCandidateRepository
   private launchDiscoveryDashboard: LaunchDiscoveryDashboard
+  private discoveryCommand: DiscoveryCommand
 
   private isScamMonitorEnabled(): boolean {
     return process.env.SCAM_MONITOR_ENABLED === 'true'
@@ -131,6 +133,7 @@ class Main {
     this.launchCandidateRepository = new PrismaLaunchCandidateRepository()
     this.launchDiscoveryDashboard = new LaunchDiscoveryDashboard(this.launchCandidateRepository)
     this.newLaunchIngestor = new NewLaunchIngestor(undefined, undefined, this.launchCandidateRepository)
+    this.discoveryCommand = new DiscoveryCommand(bot, this.newLaunchIngestor, this.launchCandidateRepository)
     this.tradingBotUrl = getTradingBotBaseUrl()
 
     // register routes after route dependencies are initialized
@@ -1300,6 +1303,7 @@ class Main {
     this.helpCommand.notifyHelpCommandHander()
     this.adminCommand.banWalletCommandHandler()
     this.scamWalletCommand.registerHandlers()
+    this.discoveryCommand.registerHandlers()
 
     // cron jobs
     await this.cronJobs.monthlySubscriptionFee()

@@ -1,6 +1,7 @@
 import TelegramBot from 'node-telegram-bot-api'
 import dotenv from 'dotenv'
 import { SecretRedaction } from '../lib/secret-redaction'
+import { TELEGRAM_COMMANDS } from '../config/telegram-commands'
 
 dotenv.config()
 
@@ -25,6 +26,10 @@ export const bot = (() => {
       .setWebHook(WEBHOOK_TARGET_URL, WEBHOOK_SECRET ? { secret_token: WEBHOOK_SECRET } : undefined)
       .then(() => {
         console.log(`Webhook configured successfully: ${REDACTED_WEBHOOK_TARGET_URL}`)
+        return instance.setMyCommands(TELEGRAM_COMMANDS)
+      })
+      .then(() => {
+        console.log('Telegram command menu configured successfully')
       })
       .catch((error) => {
         console.error('Error setting webhook:', SecretRedaction.safeError(error))
@@ -32,6 +37,8 @@ export const bot = (() => {
 
     return instance
   } else {
-    return new TelegramBot(BOT_TOKEN ?? '', { polling: true })
+    const instance = new TelegramBot(BOT_TOKEN ?? '', { polling: true })
+    void instance.setMyCommands(TELEGRAM_COMMANDS)
+    return instance
   }
 })()

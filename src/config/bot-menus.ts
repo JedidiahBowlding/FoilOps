@@ -19,8 +19,9 @@ export const START_MENU: InlineKeyboardMarkup = {
       { text: '🆕 Groups', callback_data: 'groups' },
       { text: '🔎 Help', callback_data: 'help' },
     ],
-    [{ text: '� Scam Intel', callback_data: 'scam_intel' }],
-    [{ text: '� Trading', callback_data: 'trading' }],
+    [{ text: '🚨 Scam Intel', callback_data: 'scam_intel' }],
+    [{ text: '💎 Discovery', callback_data: 'discovery' }],
+    [{ text: '📈 Trading', callback_data: 'trading' }],
     [{ text: '�👑 Upgrade', callback_data: 'upgrade' }],
   ],
 }

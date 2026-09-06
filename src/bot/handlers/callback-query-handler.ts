@@ -325,6 +325,38 @@ export class CallbackQueryHandler {
             },
           )
           break
+        case 'discovery':
+          this.bot.editMessageText(
+            [
+              '💎 <b>Hidden-Gem Discovery</b>',
+              '',
+              '🔎 <b>/discoveries</b> — ranked candidates across chains',
+              '🟣 <b>/discoveries solana</b> — Solana launches',
+              '🟢 <b>/robinhood</b> — Robinhood Chain contracts',
+              '🧾 <b>/candidate solana &lt;mint&gt;</b> — full evidence summary',
+              '📡 <b>/discovery_status</b> — ingestion health',
+              '🔄 <b>/discovery_scan</b> — scan now (admin)',
+              '',
+              'Candidates are research signals, not buy recommendations.',
+            ].join('\n'),
+            {
+              chat_id: chatId,
+              message_id: message.message_id,
+              parse_mode: 'HTML',
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    {
+                      text: '🌐 Open Discovery Dashboard',
+                      url: `${(process.env.APP_URL || 'https://foilops.com').replace(/\/$/, '')}/dashboard/discovery`,
+                    },
+                  ],
+                  [{ text: '🔙 Back', callback_data: 'back_to_main_menu' }],
+                ],
+              },
+            },
+          )
+          break
         case 'scam_flag_prompt':
           this.bot.editMessageText(
             '🚩 <b>Flag a Wallet</b>\n\nSend the command:\n<code>/flag_wallet &lt;wallet_address&gt; [optional reason]</code>',

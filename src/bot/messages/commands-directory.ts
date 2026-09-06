@@ -110,6 +110,18 @@ Advanced threat detection and fund flow analysis
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+<b>💎 NEW-LAUNCH DISCOVERY</b>
+Independent evidence for Solana and Robinhood Chain launches
+
+🔹 <b>/discovery</b> - Open the discovery command menu
+🔹 <b>/discoveries</b> [solana|robinhood] [limit] - Show ranked candidates
+🔹 <b>/robinhood</b> [limit] - Show Robinhood Chain candidates
+🔹 <b>/candidate</b> [chain] [address] - Show human-readable token evidence
+🔹 <b>/discovery_status</b> - Show ingestion sources and health
+🔹 <b>/discovery_scan</b> - Run all launch sources now (admin)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 <b>💰 ACCOUNT & SUBSCRIPTION</b>
 Manage your plan and support
 
@@ -211,6 +223,14 @@ Using FoilOps in Telegram groups
         '/settings': 'Configure preferences',
         '/scam_intelligence': 'Threat detection menu',
         '/help_notify': 'Notification help',
+      },
+      'Launch Discovery': {
+        '/discovery': 'Discovery menu and dashboard',
+        '/discoveries': 'Ranked multi-chain launch candidates',
+        '/robinhood': 'Robinhood Chain candidates',
+        '/candidate': 'Token evidence summary and history',
+        '/discovery_status': 'Launch ingestor health',
+        '/discovery_scan': 'Run launch scan now (admin)',
       },
       Account: {
         '/upgrade': 'View & upgrade plan',
