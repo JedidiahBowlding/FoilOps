@@ -4,6 +4,7 @@ import { PrismaLaunchCandidateRepository } from '../repositories/prisma/launch-c
 import { TokenDeepResearchService } from '../lib/token-deep-research'
 import { BaseTokenDeepResearchService } from '../lib/base-token-deep-research'
 import { BaseSwapService } from '../lib/base-swap-service'
+import { BaseLaunchWatchService } from '../lib/base-launch-watch'
 
 export function registerNewLaunchRoutes(
   app: Express,
@@ -14,6 +15,8 @@ export function registerNewLaunchRoutes(
   const deepResearch = new TokenDeepResearchService()
   const baseDeepResearch = new BaseTokenDeepResearchService()
   const baseSwap = new BaseSwapService()
+  const baseLaunchWatch = new BaseLaunchWatchService(baseSwap)
+  void baseLaunchWatch.start().catch((error) => console.error('Base launch watch failed to start', error))
   app.get('/api/discovery/status', requireApiAuth, (_req, res) => res.json(ingestor.getStatus()))
 
   app.post('/api/discovery/poll', requireApiAuth, async (_req, res) => {
@@ -66,5 +69,14 @@ export function registerNewLaunchRoutes(
   app.post('/api/base-swap/execute', requireApiAuth, async (req, res) => {
     try { res.json(await baseSwap.execute(String(req.body?.confirmationId || ''))) }
     catch (error) { res.status(400).json({ message: error instanceof Error ? error.message : 'Base swap failed' }) }
+  })
+  app.get('/api/base-swap/watches', requireApiAuth, (_req, res) => res.json({ watches: baseLaunchWatch.list() }))
+  app.post('/api/base-swap/watches', requireApiAuth, async (req, res) => {
+    try { res.status(201).json(await baseLaunchWatch.create(req.body || {})) }
+    catch (error) { res.status(400).json({ message: error instanceof Error ? error.message : 'Could not create launch watch' }) }
+  })
+  app.post('/api/base-swap/watches/:id/cancel', requireApiAuth, async (req, res) => {
+    try { res.json(await baseLaunchWatch.cancel(req.params.id)) }
+    catch (error) { res.status(404).json({ message: error instanceof Error ? error.message : 'Launch watch not found' }) }
   })
 }
