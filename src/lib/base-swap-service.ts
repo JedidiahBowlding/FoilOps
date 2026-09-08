@@ -11,7 +11,9 @@ type PendingSwap = {
 }
 
 export class BaseSwapService {
-  private readonly rpcUrl = process.env.BASE_RPC_URL?.trim() || 'https://mainnet.base.org'
+  // Keep execution isolated from high-volume research RPCs. A depleted research
+  // provider must not stall launch watches or transaction submission.
+  private readonly rpcUrl = process.env.BASE_SWAP_RPC_URL?.trim() || 'https://mainnet.base.org'
   private readonly provider = new JsonRpcProvider(this.rpcUrl, 8453, { staticNetwork: true })
   private readonly research = new BaseTokenDeepResearchService()
   private readonly pending = new Map<string, PendingSwap>()
