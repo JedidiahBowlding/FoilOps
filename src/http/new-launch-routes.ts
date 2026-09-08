@@ -1,6 +1,8 @@
 import type { Express, RequestHandler } from 'express'
 import { NewLaunchIngestor } from '../lib/new-launch-ingestor'
 import { PrismaLaunchCandidateRepository } from '../repositories/prisma/launch-candidate'
+import { TokenDeepResearchService } from '../lib/token-deep-research'
+import { BaseTokenDeepResearchService } from '../lib/base-token-deep-research'
 
 export function registerNewLaunchRoutes(
   app: Express,
@@ -8,6 +10,8 @@ export function registerNewLaunchRoutes(
   ingestor: NewLaunchIngestor,
   repository: PrismaLaunchCandidateRepository,
 ): void {
+  const deepResearch = new TokenDeepResearchService()
+  const baseDeepResearch = new BaseTokenDeepResearchService()
   app.get('/api/discovery/status', requireApiAuth, (_req, res) => res.json(ingestor.getStatus()))
 
   app.post('/api/discovery/poll', requireApiAuth, async (_req, res) => {
@@ -38,5 +42,17 @@ export function registerNewLaunchRoutes(
       return
     }
     res.json(history)
+  })
+
+  app.post('/api/discovery/research', requireApiAuth, async (req, res) => {
+    try {
+      const mint = typeof req.body?.mint === 'string' ? req.body.mint.trim() : ''
+      const chain = typeof req.body?.chain === 'string' ? req.body.chain.toLowerCase() : 'solana'
+      if (!mint) return void res.status(400).json({ message: 'mint is required' })
+      if (!['solana', 'base'].includes(chain)) return void res.status(400).json({ message: 'chain must be solana or base' })
+      res.json(chain === 'base' ? await baseDeepResearch.research(mint) : await deepResearch.research(mint))
+    } catch (error) {
+      res.status(400).json({ message: error instanceof Error ? error.message : 'Token research failed' })
+    }
   })
 }

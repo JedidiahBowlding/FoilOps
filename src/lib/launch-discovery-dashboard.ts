@@ -48,6 +48,12 @@ export class LaunchDiscoveryDashboard {
         </section>
       `,
       contentHtml: `
+        <section class="section card research-workbench">
+          <div class="section-header"><div class="section-header-copy"><p class="eyebrow">Deep investigation</p><h2>Research any Solana or Base token</h2><p class="section-subtitle">Collect controls, holders, every visible pool, LP-lock evidence, creator conflicts, protocol/DAO/NFT claims, and an evidence-weighted verdict.</p></div></div>
+          <div class="research-controls"><select id="research-chain"><option value="solana">Solana</option><option value="base">Base</option></select><input id="research-mint" placeholder="Paste a Solana mint or Base contract" autocomplete="off" spellcheck="false"><button class="fx-button" id="run-research" type="button">Investigate Token</button></div>
+          <div id="research-status" class="notice">No token investigated in this session.</div>
+          <div id="research-result"></div>
+        </section>
         <section class="viz-grid">
           <article class="card viz-card">
             <div class="viz-head"><div><p class="eyebrow">Signal composition</p><h2 class="viz-title">Candidate verdicts</h2><p class="viz-caption">How the evidence pipeline currently classifies collected launches.</p></div><span class="badge">${candidates.length} total</span></div>
@@ -119,6 +125,9 @@ export class LaunchDiscoveryDashboard {
         .legend-key { display:inline-flex;align-items:center;gap:9px; }
         .legend-dot { width:10px;height:10px;border-radius:50%;background:var(--dot);box-shadow:0 0 14px var(--dot); }
         @media (max-width:900px) { .discovery-grid { grid-template-columns:1fr; } }
+        .research-controls{display:flex;gap:10px}.research-controls input{flex:1;min-width:0}.research-controls input,.research-controls select{padding:13px 14px;border-radius:12px;border:1px solid var(--fx-line-strong);background:#091522;color:var(--fx-text)}
+        .research-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}.research-panel{padding:14px;border:1px solid var(--fx-line);border-radius:14px;background:rgba(255,255,255,.025)}.research-panel strong{display:block;font-size:1.35rem}.finding{margin-top:8px;padding:10px;border-left:3px solid var(--fx-secondary);background:rgba(255,255,255,.025)}.finding b{color:var(--fx-warning)}
+        @media(max-width:900px){.research-controls{flex-direction:column}.research-grid{grid-template-columns:1fr 1fr}}@media(max-width:520px){.research-grid{grid-template-columns:1fr}}
       `,
       scriptHtml: `
         <script>
@@ -138,6 +147,17 @@ export class LaunchDiscoveryDashboard {
               status.textContent = error.message || 'Scan failed';
               button.disabled = false;
             }
+          });
+          const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+          const money=n=>Number.isFinite(Number(n))?'$'+Number(n).toLocaleString(undefined,{maximumFractionDigits:0}):'—';
+          document.getElementById('run-research').addEventListener('click',async()=>{
+            const mint=document.getElementById('research-mint').value.trim(), chain=document.getElementById('research-chain').value, button=document.getElementById('run-research'), status=document.getElementById('research-status'), out=document.getElementById('research-result');
+            if(!mint){status.textContent='Paste a Solana mint or Base contract first.';return} button.disabled=true;status.textContent='Collecting independent evidence…';out.innerHTML='';
+            try{const response=await fetch('/api/discovery/research',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({mint,chain})});const r=await response.json();if(!response.ok)throw new Error(r.message||'Research failed');
+              status.textContent='Research completed '+new Date(r.observedAt).toLocaleString()+' · confidence '+r.scores.confidence+'%';
+              const findings=Object.entries(r.findings).map(([k,v])=>'<div class="finding"><b>'+esc(k.toUpperCase())+' · '+esc(v.status)+'</b><span>'+esc(v.summary)+'</span></div>').join('');
+              out.innerHTML='<div class="research-grid"><div class="research-panel"><span>Verdict</span><strong>'+esc(r.scores.verdict)+'</strong></div><div class="research-panel"><span>Overall risk</span><strong>'+esc(r.scores.overallRisk)+'/100</strong></div><div class="research-panel"><span>Liquidity</span><strong>'+money(r.market.liquidityUsd)+'</strong></div><div class="research-panel"><span>Top 10</span><strong>'+Number(r.holders.top10Percent).toFixed(2)+'%</strong></div></div><h3>'+esc(r.identity.name||r.mint)+' evidence dossier</h3>'+findings+'<div class="detail-grid" style="margin-top:12px"><div class="research-panel"><h3>Green flags</h3><ul class="readable-list">'+r.greenFlags.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div><div class="research-panel"><h3>Red flags</h3><ul class="readable-list">'+r.redFlags.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div></div><details style="margin-top:12px"><summary>Raw evidence and next checks</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(JSON.stringify(r,null,2))+'</pre></details>';
+            }catch(error){status.textContent=error.message||'Research failed'}finally{button.disabled=false}
           });
         </script>
       `,
