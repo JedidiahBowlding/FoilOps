@@ -20,13 +20,21 @@ const decodeString = (hex: string | null): string | undefined => {
 }
 
 export class BaseTokenDeepResearchService {
-  private readonly rpcUrl = process.env.BASE_RPC_URL?.trim() || DEFAULT_BASE_RPC
+  private readonly rpcUrls = Array.from(new Set([process.env.BASE_RPC_URL?.trim(), DEFAULT_BASE_RPC].filter(Boolean))) as string[]
 
   private async rpc<T>(method: string, params: unknown[]): Promise<T> {
-    const response = await fetch(this.rpcUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }), signal: AbortSignal.timeout(12_000) })
-    const body = await response.json() as { result?: T; error?: { message?: string } }
-    if (!response.ok || body.result === undefined || body.error) throw new Error(body.error?.message || `Base RPC ${method} failed`)
-    return body.result
+    const failures: string[] = []
+    for (const rpcUrl of this.rpcUrls) {
+      try {
+        const response = await fetch(rpcUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }), signal: AbortSignal.timeout(12_000) })
+        const body = await response.json() as { result?: T; error?: { message?: string } }
+        if (!response.ok || body.result === undefined || body.error) throw new Error(body.error?.message || `HTTP ${response.status}`)
+        return body.result
+      } catch (error) {
+        failures.push(`${new URL(rpcUrl).hostname}: ${error instanceof Error ? error.message : 'failed'}`)
+      }
+    }
+    throw new Error(`Base RPC ${method} failed (${failures.join('; ')})`)
   }
 
   private async call(to: string, data: string): Promise<string | null> {
