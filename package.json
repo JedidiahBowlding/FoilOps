@@ -4,7 +4,7 @@
   "description": "",
   "main": "dist/src/index.js",
   "scripts": {
-    "test": "vitest run",
+    "test": "vitest run --exclude 'dist/**'",
     "test:watch": "vitest",
     "start": "tsc && node ./dist/src/main.js",
     "start:test": "tsc && node ./dist/src/test.js",
@@ -33,6 +33,15 @@
   "keywords": [],
   "author": "draco",
   "packageManager": "pnpm@9.15.2",
+  "pnpm": {
+    "overrides": {
+      "form-data@<2.5.6": "2.5.6",
+      "form-data@>=4.0.0 <4.0.6": "4.0.6",
+      "path-to-regexp@<0.1.13": "0.1.13",
+      "ws@>=7.0.0 <7.5.11": "7.5.11",
+      "ws@>=8.0.0 <8.21.0": "8.21.0"
+    }
+  },
   "license": "ISC",
   "dependencies": {
     "@metaplex-foundation/mpl-token-metadata": "2.0.0",
@@ -41,13 +50,13 @@
     "@solana/spl-token": "^0.3.0",
     "@solana/spl-token-registry": "^0.2.4574",
     "@solana/web3.js": "^1.94.0",
-    "axios": "^1.7.7",
+    "axios": "^1.20.0",
     "bs58": "^6.0.0",
     "chalk": "4.1.2",
     "date-fns": "^3.6.0",
     "dotenv": "^16.4.5",
     "ethers": "^6.15.0",
-    "express": "^4.19.2",
+    "express": "^4.21.2",
     "gradient-string": "^2.0.0",
     "node-cron": "^3.0.3",
     "node-telegram-bot-api": "^0.66.0",

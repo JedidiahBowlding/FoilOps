@@ -57,6 +57,7 @@ import { PrismaLaunchCandidateRepository } from './repositories/prisma/launch-ca
 import { registerNewLaunchRoutes } from './http/new-launch-routes'
 import { LaunchDiscoveryDashboard } from './lib/launch-discovery-dashboard'
 import { DiscoveryCommand } from './bot/commands/discovery-command'
+import { rateLimit, requireSameOrigin } from './lib/http-security'
 
 dotenv.config()
 
@@ -143,13 +144,16 @@ class Main {
   }
 
   private setupMiddleware(): void {
-    this.app.use(express.json({ limit: '50mb' }))
-    this.app.use(express.urlencoded({ extended: false }))
+    this.app.disable('x-powered-by')
+    this.app.use(express.json({ limit: '1mb' }))
+    this.app.use(express.urlencoded({ extended: false, limit: '64kb' }))
     this.app.use('/showcase', express.static(path.resolve(process.cwd(), 'showcase')))
   }
 
   private setupRoutes() {
     this.dashboardAuth.registerRoutes(this.app)
+    this.app.use(requireSameOrigin())
+    this.app.use('/api', rateLimit({ windowMs: 60_000, max: 120, label: 'api' }))
     registerNewLaunchRoutes(
       this.app,
       this.dashboardAuth.requireApiAuth,
@@ -1281,7 +1285,8 @@ class Main {
   }
 
   private startServer(): void {
-    this.app.listen(PORT, () =>
+    const host = process.env.HOST?.trim() || '127.0.0.1'
+    this.app.listen(Number(PORT), host, () =>
       console.log(`${chalk.bold.white.bgMagenta(`Server running on http://localhost:${PORT}`)}`),
     )
   }

@@ -1058,7 +1058,12 @@ function scoreBadge(n, invert) {
 
 function classBadge(c) {
   if (!c) return ''
-  return \`<span class="tag \${c}">\${c.replace(/_/g,' ')}</span>\`
+  const safeClass = String(c).replace(/[^A-Za-z0-9_-]/g, '')
+  return \`<span class="tag \${safeClass}">\${escapeHtml(String(c).replace(/_/g,' '))}</span>\`
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[ch])
 }
 
 function fmtDelay(secs) {
@@ -1128,7 +1133,7 @@ async function loadTopWallets(params) {
       <td>\${scoreBadge(w.riskScore, true)}</td>
       <td>\${classBadge(w.classification)}</td>
       <td>\${fmtDelay(w.entryTimingAvgSeconds)}</td>
-      <td style="color:var(--muted);font-size:.72rem">\${w.lastSeenPlatform || '—'}</td>
+      <td style="color:var(--muted);font-size:.72rem">\${escapeHtml(w.lastSeenPlatform || '—')}</td>
       <td><button onclick="openWalletDetail('\${w.walletAddress}')" style="background:none;border:1px solid var(--accent2);color:var(--accent2);border-radius:5px;padding:.18rem .45rem;cursor:pointer;font-size:.68rem">View</button></td>
     </tr>\`).join('')
 }
@@ -1149,7 +1154,7 @@ async function loadHighRiskWallets() {
       <td>\${scoreBadge(w.riskScore, true)}</td>
       <td>\${scoreBadge(w.opportunityScore, false)}</td>
       <td>\${classBadge(w.classification)}</td>
-      <td style="font-size:.7rem;color:var(--muted)">\${(w.tags||[]).slice(0,2).join(', ') || '—'}</td>
+      <td style="font-size:.7rem;color:var(--muted)">\${escapeHtml((w.tags||[]).slice(0,2).join(', ') || '—')}</td>
       <td><button onclick="openWalletDetail('\${w.walletAddress}')" style="background:none;border:1px solid var(--accent);color:var(--accent);border-radius:5px;padding:.18rem .45rem;cursor:pointer;font-size:.68rem">View</button></td>
     </tr>\`).join('')
 }
@@ -1196,7 +1201,7 @@ async function loadFeed() {
           <button onclick="openWalletDetail('\${l.walletAddress}')" style="background:none;border:1px solid var(--accent2);color:var(--accent2);border-radius:5px;padding:.14rem .4rem;cursor:pointer;font-size:.65rem">View</button>
         </div>
       </td>
-      <td style="color:var(--muted);font-size:.72rem">\${l.platform || '—'}</td>
+      <td style="color:var(--muted);font-size:.72rem">\${escapeHtml(l.platform || '—')}</td>
       <td>\${fmtDelay(l.entryDelaySeconds)}</td>
       <td>\${fmtDelay(l.exitDelaySeconds)}</td>
       <td style="color:var(--muted);font-size:.72rem">\${fmtDate(l.participatedAt)}</td>
@@ -1342,12 +1347,12 @@ async function openWalletDetail(addr) {
       return \`<div class="score-card"><div class="sc-label">\${label}</div><div class="sc-value" style="color:\${cls}">\${v ?? '—'}</div></div>\`
     }).join('')
 
-    const tagsHtml = (d.tags || []).map(t => \`<span class="tag WATCHLIST">\${t}</span>\`).join('')
+    const tagsHtml = (d.tags || []).map(t => \`<span class="tag WATCHLIST">\${escapeHtml(t)}</span>\`).join('')
 
     const launchRows = (d.launchRecords || []).slice(0,20).map(l => \`
       <tr>
         <td style="font-size:.72rem;font-family:monospace"><a class="addr" href="https://solscan.io/token/\${l.tokenAddress}" target="_blank" rel="noopener noreferrer">\${abbr(l.tokenAddress)}</a></td>
-        <td style="color:var(--muted)">\${l.platform||'—'}</td>
+        <td style="color:var(--muted)">\${escapeHtml(l.platform||'—')}</td>
         <td>\${fmtDelay(l.entryDelaySeconds)}</td>
         <td>\${fmtDelay(l.exitDelaySeconds)}</td>
         <td style="color:var(--muted);font-size:.7rem">\${fmtDate(new Date(l.entryTimestamp).toISOString())}</td>
@@ -1356,7 +1361,7 @@ async function openWalletDetail(addr) {
     const clusterRows = (d.clusterEdges || []).slice(0,10).map(e => \`
       <tr>
         <td style="font-size:.72rem;font-family:monospace"><a class="addr" href="https://solscan.io/account/\${e.targetWallet !== addr ? e.targetWallet : e.sourceWallet}" target="_blank" rel="noopener noreferrer">\${abbr(e.targetWallet !== addr ? e.targetWallet : e.sourceWallet)}</a></td>
-        <td style="color:var(--muted)">\${e.linkType||'—'}</td>
+        <td style="color:var(--muted)">\${escapeHtml(e.linkType||'—')}</td>
         <td>\${scoreBadge(Math.round(e.confidence*100), true)}</td>
       </tr>\`).join('')
 
@@ -1429,9 +1434,9 @@ async function openTokenDetail(addr) {
 
     const eventRows = (d.events || []).slice(0,20).map(ev => \`
       <tr>
-        <td style="color:var(--muted);font-size:.72rem">\${ev.eventType||'—'}</td>
+        <td style="color:var(--muted);font-size:.72rem">\${escapeHtml(ev.eventType||'—')}</td>
         <td style="font-size:.72rem;font-family:monospace"><a class="addr" href="https://solscan.io/account/\${ev.walletAddress}" target="_blank" rel="noopener noreferrer">\${abbr(ev.walletAddress)}</a></td>
-        <td style="color:var(--muted);font-size:.72rem">\${ev.details||'—'}</td>
+        <td style="color:var(--muted);font-size:.72rem">\${escapeHtml(ev.details||'—')}</td>
         <td style="color:var(--muted);font-size:.72rem">\${fmtDate(new Date(ev.timestamp).toISOString())}</td>
       </tr>\`).join('')
 

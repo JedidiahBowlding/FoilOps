@@ -393,13 +393,9 @@ export class DashboardAuth {
   }
 
   private getClientKey(req: Request): string {
-    const forwarded = req.headers['x-forwarded-for']
-    if (typeof forwarded === 'string' && forwarded.trim()) {
-      return forwarded.split(',')[0].trim()
-    }
-    if (Array.isArray(forwarded) && forwarded.length > 0) {
-      return String(forwarded[0]).trim()
-    }
+    const socketAddress = req.socket.remoteAddress || ''
+    const realIp = req.get('x-real-ip')?.trim()
+    if ((socketAddress === '127.0.0.1' || socketAddress === '::1' || socketAddress === '::ffff:127.0.0.1') && realIp) return realIp
     return req.ip || req.socket.remoteAddress || 'unknown'
   }
 

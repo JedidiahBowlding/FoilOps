@@ -5,6 +5,7 @@ import { TokenDeepResearchService } from '../lib/token-deep-research'
 import { BaseTokenDeepResearchService } from '../lib/base-token-deep-research'
 import { BaseSwapService } from '../lib/base-swap-service'
 import { BaseLaunchWatchService } from '../lib/base-launch-watch'
+import { rateLimit } from '../lib/http-security'
 
 export function registerNewLaunchRoutes(
   app: Express,
@@ -16,10 +17,11 @@ export function registerNewLaunchRoutes(
   const baseDeepResearch = new BaseTokenDeepResearchService()
   const baseSwap = new BaseSwapService()
   const baseLaunchWatch = new BaseLaunchWatchService(baseSwap)
+  const expensiveRequestLimit = rateLimit({ windowMs: 60_000, max: 20, label: 'discovery-expensive' })
   void baseLaunchWatch.start().catch((error) => console.error('Base launch watch failed to start', error))
   app.get('/api/discovery/status', requireApiAuth, (_req, res) => res.json(ingestor.getStatus()))
 
-  app.post('/api/discovery/poll', requireApiAuth, async (_req, res) => {
+  app.post('/api/discovery/poll', requireApiAuth, expensiveRequestLimit, async (_req, res) => {
     res.json(await ingestor.pollOnce())
   })
 
@@ -49,7 +51,7 @@ export function registerNewLaunchRoutes(
     res.json(history)
   })
 
-  app.post('/api/discovery/research', requireApiAuth, async (req, res) => {
+  app.post('/api/discovery/research', requireApiAuth, expensiveRequestLimit, async (req, res) => {
     try {
       const mint = typeof req.body?.mint === 'string' ? req.body.mint.trim() : ''
       const chain = typeof req.body?.chain === 'string' ? req.body.chain.toLowerCase() : 'solana'
@@ -62,7 +64,7 @@ export function registerNewLaunchRoutes(
   })
 
   app.get('/api/base-swap/status', requireApiAuth, (_req, res) => res.json(baseSwap.status()))
-  app.post('/api/base-swap/quote', requireApiAuth, async (req, res) => {
+  app.post('/api/base-swap/quote', requireApiAuth, expensiveRequestLimit, async (req, res) => {
     try { res.json(await baseSwap.quote(req.body || {})) }
     catch (error) { res.status(400).json({ message: error instanceof Error ? error.message : 'Base quote failed' }) }
   })

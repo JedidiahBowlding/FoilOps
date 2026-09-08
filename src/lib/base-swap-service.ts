@@ -1,8 +1,11 @@
 import { randomUUID } from 'crypto'
+import { appendFile, chmod } from 'fs/promises'
+import path from 'path'
 import { Contract, JsonRpcProvider, Wallet, formatUnits, getAddress, isAddress, parseUnits } from 'ethers'
 import { BaseTokenDeepResearchService } from './base-token-deep-research'
 
 const NATIVE = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
+const BASE_ALLOWANCE_HOLDER = '0x0000000000001ff3684f28c67538d4d072c22734'
 const ERC20_ABI = ['function decimals() view returns (uint8)', 'function symbol() view returns (string)', 'function balanceOf(address) view returns (uint256)', 'function allowance(address,address) view returns (uint256)', 'function approve(address,uint256) returns (bool)']
 
 type PendingSwap = {
@@ -17,6 +20,7 @@ export class BaseSwapService {
   private readonly provider = new JsonRpcProvider(this.rpcUrl, 8453, { staticNetwork: true })
   private readonly research = new BaseTokenDeepResearchService()
   private readonly pending = new Map<string, PendingSwap>()
+  private executing = false
 
   status() {
     const key = process.env.BASE_EXECUTION_PRIVATE_KEY?.trim()
@@ -58,10 +62,13 @@ export class BaseSwapService {
   }
 
   async execute(confirmationId: string) {
+    if (this.executing) throw new Error('Another Base transaction is currently executing')
     if (!this.status().enabled) throw new Error('Base live swaps are disabled')
     const pending = this.pending.get(confirmationId)
     if (!pending || pending.expiresAt < Date.now()) throw new Error('Confirmation expired; request a new quote')
     this.pending.delete(confirmationId)
+    this.executing = true
+    try {
     const wallet = this.wallet().connect(this.provider)
     const network = await this.provider.getNetwork()
     if (Number(network.chainId) !== 8453) throw new Error('Execution RPC is not Base mainnet')
@@ -69,6 +76,8 @@ export class BaseSwapService {
     let approvalHash: string | null = null
     if (pending.sellToken !== NATIVE) {
       if (!spender || !isAddress(spender)) throw new Error('Quote did not provide a verified allowance spender')
+      if (spender.toLowerCase() !== BASE_ALLOWANCE_HOLDER) throw new Error('Quote returned an untrusted Base allowance target')
+      if (String(pending.quote?.transaction?.to || '').toLowerCase() !== BASE_ALLOWANCE_HOLDER) throw new Error('Quote returned an unexpected AllowanceHolder entry point')
       const token = new Contract(pending.sellToken, ERC20_ABI, wallet)
       const allowance: bigint = await token.allowance(wallet.address, spender)
       if (allowance < pending.sellAmount) {
@@ -78,11 +87,20 @@ export class BaseSwapService {
       }
     }
     const tx = pending.quote.transaction
+    if (!isAddress(tx.to) || (await this.provider.getCode(tx.to)) === '0x') throw new Error('Quote transaction target is not a deployed Base contract')
     const request = { to: getAddress(tx.to), data: tx.data, value: BigInt(tx.value || 0), gasLimit: tx.gas ? BigInt(tx.gas) : undefined, gasPrice: tx.gasPrice ? BigInt(tx.gasPrice) : undefined }
     await this.provider.call({ ...request, from: wallet.address })
     const sent = await wallet.sendTransaction(request)
     const receipt = await sent.wait(1)
-    return { status: receipt?.status === 1 ? 'executed' : 'failed', chain: 'base', transactionHash: sent.hash, approvalHash, blockNumber: receipt?.blockNumber || null, sellToken: pending.sellToken, buyToken: pending.buyToken, sellAmount: formatUnits(pending.sellAmount, pending.sellDecimals), expectedBuyAmount: formatUnits(BigInt(pending.quote.buyAmount || 0), pending.buyDecimals) }
+    const result = { status: receipt?.status === 1 ? 'executed' : 'failed', chain: 'base', transactionHash: sent.hash, approvalHash, blockNumber: receipt?.blockNumber || null, sellToken: pending.sellToken, buyToken: pending.buyToken, sellAmount: formatUnits(pending.sellAmount, pending.sellDecimals), expectedBuyAmount: formatUnits(BigInt(pending.quote.buyAmount || 0), pending.buyDecimals) }
+    await this.audit({ timestamp: new Date().toISOString(), confirmationId, ...result })
+    return result
+    } catch (error) {
+      await this.audit({ timestamp: new Date().toISOString(), confirmationId, status: 'error', sellToken: pending.sellToken, buyToken: pending.buyToken, message: error instanceof Error ? error.message : 'Unknown execution error' })
+      throw error
+    } finally {
+      this.executing = false
+    }
   }
 
   private wallet() { const key = process.env.BASE_EXECUTION_PRIVATE_KEY?.trim(); if (!key) throw new Error('BASE_EXECUTION_PRIVATE_KEY is not configured'); try { return new Wallet(key) } catch { throw new Error('BASE_EXECUTION_PRIVATE_KEY is invalid') } }
@@ -90,4 +108,5 @@ export class BaseSwapService {
   private token(value: string) { const token = value.trim().toLowerCase(); if (['eth', 'native'].includes(token)) return NATIVE; if (!isAddress(token)) throw new Error('Token must be ETH or a valid Base contract address'); return token }
   private async metadata(token: string) { if (token === NATIVE) return { symbol: 'ETH', decimals: 18 }; const contract = new Contract(token, ERC20_ABI, this.provider); const [symbol, decimals] = await Promise.all([contract.symbol(), contract.decimals()]); return { symbol: String(symbol), decimals: Number(decimals) } }
   private cleanup() { const now = Date.now(); for (const [id, item] of this.pending) if (item.expiresAt < now) this.pending.delete(id) }
+  private async audit(entry: Record<string, unknown>) { const file = path.resolve(process.cwd(), 'data/base-swap-audit.jsonl'); await appendFile(file, `${JSON.stringify(entry)}\n`, { mode: 0o600 }); await chmod(file, 0o600) }
 }

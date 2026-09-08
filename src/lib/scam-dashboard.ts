@@ -216,9 +216,10 @@ export class ScamDashboard {
 
           const relatedTokens = Array.isArray(payload.relatedTokens) ? payload.relatedTokens.join(', ') : 'none recorded'
           const traceSteps = payload.trace && Array.isArray(payload.trace.steps) ? payload.trace.steps.length : 0
-          tokenInvestigationResult.innerHTML = '<strong>Developer wallet:</strong> ' + payload.developerWallet
-            + '<br /><strong>Resolution source:</strong> ' + payload.resolutionSource
-            + '<br /><strong>Related tokens:</strong> ' + relatedTokens
+          const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[ch])
+          tokenInvestigationResult.innerHTML = '<strong>Developer wallet:</strong> ' + escapeHtml(payload.developerWallet)
+            + '<br /><strong>Resolution source:</strong> ' + escapeHtml(payload.resolutionSource)
+            + '<br /><strong>Related tokens:</strong> ' + escapeHtml(relatedTokens)
             + '<br /><strong>Trace steps:</strong> ' + traceSteps
             + '<br /><strong>Graph view:</strong> <a href="/graph/' + encodeURIComponent(payload.developerWallet) + '">Open wallet graph</a>'
           setInvestigationStatus('Token investigation completed and scam monitoring refreshed.')
