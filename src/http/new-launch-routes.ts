@@ -3,6 +3,7 @@ import { NewLaunchIngestor } from '../lib/new-launch-ingestor'
 import { PrismaLaunchCandidateRepository } from '../repositories/prisma/launch-candidate'
 import { TokenDeepResearchService } from '../lib/token-deep-research'
 import { BaseTokenDeepResearchService } from '../lib/base-token-deep-research'
+import { BaseSwapService } from '../lib/base-swap-service'
 
 export function registerNewLaunchRoutes(
   app: Express,
@@ -12,6 +13,7 @@ export function registerNewLaunchRoutes(
 ): void {
   const deepResearch = new TokenDeepResearchService()
   const baseDeepResearch = new BaseTokenDeepResearchService()
+  const baseSwap = new BaseSwapService()
   app.get('/api/discovery/status', requireApiAuth, (_req, res) => res.json(ingestor.getStatus()))
 
   app.post('/api/discovery/poll', requireApiAuth, async (_req, res) => {
@@ -54,5 +56,15 @@ export function registerNewLaunchRoutes(
     } catch (error) {
       res.status(400).json({ message: error instanceof Error ? error.message : 'Token research failed' })
     }
+  })
+
+  app.get('/api/base-swap/status', requireApiAuth, (_req, res) => res.json(baseSwap.status()))
+  app.post('/api/base-swap/quote', requireApiAuth, async (req, res) => {
+    try { res.json(await baseSwap.quote(req.body || {})) }
+    catch (error) { res.status(400).json({ message: error instanceof Error ? error.message : 'Base quote failed' }) }
+  })
+  app.post('/api/base-swap/execute', requireApiAuth, async (req, res) => {
+    try { res.json(await baseSwap.execute(String(req.body?.confirmationId || ''))) }
+    catch (error) { res.status(400).json({ message: error instanceof Error ? error.message : 'Base swap failed' }) }
   })
 }
