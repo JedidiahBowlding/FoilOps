@@ -7,7 +7,7 @@ export function renderHomepageHtml(): string {
     description: 'FOILOPS combines crypto wallet monitoring, token discovery, contract research, fund-flow intelligence, and guarded execution in one institutional terminal.',
     canonicalPath: '/',
     indexable: true,
-    extraStyles: `.feature-symbol{display:grid;place-items:center;width:52px;height:52px;margin-bottom:18px;border:1px solid rgba(103,232,249,.22);border-radius:12px;background:linear-gradient(145deg,rgba(103,232,249,.12),rgba(139,92,246,.08));color:var(--fx-primary);font-size:1.55rem;box-shadow:0 12px 34px rgba(0,0,0,.18)}`,
+    extraStyles: `.hero-brand-lockup{display:flex;align-items:center;gap:14px;margin-bottom:18px}.hero-brand-lockup img{width:82px;height:82px;object-fit:cover;border-radius:18px;border:1px solid rgba(103,232,249,.22);box-shadow:0 14px 36px rgba(0,0,0,.3),0 0 28px rgba(103,232,249,.1)}.hero-brand-lockup div{display:grid;gap:4px}.hero-brand-lockup strong{font-size:1.1rem;letter-spacing:.12em}.hero-brand-lockup span{color:var(--fx-muted);font-size:.78rem}.feature-symbol{display:grid;place-items:center;width:52px;height:52px;margin-bottom:18px;border:1px solid rgba(103,232,249,.22);border-radius:12px;background:linear-gradient(145deg,rgba(103,232,249,.12),rgba(139,92,246,.08));color:var(--fx-primary);font-size:1.55rem;box-shadow:0 12px 34px rgba(0,0,0,.18)}`,
     activeNav: 'home',
     headerActionsHtml: `
       <a class="fx-button secondary" href="https://t.me/${BOT_USERNAME}" target="_blank" rel="noopener noreferrer">Open Telegram Bot</a>
@@ -16,6 +16,7 @@ export function renderHomepageHtml(): string {
     heroHtml: `
       <section class="fx-hero-grid">
         <article class="panel">
+          <div class="hero-brand-lockup"><img src="/showcase/FoilOps_emblem_v2.webp" alt="FOILOPS wallet security emblem" width="82" height="82" /><div><strong>FOIL<span style="color:var(--fx-primary)">OPS</span></strong><span>On-chain intelligence terminal</span></div></div>
           <p class="fx-eyebrow">Real-time monitoring and operator control</p>
           <h1>FoilOps maps wallets before the market catches up.</h1>
           <p class="fx-lead">FoilOps is a Telegram-first intelligence layer for monitoring wallets, investigating suspicious launches, tracing fund flows, and supervising guarded copy-trade execution. It connects live Solana collection, rule-based risk context, operator review, and controlled downstream trading into a single console.</p>

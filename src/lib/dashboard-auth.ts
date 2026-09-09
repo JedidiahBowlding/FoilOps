@@ -588,6 +588,7 @@ export class DashboardAuth {
         .login-panel { min-height: 100%; }
         .login-grid { margin-top: 24px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
         .login-panel form { display:grid; gap:14px; }
+        .login-brand { width:104px; height:104px; display:block; margin:0 auto 16px; object-fit:cover; border-radius:22px; border:1px solid rgba(103,232,249,.22); box-shadow:0 18px 42px rgba(0,0,0,.32),0 0 28px rgba(103,232,249,.1); }
         @media (max-width: 920px) { .login-shell { grid-template-columns:1fr; } .login-grid { grid-template-columns:1fr; } }
       `,
       contentHtml: `
@@ -599,6 +600,7 @@ export class DashboardAuth {
 
           </article>
           <article class="panel login-panel">
+            <img class="login-brand" src="/showcase/FoilOps_emblem_v2.webp" alt="FOILOPS wallet security emblem" width="104" height="104" />
             ${alertMarkup}
             <form method="post" action="${formAction}">
               <input type="hidden" name="next" value="${options.nextTarget || ''}" />
