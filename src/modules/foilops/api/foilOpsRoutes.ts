@@ -620,33 +620,42 @@ function renderFoilOpsDashboard(): string {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>FoilOps — Launch Intelligence</title>
+  <meta name="robots" content="noindex, nofollow, noarchive" />
+  <meta name="theme-color" content="#030611" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <style>
     :root {
-      --bg: #080508;
-      --panel: rgba(20,5,7,.85);
-      --ink: #f8eded;
-      --muted: #b89898;
-      --accent: #ff2233;
-      --accent2: #ff7744;
-      --border: rgba(255,40,60,.18);
-      --success: #00e676;
-      --warning: #ffbc68;
-      --risk: #ff7744;
+      color-scheme: dark;
+      --bg: #030611;
+      --panel: #0b1220;
+      --panel-strong: #101827;
+      --ink: #effaff;
+      --muted: #8fa8bd;
+      --accent: #fb7185;
+      --brand: #67e8f9;
+      --accent2: #8b5cf6;
+      --border: rgba(103,232,249,.14);
+      --success: #34d399;
+      --warning: #fbbf24;
+      --risk: #fb7185;
+      --danger: #fb7185;
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: var(--bg); color: var(--ink); font-family: "Space Grotesk", "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif; min-height: 100vh; }
+    body { background:radial-gradient(circle at 14% -10%,rgba(34,211,238,.14),transparent 30rem),radial-gradient(circle at 90% 8%,rgba(139,92,246,.12),transparent 34rem),linear-gradient(180deg,var(--bg),#050b17 46%,#030611); color: var(--ink); font-family: "Space Grotesk", "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif; min-height: 100vh; }
 
     /* ── Top bar ── */
     .topbar {
       display: flex; align-items: center; justify-content: space-between;
-      padding: .75rem 2rem; background: var(--panel); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100;
+      width:min(calc(100% - 32px),1600px);margin:16px auto 0;padding:.75rem 1rem;background:rgba(11,18,32,.94);border:1px solid var(--border);border-radius:12px;position:sticky;top:12px;z-index:100;box-shadow:0 10px 30px rgba(0,0,0,.22);backdrop-filter:blur(18px);
     }
-    .topbar h1 { font-size: 1rem; font-weight: 800; letter-spacing: .06em; color: var(--accent); }
-    .topbar nav a { color: var(--muted); text-decoration: none; margin-left: 1.4rem; font-size: .8rem; transition: color .12s; }
-    .topbar nav a:hover, .topbar nav a.active { color: var(--ink); }
+    .topbar h1 { display:flex;align-items:center;gap:.65rem;font-size:1rem;font-weight:800;letter-spacing:.06em;color:var(--ink); }
+    .topbar h1 img{width:34px;height:34px;border-radius:9px}.brand-ops{color:var(--brand)}
+    .topbar nav{display:flex;align-items:center;gap:.35rem}.topbar nav a { color:var(--muted);text-decoration:none;margin:0;padding:.62rem .78rem;border-radius:8px;font-size:.8rem;transition:color .12s,background .12s; }
+    .topbar nav a:hover, .topbar nav a.active { color:var(--ink);background:rgba(103,232,249,.07); }
 
     /* ── Layout ── */
-    .content { max-width: 1280px; margin: 0 auto; padding: 1.5rem 1.5rem 4rem; }
+    .content { max-width: 1600px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+    .intel-hero{display:flex;justify-content:space-between;align-items:flex-end;gap:2rem;padding:1rem 0 2rem}.intel-hero .eyebrow{color:var(--brand);font-size:.7rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase}.intel-hero h2{margin:.5rem 0;font-size:clamp(2rem,5vw,4.4rem);letter-spacing:-.045em}.intel-hero p{max-width:760px;color:var(--muted);line-height:1.65}.network-state{padding:.55rem .7rem;border-radius:8px;background:rgba(52,211,153,.08);color:var(--success);font-size:.72rem;font-weight:700;white-space:nowrap}
 
     /* ── Summary stats ── */
     .stats-bar { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
@@ -657,7 +666,7 @@ function renderFoilOpsDashboard(): string {
     .stat-card .label { font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: .3rem; }
     .stat-card .value { font-size: 1.6rem; font-weight: 800; }
     .stat-card .value.green { color: var(--success); }
-    .stat-card .value.red   { color: var(--accent); }
+    .stat-card .value.red   { color: var(--danger); }
     .stat-card .value.orange { color: var(--risk); }
     .stat-card .value.blue  { color: var(--accent2); }
 
@@ -679,7 +688,7 @@ function renderFoilOpsDashboard(): string {
       background: var(--accent2); border: none; border-radius: 7px; color: #fff;
       font-weight: 700; font-size: .8rem; padding: .5rem 1.2rem; cursor: pointer; align-self: flex-end;
     }
-    .filter-bar .apply-btn:hover { background: #e96230; }
+    .filter-bar .apply-btn:hover { background: #7c4ee4; }
     .range-val { font-size: .75rem; color: var(--ink); }
 
     /* ── Panels grid ── */
@@ -696,9 +705,9 @@ function renderFoilOpsDashboard(): string {
     .panel-header h2 { font-size: .88rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
     .panel-header .pill {
       font-size: .68rem; font-weight: 700; padding: .2rem .5rem; border-radius: 20px;
-      background: rgba(255,119,68,.15); color: var(--accent2); border: 1px solid rgba(255,119,68,.3);
+      background: rgba(139,92,246,.12); color: #b8a0ff; border: 1px solid rgba(139,92,246,.28);
     }
-    .panel-header .pill.danger { background: rgba(255,45,45,.1); color: var(--accent); border-color: rgba(255,45,45,.3); }
+    .panel-header .pill.danger { background: rgba(255,45,45,.1); color: var(--danger); border-color: rgba(251,113,133,.3); }
     .panel-header .pill.ok { background: rgba(0,230,118,.12); color: var(--success); border-color: rgba(0,230,118,.3); }
 
     .mint-discovery-controls {
@@ -719,8 +728,8 @@ function renderFoilOpsDashboard(): string {
       padding: .52rem .95rem; cursor: pointer;
     }
     .mint-discovery-controls .actions button[disabled] { opacity: .5; cursor: not-allowed; }
-    .mint-discovery-controls .run-lite { background: #ff7744; }
-    .mint-discovery-controls .run-full { background: #ff2233; }
+    .mint-discovery-controls .run-lite { background: #0891b2; }
+    .mint-discovery-controls .run-full { background: #7c3aed; }
     .mint-meta {
       padding: .7rem 1rem; color: var(--muted); font-size: .77rem; border-bottom: 1px solid rgba(255,255,255,.04);
       display: flex; flex-wrap: wrap; gap: .8rem;
@@ -729,7 +738,7 @@ function renderFoilOpsDashboard(): string {
     /* ── Tables ── */
     .table-wrap { overflow-x: auto; max-height: 340px; overflow-y: auto; }
     table { width: 100%; border-collapse: collapse; font-size: .78rem; }
-    th { position: sticky; top: 0; background: rgba(16,5,7,.95); text-align: left; padding: .5rem .8rem; font-size: .66rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+    th { position: sticky; top: 0; background: rgba(10,20,36,.98); text-align: left; padding: .5rem .8rem; font-size: .66rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
     td { padding: .48rem .8rem; border-bottom: 1px solid rgba(255,255,255,.04); vertical-align: middle; }
     tr:hover td { background: rgba(255,255,255,.03); }
     .addr { font-family: monospace; font-size: .74rem; color: var(--ink); cursor: pointer; text-decoration: underline dotted; }
@@ -741,9 +750,9 @@ function renderFoilOpsDashboard(): string {
       padding: .15rem .45rem; border-radius: 5px; min-width: 34px; text-align: center;
     }
     .badge.green { background: rgba(0,230,118,.15); color: var(--success); }
-    .badge.blue  { background: rgba(255,119,68,.15); color: var(--accent2); }
+    .badge.blue  { background: rgba(103,232,249,.10); color: var(--brand); }
     .badge.orange{ background: rgba(255,107,53,.15);  color: var(--risk); }
-    .badge.red   { background: rgba(255,45,45,.15);   color: var(--accent); }
+    .badge.red   { background: rgba(255,45,45,.15);   color: var(--danger); }
     .badge.grey  { background: rgba(255,255,255,.07); color: var(--muted); }
 
     /* ── Classification tags ── */
@@ -752,8 +761,8 @@ function renderFoilOpsDashboard(): string {
       padding: .12rem .4rem; border-radius: 4px; text-transform: uppercase; white-space: nowrap;
     }
     .tag.EARLY_ENTRANT  { background: rgba(0,230,118,.12); color: var(--success); }
-    .tag.MOMENTUM_WALLET { background: rgba(255,119,68,.12); color: var(--accent2); }
-    .tag.HIGH_RISK      { background: rgba(255,45,45,.12);   color: var(--accent); }
+    .tag.MOMENTUM_WALLET { background: rgba(139,92,246,.12); color: #b8a0ff; }
+    .tag.HIGH_RISK      { background: rgba(255,45,45,.12);   color: var(--danger); }
     .tag.WATCHLIST      { background: rgba(255,179,0,.12);   color: var(--warning); }
     .tag.IGNORE         { background: rgba(255,255,255,.05); color: var(--muted); }
     .tag.SAFER_SPECULATIVE { background: rgba(0,230,118,.12); color: var(--success); }
@@ -773,7 +782,7 @@ function renderFoilOpsDashboard(): string {
     }
     .modal-overlay.open { display: flex; }
     .modal {
-      background: #130608; border: 1px solid var(--border); border-radius: 14px;
+      background: var(--panel-strong); border: 1px solid var(--border); border-radius: 12px;
       width: min(860px, 95vw); max-height: 90vh; overflow-y: auto; padding: 1.5rem;
     }
     .modal h2 { font-size: 1rem; font-weight: 800; margin-bottom: 1rem; color: var(--accent2); }
@@ -796,18 +805,19 @@ function renderFoilOpsDashboard(): string {
     /* ── Loader ── */
     .spin {
       display: inline-block; width: 14px; height: 14px;
-      border: 2px solid rgba(255,255,255,.15); border-top-color: var(--accent);
+      border: 2px solid rgba(255,255,255,.15); border-top-color: var(--danger);
       border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle; margin-right: .4rem;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
     /* ── Mobile ── */
     @media (max-width: 720px) {
-      .topbar { flex-wrap: wrap; padding: .65rem 1rem; gap: .4rem; }
+      .topbar { width:calc(100% - 24px);flex-wrap:wrap;padding:.65rem 1rem;gap:.4rem;top:8px; }
       .topbar nav { width: 100%; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
       .topbar nav::-webkit-scrollbar { display: none; }
       .topbar nav a { margin-left: 0; margin-right: .9rem; }
       .content { padding: 1rem .75rem 3rem; }
+      .intel-hero{align-items:flex-start;flex-direction:column;gap:1rem}.intel-hero h2{font-size:clamp(2rem,11vw,3.2rem)}
       .filter-bar { flex-direction: column; }
       .filter-bar .field { width: 100%; }
       .filter-bar input[type=range],
@@ -829,17 +839,23 @@ function renderFoilOpsDashboard(): string {
 <body>
 
 <div class="topbar">
-  <h1>FOILOPS</h1>
+  <h1><img src="/favicon.svg" alt="" width="34" height="34" /><span>FOIL<span class="brand-ops">OPS</span></span></h1>
   <nav>
-    <a href="/">Overview</a>
-    <a href="/dashboard/trading-ops">Trading Ops</a>
-    <a href="/dashboard/scam-wallets">Scam Intel</a>
+    <a href="/dashboard/discovery">Discovery</a>
+    <a href="/dashboard/research">Research</a>
+    <a href="/dashboard/execution">Trade</a>
     <a href="/dashboard/foilops" class="active">Intelligence</a>
+    <a href="/dashboard/execution-wallets">Wallets</a>
     <a href="/logout">Logout</a>
   </nav>
 </div>
 
 <div class="content">
+
+  <section class="intel-hero">
+    <div><div class="eyebrow">On-chain intelligence workspace</div><h2>Intelligence</h2><p>Investigate early entrants, wallet clusters, token risk, and launch participation from one evidence-driven command surface.</p></div>
+    <span class="network-state">● LIVE DATA</span>
+  </section>
 
   <!-- ── Summary stats bar ─────────────────────────────────────── -->
   <div class="stats-bar" id="stats-bar">
@@ -1155,7 +1171,7 @@ async function loadHighRiskWallets() {
       <td>\${scoreBadge(w.opportunityScore, false)}</td>
       <td>\${classBadge(w.classification)}</td>
       <td style="font-size:.7rem;color:var(--muted)">\${escapeHtml((w.tags||[]).slice(0,2).join(', ') || '—')}</td>
-      <td><button onclick="openWalletDetail('\${w.walletAddress}')" style="background:none;border:1px solid var(--accent);color:var(--accent);border-radius:5px;padding:.18rem .45rem;cursor:pointer;font-size:.68rem">View</button></td>
+      <td><button onclick="openWalletDetail('\${w.walletAddress}')" style="background:none;border:1px solid var(--brand);color:var(--brand);border-radius:7px;padding:.3rem .55rem;cursor:pointer;font-size:.68rem">View</button></td>
     </tr>\`).join('')
 }
 
@@ -1178,7 +1194,7 @@ async function loadHighRiskTokens() {
       <td style="color:var(--muted)">\${t.top10HolderPercent != null ? t.top10HolderPercent.toFixed(1)+'%' : '—'}</td>
       <td style="color:var(--muted)">\${t.liquidityUsd != null ? '$'+t.liquidityUsd.toLocaleString() : '—'}</td>
       <td style="color:var(--muted)">\${t.eventCount ?? '—'}</td>
-      <td><button onclick="openTokenDetail('\${t.tokenAddress}')" style="background:none;border:1px solid var(--accent);color:var(--accent);border-radius:5px;padding:.18rem .45rem;cursor:pointer;font-size:.68rem">Detail</button></td>
+      <td><button onclick="openTokenDetail('\${t.tokenAddress}')" style="background:none;border:1px solid var(--brand);color:var(--brand);border-radius:7px;padding:.3rem .55rem;cursor:pointer;font-size:.68rem">Detail</button></td>
     </tr>\`).join('')
 }
 
