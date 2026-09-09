@@ -18,6 +18,7 @@ describe('responsive site navigation', () => {
 
     expect(html).toContain('rel="icon" href="/favicon.svg"')
     expect(html).toContain('<img src="/favicon.svg" alt="" width="34" height="34" />')
+    expect(html).toContain('<span class="fx-logo-foil">FOIL</span><span class="fx-logo-ops">OPS</span>')
     expect(html).toContain('rel="manifest" href="/site.webmanifest"')
     expect(html).toContain('name="robots" content="noindex, nofollow, noarchive"')
     expect(html).not.toContain('rel="canonical"')

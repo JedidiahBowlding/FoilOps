@@ -227,6 +227,10 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         box-shadow: 0 0 22px rgba(103,232,249,.18);
       }
 
+      .fx-logo-word { display:inline-flex; letter-spacing:.06em; }
+      .fx-logo-foil { color:#f7fbff; }
+      .fx-logo-ops { color:var(--fx-primary); }
+
       .fx-nav {
         display: flex;
         align-items: center;
@@ -1165,7 +1169,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
     <button class="fx-menu-toggle" type="button" aria-label="Open navigation" aria-controls="site-navigation" aria-expanded="false"><span class="fx-menu-icon" aria-hidden="true"></span></button>
     <div class="fx-menu-backdrop" aria-hidden="true"></div>
     <header class="fx-header" id="site-navigation">
-      <div class="fx-header-left"><a class="fx-logo" href="/" aria-label="FOILOPS home"><img src="/favicon.svg" alt="" width="34" height="34" /><span>FOILOPS</span></a></div>
+      <div class="fx-header-left"><a class="fx-logo" href="/" aria-label="FOILOPS home"><img src="/favicon.svg" alt="" width="34" height="34" /><span class="fx-logo-word" aria-hidden="true"><span class="fx-logo-foil">FOIL</span><span class="fx-logo-ops">OPS</span></span></a></div>
       <nav class="fx-nav" aria-label="Primary navigation">${renderNav(options.activeNav)}</nav>
       ${renderActions(options.headerActionsHtml)}
     </header>
