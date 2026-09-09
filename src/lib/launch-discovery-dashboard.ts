@@ -6,7 +6,7 @@ type Candidate = Awaited<ReturnType<PrismaLaunchCandidateRepository['list']>>[nu
 export class LaunchDiscoveryDashboard {
   constructor(private readonly repository: PrismaLaunchCandidateRepository) {}
 
-  async renderHtmlDashboard(): Promise<string> {
+  async renderHtmlDashboard(view: 'discovery' | 'research' | 'execution' = 'discovery'): Promise<string> {
     const candidates = await this.repository.list({ limit: 100 })
     const ranked = candidates.filter((candidate) => candidate.classification !== 'REJECT').slice(0, 3)
     const rankedIds = new Set(ranked.map((candidate) => candidate.id))
@@ -25,10 +25,13 @@ export class LaunchDiscoveryDashboard {
     const chartCandidates = candidates.slice(0, 6)
 
     return renderFuturisticPage({
-      title: 'FoilOps Launch Discovery',
+      title: view === 'research' ? 'FoilOps Research Lab' : view === 'execution' ? 'FoilOps Execution' : 'FoilOps Launch Discovery',
       activeNav: 'discovery',
       headerActionsHtml: `
-        <button class="fx-button" id="poll-launches" type="button">Scan Now</button>
+        <a class="fx-button secondary" href="/dashboard/discovery">Discovery</a>
+        <a class="fx-button secondary" href="/dashboard/research">Research Lab</a>
+        <a class="fx-button secondary" href="/dashboard/execution">Execution</a>
+        <button class="fx-button" id="poll-launches" type="button"${view === 'discovery' ? '' : ' hidden'}>Scan Now</button>
         <button class="fx-button secondary" id="refresh-launches" type="button">Refresh</button>
         <a class="fx-button secondary" href="/api/discovery/candidates?limit=100">JSON</a>
         <form method="post" action="/logout"><button class="fx-button" type="submit">Logout</button></form>
@@ -37,8 +40,8 @@ export class LaunchDiscoveryDashboard {
         <section class="hero">
           <div>
             <p class="fx-eyebrow">Autonomous evidence pipeline</p>
-            <h1>Launch Discovery</h1>
-            <p class="fx-lead">New token launches ranked by independently collected evidence. A candidate is research—not a buy recommendation.</p>
+            <h1>${view === 'research' ? 'Research Lab' : view === 'execution' ? 'Execution Controls' : 'Launch Discovery'}</h1>
+            <p class="fx-lead">${view === 'research' ? 'Investigate traditional assets and exact multi-chain contracts with deterministic evidence and AI analyst teams.' : view === 'execution' ? 'Review Base quotes, persistent watches, and explicitly authorized liquidity auto-buy orders.' : 'New token launches ranked by independently collected evidence. A candidate is research—not a buy recommendation.'}</p>
           </div>
           <article class="card" style="min-width:280px">
             <p class="eyebrow">Current inventory</p>
@@ -85,7 +88,7 @@ export class LaunchDiscoveryDashboard {
           <div id="ab-status" class="notice">AUTO BUY is disabled until you explicitly enable the toggle, create a reviewed draft, and press ARM.</div>
           <div id="ab-orders"></div>
         </section>
-        <section class="viz-grid">
+        <section class="viz-grid discovery-overview">
           <article class="card viz-card">
             <div class="viz-head"><div><p class="eyebrow">Signal composition</p><h2 class="viz-title">Candidate verdicts</h2><p class="viz-caption">How the evidence pipeline currently classifies collected launches.</p></div><span class="badge">${candidates.length} total</span></div>
             <div class="donut-wrap">
@@ -114,7 +117,7 @@ export class LaunchDiscoveryDashboard {
             </div>
           </article>
         </section>
-        <section class="section">
+        <section class="section discovery-overview">
           <div class="section-header">
             <div class="section-header-copy">
               <h2>Top 3 Candidates</h2>
@@ -126,7 +129,7 @@ export class LaunchDiscoveryDashboard {
             ${displayed.map((candidate, index) => this.renderCandidate(candidate, index + 1)).join('') || '<div class="notice">No candidates have been collected yet. Select Scan Now to poll launch sources.</div>'}
           </div>
         </section>
-        <section class="section">
+        <section class="section discovery-overview">
           <div class="section-header">
             <div class="section-header-copy">
               <h2>Robinhood Chain</h2>
@@ -140,6 +143,7 @@ export class LaunchDiscoveryDashboard {
         </section>
       `,
       extraStyles: `
+        ${view === 'discovery' ? '.research-workbench,.base-swap-workbench,.auto-buy-workbench{display:none!important}' : view === 'research' ? '.discovery-overview,.base-swap-workbench,.auto-buy-workbench{display:none!important}' : '.discovery-overview,.research-workbench{display:none!important}'}
         .discovery-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
         .candidate-card { display:flex; flex-direction:column; gap:12px; min-width:0; }
         .candidate-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }

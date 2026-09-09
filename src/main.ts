@@ -227,6 +227,16 @@ class Main {
       }
     })
 
+    this.app.get('/dashboard/research', this.dashboardAuth.requirePageAuth, async (_req, res) => {
+      try { res.type('html').status(200).send(await this.launchDiscoveryDashboard.renderHtmlDashboard('research')) }
+      catch (error) { console.error('Research dashboard error', error); res.status(500).send('Failed to render research dashboard') }
+    })
+
+    this.app.get('/dashboard/execution', this.dashboardAuth.requirePageAuth, async (_req, res) => {
+      try { res.type('html').status(200).send(await this.launchDiscoveryDashboard.renderHtmlDashboard('execution')) }
+      catch (error) { console.error('Execution dashboard error', error); res.status(500).send('Failed to render execution dashboard') }
+    })
+
     this.app.get('/dashboard/discovery/:chain/:tokenMint', this.dashboardAuth.requirePageAuth, async (req, res) => {
       try {
         const dashboard = await this.launchDiscoveryDashboard.renderEvidenceHistory(
