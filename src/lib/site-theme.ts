@@ -21,7 +21,7 @@ type RenderFuturisticPageOptions = {
 }
 
 const NAV_LINKS: SiteNavLink[] = [
-  { key: 'discovery', href: '/dashboard/discovery', label: 'Discover' },
+  { key: 'discovery', href: '/dashboard/discovery', label: 'Discovery' },
   { key: 'home', href: '/dashboard/research', label: 'Research' },
   { key: 'trading', href: '/dashboard/execution', label: 'Trade' },
   { key: 'foilops', href: '/dashboard/foilops', label: 'Intelligence' },
@@ -1041,8 +1041,9 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         .fx-header-left { padding-right: 58px; }
         .fx-logo { font-size: 1.2rem; }
         .fx-nav { display:grid; width:100%; gap:7px; }
-        .fx-nav-link { display:flex; justify-content:flex-start; width:100%; padding:13px 15px; min-height:46px; }
+        .fx-nav-link { display:flex; justify-content:flex-start; width:100%; padding:13px 15px; min-height:46px; position:relative; z-index:1; pointer-events:auto; touch-action:manipulation; }
         .fx-header-actions { display:grid; width:100%; }
+        .fx-header-actions .fx-raw-data { display:none; }
         .fx-header-actions > *,
         .fx-header-actions .fx-button,
         .fx-header-actions button { width:100%; }
@@ -1201,7 +1202,9 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         toggle.addEventListener('click', () => document.body.classList.contains('fx-menu-open') ? closeMenu() : openMenu())
         backdrop?.addEventListener('click', closeMenu)
         header.addEventListener('click', (event) => {
-          if (event.target instanceof HTMLAnchorElement && window.matchMedia('(max-width: 720px)').matches) closeMenu()
+          const target = event.target
+          const link = target instanceof Element ? target.closest('a[href]') : null
+          if (link && window.matchMedia('(max-width: 720px)').matches) closeMenu()
         })
         document.addEventListener('keydown', (event) => {
           if (event.key === 'Escape') closeMenu()

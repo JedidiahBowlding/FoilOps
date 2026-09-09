@@ -31,7 +31,7 @@ export class LaunchDiscoveryDashboard {
       headerActionsHtml: `
         <button class="fx-button" id="poll-launches" type="button"${view === 'discovery' ? '' : ' hidden'} aria-label="Scan for launches" title="Scan for launches">Scan</button>
         <button class="fx-icon-button" id="refresh-launches" type="button" aria-label="Refresh data" title="Refresh data">↻</button>
-        <a class="fx-icon-button" href="/api/discovery/candidates?limit=100" aria-label="View raw data" title="View raw data">{ }</a>
+        <a class="fx-icon-button fx-raw-data" href="/api/discovery/candidates?limit=100" aria-label="View raw data" title="View raw data">{ }</a>
         <form method="post" action="/logout"><button class="fx-icon-button" type="submit" aria-label="Log out" title="Log out">↗</button></form>
       `,
       heroHtml: `

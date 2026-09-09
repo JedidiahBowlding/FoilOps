@@ -11,6 +11,8 @@ describe('responsive site navigation', () => {
     expect(html).toContain('@media (max-width: 720px)')
     expect(html).toContain("event.key === 'Escape'")
     expect(html).toContain("backdrop?.addEventListener('click', closeMenu)")
+    expect(html).toContain("target.closest('a[href]')")
+    expect(html).toContain('.fx-header-actions .fx-raw-data { display:none; }')
   })
 
   it('adds shared brand assets and keeps protected pages out of search results', () => {
