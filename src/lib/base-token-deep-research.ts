@@ -34,7 +34,8 @@ export class BaseTokenDeepResearchService {
   private readonly rpcUrls: string[]
   constructor(chain: EvmResearchChain = 'base') {
     this.config = EVM_RESEARCH_CHAINS[chain]
-    this.rpcUrls = Array.from(new Set([process.env[this.config.rpcEnv]?.trim(), this.config.rpc].filter(Boolean))) as string[]
+    const executionRpc = chain === 'base' ? process.env.BASE_SWAP_RPC_URL?.trim() : undefined
+    this.rpcUrls = Array.from(new Set([executionRpc, process.env[this.config.rpcEnv]?.trim(), this.config.rpc].filter(Boolean))) as string[]
   }
 
   private async rpc<T>(method: string, params: unknown[]): Promise<T> {
