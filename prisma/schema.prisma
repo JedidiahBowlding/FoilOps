@@ -419,3 +419,63 @@ model LaunchCandidateObservation {
   @@index([candidateId])
   @@index([observedAt])
 }
+
+enum LiquidityAutoBuyState {
+  DRAFT
+  ARMED
+  MONITORING
+  LIQUIDITY_DETECTED
+  VALIDATING
+  EXECUTING
+  CONFIRMED
+  FAILED
+  CANCELLED
+}
+
+model LiquidityAutoBuyOrder {
+  id                      String                @id @default(cuid())
+  chainId                 Int                   @default(8453)
+  tokenAddress            String
+  sellToken               String
+  spendAmount             String
+  maxSlippageBps          Int
+  maxPriceImpactBps       Int
+  maxGasCostWei           String
+  minPoolLiquidityUsd     Float
+  transactionDeadlineSecs Int
+  retryLimit              Int
+  permittedRouters        String[]
+  autoBuyEnabled          Boolean               @default(false)
+  state                    LiquidityAutoBuyState @default(DRAFT)
+  idempotencyKey          String                @unique
+  armedAt                 DateTime?
+  expiresAt               DateTime?
+  monitorAttempts         Int                   @default(0)
+  executionAttempts       Int                   @default(0)
+  lastReason              String?
+  poolAddress             String?
+  poolRouter              String?
+  currentLiquidityUsd     Float?
+  expectedOutput          String?
+  estimatedPriceImpactBps Int?
+  transactionHash         String?               @unique
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+  auditEvents              LiquidityAutoBuyAudit[]
+
+  @@index([state])
+  @@index([tokenAddress])
+  @@index([createdAt])
+}
+
+model LiquidityAutoBuyAudit {
+  id        String   @id @default(cuid())
+  orderId   String
+  eventType String
+  message   String
+  metadata  Json?
+  createdAt DateTime @default(now())
+  order     LiquidityAutoBuyOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+}

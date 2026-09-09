@@ -60,6 +60,25 @@ export class LaunchDiscoveryDashboard {
           <div class="research-controls"><button class="fx-button secondary" id="base-swap-quote" type="button">Get Safe Quote</button><button class="fx-button secondary" id="base-swap-watch" type="button">Start Server Watch</button><button class="fx-button" id="base-swap-confirm" type="button" disabled>Confirm Live Swap</button></div>
           <div id="base-swap-status" class="notice">A quote does not execute a transaction.</div><div id="base-swap-quote-result"></div><div id="base-swap-watches"></div>
         </section>
+        <section class="section card auto-buy-workbench">
+          <div class="section-header"><div class="section-header-copy"><p class="eyebrow">Base · explicitly pre-authorized</p><h2>Liquidity Auto-Buy</h2><p class="section-subtitle">Monitors one exact Base contract and fails closed unless every pool, route, output, impact, slippage, gas, deadline and simulation constraint passes.</p></div><span id="auto-buy-global" class="badge">Checking…</span></div>
+          <div class="auto-buy-grid">
+            <label>Exact token contract<input id="ab-token" placeholder="0x…" autocomplete="off"></label>
+            <label>Spend asset<select id="ab-sell"><option>ETH</option><option>USDC</option></select></label>
+            <label>Authorized amount<input id="ab-amount" value="0.01" inputmode="decimal"></label>
+            <label>Max slippage (bps)<input id="ab-slippage" type="number" value="100" min="1" max="300"></label>
+            <label>Max price impact (bps)<input id="ab-impact" type="number" value="300" min="1" max="500"></label>
+            <label>Max gas cost (ETH)<input id="ab-gas" value="0.003" inputmode="decimal"></label>
+            <label>Minimum pool liquidity (USD)<input id="ab-liquidity" type="number" value="10000" min="10000"></label>
+            <label>Order deadline (seconds)<input id="ab-deadline" type="number" value="86400" min="60" max="604800"></label>
+            <label>Execution retry limit<input id="ab-retries" type="number" value="2" min="1" max="10"></label>
+            <label>Permitted router<select id="ab-router"><option value="ZEROX_ALLOWANCE_HOLDER">0x AllowanceHolder</option></select></label>
+          </div>
+          <label class="auto-toggle"><input id="ab-auto" type="checkbox"><span>AUTO BUY authorization — I understand this order may execute unattended within exactly these limits.</span></label>
+          <div class="research-controls"><button class="fx-button secondary" id="ab-create" type="button">Verify Contract & Create Draft</button><button class="fx-button danger" id="ab-kill-info" type="button">Emergency status</button></div>
+          <div id="ab-status" class="notice">AUTO BUY is disabled until you explicitly enable the toggle, create a reviewed draft, and press ARM.</div>
+          <div id="ab-orders"></div>
+        </section>
         <section class="viz-grid">
           <article class="card viz-card">
             <div class="viz-head"><div><p class="eyebrow">Signal composition</p><h2 class="viz-title">Candidate verdicts</h2><p class="viz-caption">How the evidence pipeline currently classifies collected launches.</p></div><span class="badge">${candidates.length} total</span></div>
@@ -134,8 +153,10 @@ export class LaunchDiscoveryDashboard {
         .research-controls{display:flex;gap:10px}.research-controls input{flex:1;min-width:0}.research-controls input,.research-controls select{padding:13px 14px;border-radius:12px;border:1px solid var(--fx-line-strong);background:#091522;color:var(--fx-text)}
         .research-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}.research-panel{padding:14px;border:1px solid var(--fx-line);border-radius:14px;background:rgba(255,255,255,.025)}.research-panel strong{display:block;font-size:1.35rem}.finding{margin-top:8px;padding:10px;border-left:3px solid var(--fx-secondary);background:rgba(255,255,255,.025)}.finding b{color:var(--fx-warning)}
         .swap-grid{display:grid;grid-template-columns:1.2fr 1.2fr .7fr .7fr;gap:10px;margin:12px 0}.swap-grid label{display:grid;gap:6px;color:var(--fx-muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.05em}.swap-grid input{padding:12px;border-radius:10px;border:1px solid var(--fx-line-strong);background:#091522;color:var(--fx-text);min-width:0}.quote-warning{border-color:var(--fx-warning);margin-top:12px}
+        .auto-buy-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:12px 0}.auto-buy-grid label{display:grid;gap:6px;color:var(--fx-muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}.auto-buy-grid input,.auto-buy-grid select{padding:11px;border-radius:10px;border:1px solid var(--fx-line-strong);background:#091522;color:var(--fx-text);min-width:0}.auto-buy-grid label:first-child{grid-column:span 2}.auto-toggle{display:flex;gap:10px;align-items:flex-start;padding:12px;margin:12px 0;border:1px solid var(--fx-warning);border-radius:12px;color:var(--fx-warning)}.auto-order{margin-top:12px;padding:14px;border:1px solid var(--fx-line);border-radius:14px}.auto-order-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.auto-order-grid span{overflow-wrap:anywhere}.danger{border-color:var(--fx-danger)!important;color:var(--fx-danger)!important}
         @media(max-width:900px){.research-controls{flex-direction:column}.research-grid{grid-template-columns:1fr 1fr}}@media(max-width:520px){.research-grid{grid-template-columns:1fr}}
         @media(max-width:900px){.swap-grid{grid-template-columns:1fr 1fr}}@media(max-width:520px){.swap-grid{grid-template-columns:1fr}}
+        @media(max-width:900px){.auto-buy-grid{grid-template-columns:1fr 1fr}.auto-order-grid{grid-template-columns:1fr 1fr}}@media(max-width:520px){.auto-buy-grid,.auto-order-grid{grid-template-columns:1fr}.auto-buy-grid label:first-child{grid-column:auto}}
       `,
       scriptHtml: `
         <script>
@@ -177,6 +198,27 @@ export class LaunchDiscoveryDashboard {
           document.getElementById('base-swap-confirm').addEventListener('click',async()=>{if(!baseSwapConfirmation)return;const button=document.getElementById('base-swap-confirm'),status=document.getElementById('base-swap-status');if(!window.confirm('Execute this Base swap with real funds? This cannot be undone.'))return;button.disabled=true;status.textContent='Simulating and submitting the Base transaction…';try{const response=await fetch('/api/base-swap/execute',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({confirmationId:baseSwapConfirmation})});const r=await response.json();if(!response.ok)throw new Error(r.message||'Swap failed');baseSwapConfirmation=null;status.innerHTML='Swap '+esc(r.status)+'. <a href="https://basescan.org/tx/'+encodeURIComponent(r.transactionHash)+'" target="_blank" rel="noopener noreferrer">View transaction</a>';}catch(error){status.textContent=error.message||'Swap failed';}finally{button.disabled=true}});
           const watchId=new URLSearchParams(location.search).get('baseWatch');if(watchId)document.getElementById('base-swap-status').textContent='Telegram alert opened. Loading the watched limits and refreshing a current quote…';
           loadBaseSwapStatus();loadBaseWatches();setInterval(loadBaseWatches,15000);
+          let autoBuyStatus={enabled:false,killSwitch:true};
+          async function loadAutoBuy(){
+            try{
+              autoBuyStatus=await fetch('/api/liquidity-auto-buy/status').then(r=>r.json());
+              document.getElementById('auto-buy-global').textContent=autoBuyStatus.killSwitch?'KILL SWITCH ACTIVE':autoBuyStatus.enabled?'AVAILABLE · EXPLICIT ARM':'SERVER DISABLED';
+              const payload=await fetch('/api/liquidity-auto-buy/orders').then(r=>r.json()),orders=payload.orders||[];
+              document.getElementById('ab-orders').innerHTML=orders.map(o=>'<article class="auto-order"><div class="candidate-head"><div><b>'+esc(o.state)+'</b><div class="candidate-mint">'+esc(o.tokenAddress)+'</div></div>'+(o.transactionHash?'<a href="https://basescan.org/tx/'+encodeURIComponent(o.transactionHash)+'" target="_blank" rel="noopener noreferrer">BaseScan</a>':'')+'</div><div class="auto-order-grid"><span>Spend<br><b>'+esc(o.spendAmount)+' '+esc(o.sellToken)+'</b></span><span>Liquidity<br><b>'+money(o.currentLiquidityUsd)+'</b></span><span>Pool / DEX<br><b>'+esc(o.poolRouter||'Waiting')+'</b></span><span>Expected raw output<br><b>'+esc(o.expectedOutput||'—')+'</b></span><span>Impact limit<br><b>'+esc(o.maxPriceImpactBps)+' bps</b></span><span>Slippage limit<br><b>'+esc(o.maxSlippageBps)+' bps</b></span><span>Gas limit<br><b>'+esc(o.maxGasCostWei)+' wei</b></span><span>Status<br><b>'+esc(o.lastReason||'—')+'</b></span></div><div class="research-controls" style="margin-top:10px">'+(o.state==='DRAFT'?'<button class="fx-button" data-ab-arm="'+esc(o.id)+'">ARM reviewed order</button>':'')+(!['CONFIRMED','CANCELLED'].includes(o.state)?'<button class="fx-button danger" data-ab-cancel="'+esc(o.id)+'">Emergency CANCEL</button>':'')+'<button class="fx-button secondary" data-ab-audit="'+esc(o.id)+'">Audit history</button></div><pre id="audit-'+esc(o.id)+'" style="display:none;white-space:pre-wrap"></pre></article>').join('')||'<div class="notice">No auto-buy orders configured.</div>';
+              document.querySelectorAll('[data-ab-arm]').forEach(b=>b.addEventListener('click',async()=>{if(!confirm('ARM this exact order for unattended execution? Review every displayed limit before continuing.'))return;await autoBuyAction('/api/liquidity-auto-buy/orders/'+encodeURIComponent(b.dataset.abArm)+'/arm')}));
+              document.querySelectorAll('[data-ab-cancel]').forEach(b=>b.addEventListener('click',async()=>{if(!confirm('Emergency-cancel this order?'))return;await autoBuyAction('/api/liquidity-auto-buy/orders/'+encodeURIComponent(b.dataset.abCancel)+'/cancel')}));
+              document.querySelectorAll('[data-ab-audit]').forEach(b=>b.addEventListener('click',async()=>{const p=await fetch('/api/liquidity-auto-buy/orders/'+encodeURIComponent(b.dataset.abAudit)+'/audit').then(r=>r.json()),el=document.getElementById('audit-'+b.dataset.abAudit);el.style.display='block';el.textContent=JSON.stringify(p.events||[],null,2)}));
+            }catch(error){document.getElementById('ab-status').textContent=error.message||'Auto-buy status unavailable'}
+          }
+          async function autoBuyAction(url){const response=await fetch(url,{method:'POST'}),body=await response.json();document.getElementById('ab-status').textContent=response.ok?'Order updated: '+body.state:(body.message||'Action failed');await loadAutoBuy()}
+          document.getElementById('ab-create').addEventListener('click',async()=>{
+            const input={tokenAddress:document.getElementById('ab-token').value.trim(),sellToken:document.getElementById('ab-sell').value,spendAmount:document.getElementById('ab-amount').value,maxSlippageBps:Number(document.getElementById('ab-slippage').value),maxPriceImpactBps:Number(document.getElementById('ab-impact').value),maxGasCostEth:document.getElementById('ab-gas').value,minPoolLiquidityUsd:Number(document.getElementById('ab-liquidity').value),transactionDeadlineSecs:Number(document.getElementById('ab-deadline').value),retryLimit:Number(document.getElementById('ab-retries').value),permittedRouters:[document.getElementById('ab-router').value],autoBuyEnabled:document.getElementById('ab-auto').checked};
+            const summary='Exact contract: '+input.tokenAddress+'\nSpend: '+input.spendAmount+' '+input.sellToken+'\nMax slippage: '+input.maxSlippageBps+' bps\nMax price impact: '+input.maxPriceImpactBps+' bps\nMax gas: '+input.maxGasCostEth+' ETH\nMinimum liquidity: $'+input.minPoolLiquidityUsd+'\nDeadline: '+input.transactionDeadlineSecs+' seconds\nRetries: '+input.retryLimit+'\nRouter: '+input.permittedRouters[0]+'\nAUTO authorization: '+input.autoBuyEnabled;
+            if(!confirm('Review draft parameters:\n\n'+summary+'\n\nCreate this DRAFT? This does not arm or execute it.'))return;
+            const response=await fetch('/api/liquidity-auto-buy/orders',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(input)}),body=await response.json();document.getElementById('ab-status').textContent=response.ok?'Verified Base contract and created DRAFT. Review the card, then press ARM.':(body.message||'Draft creation failed');await loadAutoBuy();
+          });
+          document.getElementById('ab-kill-info').addEventListener('click',()=>alert(autoBuyStatus.killSwitch?'Emergency kill switch is ACTIVE. No auto-buy can execute.':'Emergency kill switch is not active. Use Emergency CANCEL per order, or set BASE_AUTO_BUY_KILL_SWITCH=true on the server.'));
+          loadAutoBuy();setInterval(loadAutoBuy,15000);
         </script>
       `,
     })

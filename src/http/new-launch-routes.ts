@@ -6,6 +6,10 @@ import { BaseTokenDeepResearchService } from '../lib/base-token-deep-research'
 import { BaseSwapService } from '../lib/base-swap-service'
 import { BaseLaunchWatchService } from '../lib/base-launch-watch'
 import { rateLimit } from '../lib/http-security'
+import { BaseAutoBuyRuntime } from '../lib/liquidity-auto-buy/base-runtime'
+import { AuditLogger, OrderStateStore } from '../lib/liquidity-auto-buy/order-state-store'
+import { LiquidityAutoBuyService } from '../lib/liquidity-auto-buy/service'
+import { registerLiquidityAutoBuyRoutes } from './liquidity-auto-buy-routes'
 
 export function registerNewLaunchRoutes(
   app: Express,
@@ -18,7 +22,9 @@ export function registerNewLaunchRoutes(
   const baseSwap = new BaseSwapService()
   const baseLaunchWatch = new BaseLaunchWatchService(baseSwap)
   const expensiveRequestLimit = rateLimit({ windowMs: 60_000, max: 20, label: 'discovery-expensive' })
+  const autoBuy = new LiquidityAutoBuyService(new OrderStateStore(), new AuditLogger(), new BaseAutoBuyRuntime())
   void baseLaunchWatch.start().catch((error) => console.error('Base launch watch failed to start', error))
+  void autoBuy.start().catch((error) => console.error('Liquidity auto-buy failed to start', error))
   app.get('/api/discovery/status', requireApiAuth, (_req, res) => res.json(ingestor.getStatus()))
 
   app.post('/api/discovery/poll', requireApiAuth, expensiveRequestLimit, async (_req, res) => {
@@ -81,4 +87,5 @@ export function registerNewLaunchRoutes(
     try { res.json(await baseLaunchWatch.cancel(req.params.id)) }
     catch (error) { res.status(404).json({ message: error instanceof Error ? error.message : 'Launch watch not found' }) }
   })
+  registerLiquidityAutoBuyRoutes(app,requireApiAuth,expensiveRequestLimit,autoBuy)
 }
