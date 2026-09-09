@@ -60,12 +60,12 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
     <meta property="og:title" content="${options.title}" />
     <meta property="og:description" content="${description}" />
     ${canonicalUrl ? `<meta property="og:url" content="${canonicalUrl}" />` : ''}
-    <meta property="og:image" content="https://foilops.com/showcase/FoilOps_banner.jpeg" />
+    <meta property="og:image" content="https://foilops.com/showcase/FoilOps_banner_v2.webp" />
     <meta property="og:image:alt" content="FOILOPS crypto intelligence and trading control platform" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${options.title}" />
     <meta name="twitter:description" content="${description}" />
-    <meta name="twitter:image" content="https://foilops.com/showcase/FoilOps_banner.jpeg" />
+    <meta name="twitter:image" content="https://foilops.com/showcase/FoilOps_banner_v2.webp" />
     ${options.indexable ? '<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"FOILOPS","url":"https://foilops.com/","applicationCategory":"FinanceApplication","operatingSystem":"Web","description":"Crypto wallet intelligence, token research, and guarded execution platform."}</script>' : ''}
     <style>
       :root {

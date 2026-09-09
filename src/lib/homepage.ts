@@ -7,6 +7,7 @@ export function renderHomepageHtml(): string {
     description: 'FOILOPS combines crypto wallet monitoring, token discovery, contract research, fund-flow intelligence, and guarded execution in one institutional terminal.',
     canonicalPath: '/',
     indexable: true,
+    extraStyles: `.feature-symbol{display:grid;place-items:center;width:52px;height:52px;margin-bottom:18px;border:1px solid rgba(103,232,249,.22);border-radius:12px;background:linear-gradient(145deg,rgba(103,232,249,.12),rgba(139,92,246,.08));color:var(--fx-primary);font-size:1.55rem;box-shadow:0 12px 34px rgba(0,0,0,.18)}`,
     activeNav: 'home',
     headerActionsHtml: `
       <a class="fx-button secondary" href="https://t.me/${BOT_USERNAME}" target="_blank" rel="noopener noreferrer">Open Telegram Bot</a>
@@ -29,7 +30,7 @@ export function renderHomepageHtml(): string {
           </div>
         </article>
         <aside class="panel" style="display:grid;gap:14px;align-content:start">
-          <img src="/showcase/FoilOps_banner.jpeg" alt="FoilOps banner" style="width:100%;display:block;border-radius:18px;border:1px solid rgba(255,40,60,.18)" />
+          <img src="/showcase/FoilOps_banner_v2.webp" alt="FOILOPS on-chain intelligence terminal visualization" style="width:100%;display:block;border-radius:12px;border:1px solid rgba(103,232,249,.16)" />
           <div class="mini">
             <p class="fx-eyebrow">Protected surfaces</p>
             <h2>Dashboards are operator tools, not brochure pages.</h2>
@@ -76,16 +77,16 @@ export function renderHomepageHtml(): string {
       </section>
 
       <section class="cards" style="margin-bottom:48px">
-        <article class="card"><a href="/dashboard/trading-ops" style="display:block;text-decoration:none"><img src="/showcase/dashboard_trading_ops.jpeg" alt="Trading Ops dashboard" style="width:100%;display:block;height:220px;object-fit:cover;object-position:top;border-radius:18px;border:1px solid rgba(255,40,60,.22)" /></a><h3>Trading Ops Command Surface</h3><p>Live receiver health, execution stats, risk gate readings, tracked-wallet roster, and decision feed — all on one authenticated surface.</p></article>
-        <article class="card"><a href="/graph" style="display:block;text-decoration:none"><img src="/showcase/dashboard_graph.jpeg" alt="Wallet Graph dashboard" style="width:100%;display:block;height:220px;object-fit:cover;object-position:top;border-radius:18px;border:1px solid rgba(255,40,60,.22)" /></a><h3>Wallet Graph &amp; Token Holdings</h3><p>Cluster visualization, flow-edge mapping, AI wallet analysis, and live SPL token holdings — all anchored to a single wallet query.</p></article>
-        <article class="card"><a href="/dashboard/scam-wallets" style="display:block;text-decoration:none"><img src="/showcase/dashboard_scam_intel.jpeg" alt="Scam Intelligence dashboard" style="width:100%;display:block;height:220px;object-fit:cover;object-position:top;border-radius:18px;border:1px solid rgba(255,40,60,.22)" /></a><h3>Scam Intelligence</h3><p>Flagged wallets, suspicious launch history, fund-flow traces, and token investigations in a persistent case-history view.</p></article>
+        <article class="card"><a href="/dashboard/trading-ops" style="display:block;text-decoration:none"><img src="/showcase/dashboard_trading_ops_v2.webp" alt="FOILOPS Trading Ops dashboard" style="width:100%;display:block;height:220px;object-fit:cover;object-position:top;border-radius:12px;border:1px solid rgba(103,232,249,.16)" /></a><h3>Trading Ops Command Surface</h3><p>Live receiver health, execution stats, risk gate readings, tracked-wallet roster, and decision feed — all on one authenticated surface.</p></article>
+        <article class="card"><a href="/graph" style="display:block;text-decoration:none"><img src="/showcase/dashboard_graph_v2.webp" alt="FOILOPS Wallet Graph dashboard" style="width:100%;display:block;height:220px;object-fit:cover;object-position:top;border-radius:12px;border:1px solid rgba(103,232,249,.16)" /></a><h3>Wallet Graph &amp; Token Holdings</h3><p>Cluster visualization, flow-edge mapping, AI wallet analysis, and live SPL token holdings — all anchored to a single wallet query.</p></article>
+        <article class="card"><a href="/dashboard/scam-wallets" style="display:block;text-decoration:none"><img src="/showcase/dashboard_scam_intel_v2.webp" alt="FOILOPS Scam Intelligence dashboard" style="width:100%;display:block;height:220px;object-fit:cover;object-position:top;border-radius:12px;border:1px solid rgba(103,232,249,.16)" /></a><h3>Scam Intelligence</h3><p>Flagged wallets, suspicious launch history, fund-flow traces, and token investigations in a persistent case-history view.</p></article>
       </section>
 
       <section class="cards">
-        <article class="card"><img src="/showcase/FoilOps_Start_Menu.jpeg" alt="Telegram interface" style="width:100%;display:block;height:190px;object-fit:cover;border-radius:18px;border:1px solid rgba(255,40,60,.16)" /><h3>Telegram-first workflow</h3><p>Operators can manage wallets and trigger actions in chat, then validate deeper system state from the protected web console.</p></article>
-        <article class="card"><img src="/showcase/FoilOps_Menu_Commands.jpeg" alt="Command surfaces" style="width:100%;display:block;height:190px;object-fit:cover;border-radius:18px;border:1px solid rgba(255,40,60,.16)" /><h3>Persistent intelligence</h3><p>Scam findings, related launches, suspicious flow traces, and token investigations survive across sessions instead of disappearing into logs.</p></article>
-        <article class="card"><img src="/showcase/FoilOps_Menu_Buttons.jpeg" alt="Flow tracing" style="width:100%;display:block;height:190px;object-fit:cover;border-radius:18px;border:1px solid rgba(255,40,60,.16)" /><h3>Tracing and graphing</h3><p>Follow money movement across hops, identify likely custody or exchange exits, and pivot straight into graph analysis.</p></article>
-        <article class="card"><img src="/showcase/FoilOps_banner.jpeg" alt="FoilOps banner" style="width:100%;display:block;height:190px;object-fit:cover;border-radius:18px;border:1px solid rgba(255,40,60,.16)" /><h3>Execution with brakes</h3><p>When enabled, signals move into a guarded Rust receiver protected by auth, replay protection, sizing rules, and emergency stop controls.</p></article>
+        <article class="card"><div class="feature-symbol" aria-hidden="true">⌁</div><h3>Telegram-first workflow</h3><p>Operators can manage wallets and trigger actions in chat, then validate deeper system state from the protected web console.</p></article>
+        <article class="card"><div class="feature-symbol" aria-hidden="true">◎</div><h3>Persistent intelligence</h3><p>Scam findings, related launches, suspicious flow traces, and token investigations survive across sessions instead of disappearing into logs.</p></article>
+        <article class="card"><div class="feature-symbol" aria-hidden="true">◇</div><h3>Tracing and graphing</h3><p>Follow money movement across hops, identify likely custody or exchange exits, and pivot straight into graph analysis.</p></article>
+        <article class="card"><div class="feature-symbol" aria-hidden="true">✓</div><h3>Execution with brakes</h3><p>When enabled, signals move into a guarded Rust receiver protected by auth, replay protection, sizing rules, and emergency stop controls.</p></article>
       </section>
 
       <section class="panel footer-cta">
