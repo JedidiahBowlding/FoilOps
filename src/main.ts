@@ -147,6 +147,7 @@ class Main {
     this.app.disable('x-powered-by')
     this.app.use(express.json({ limit: '1mb' }))
     this.app.use(express.urlencoded({ extended: false, limit: '64kb' }))
+    this.app.use(express.static(path.resolve(process.cwd(), 'public'), { maxAge: '7d', index: false }))
     this.app.use('/showcase', express.static(path.resolve(process.cwd(), 'showcase')))
   }
 

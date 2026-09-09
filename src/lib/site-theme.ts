@@ -8,6 +8,9 @@ type SiteNavLink = {
 
 type RenderFuturisticPageOptions = {
   title: string
+  description?: string
+  canonicalPath?: string
+  indexable?: boolean
   activeNav?: SiteNavKey
   heroHtml?: string
   contentHtml: string
@@ -37,12 +40,33 @@ function renderActions(actions?: string): string {
 }
 
 export function renderFuturisticPage(options: RenderFuturisticPageOptions): string {
+  const description = options.description || 'FoilOps is an institutional crypto intelligence and guarded execution platform for wallet monitoring, token research, and on-chain risk analysis.'
+  const canonicalUrl = options.canonicalPath ? `https://foilops.com${options.canonicalPath}` : ''
+  const robots = options.indexable ? 'index, follow, max-image-preview:large' : 'noindex, nofollow, noarchive'
   return `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>${options.title}</title>
+    <meta name="description" content="${description}" />
+    <meta name="robots" content="${robots}" />
+    <meta name="theme-color" content="#030611" />
+    ${canonicalUrl ? `<link rel="canonical" href="${canonicalUrl}" />` : ''}
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="FOILOPS" />
+    <meta property="og:title" content="${options.title}" />
+    <meta property="og:description" content="${description}" />
+    ${canonicalUrl ? `<meta property="og:url" content="${canonicalUrl}" />` : ''}
+    <meta property="og:image" content="https://foilops.com/showcase/FoilOps_banner.jpeg" />
+    <meta property="og:image:alt" content="FOILOPS crypto intelligence and trading control platform" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${options.title}" />
+    <meta name="twitter:description" content="${description}" />
+    <meta name="twitter:image" content="https://foilops.com/showcase/FoilOps_banner.jpeg" />
+    ${options.indexable ? '<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"FOILOPS","url":"https://foilops.com/","applicationCategory":"FinanceApplication","operatingSystem":"Web","description":"Crypto wallet intelligence, token research, and guarded execution platform."}</script>' : ''}
     <style>
       :root {
         color-scheme: dark;

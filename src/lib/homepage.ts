@@ -4,6 +4,9 @@ import { renderFuturisticPage } from './site-theme'
 export function renderHomepageHtml(): string {
   return renderFuturisticPage({
     title: 'FoilOps | Wallet Intelligence and Trading Control',
+    description: 'FOILOPS combines crypto wallet monitoring, token discovery, contract research, fund-flow intelligence, and guarded execution in one institutional terminal.',
+    canonicalPath: '/',
+    indexable: true,
     activeNav: 'home',
     headerActionsHtml: `
       <a class="fx-button secondary" href="https://t.me/${BOT_USERNAME}" target="_blank" rel="noopener noreferrer">Open Telegram Bot</a>

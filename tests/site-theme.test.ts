@@ -12,4 +12,23 @@ describe('responsive site navigation', () => {
     expect(html).toContain("event.key === 'Escape'")
     expect(html).toContain("backdrop?.addEventListener('click', closeMenu)")
   })
+
+  it('adds shared brand assets and keeps protected pages out of search results', () => {
+    const html = renderFuturisticPage({ title: 'Protected', contentHtml: '<p>Content</p>' })
+
+    expect(html).toContain('rel="icon" href="/favicon.svg"')
+    expect(html).toContain('rel="manifest" href="/site.webmanifest"')
+    expect(html).toContain('name="robots" content="noindex, nofollow, noarchive"')
+    expect(html).not.toContain('rel="canonical"')
+  })
+
+  it('renders canonical and social metadata for an indexable public page', () => {
+    const html = renderFuturisticPage({ title: 'Public', description: 'Public description', canonicalPath: '/', indexable: true, contentHtml: '<p>Content</p>' })
+
+    expect(html).toContain('name="description" content="Public description"')
+    expect(html).toContain('rel="canonical" href="https://foilops.com/"')
+    expect(html).toContain('property="og:title" content="Public"')
+    expect(html).toContain('name="twitter:card" content="summary_large_image"')
+    expect(html).toContain('type="application/ld+json"')
+  })
 })
