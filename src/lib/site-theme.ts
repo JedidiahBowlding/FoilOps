@@ -18,13 +18,11 @@ type RenderFuturisticPageOptions = {
 }
 
 const NAV_LINKS: SiteNavLink[] = [
-  { key: 'home', href: '/', label: 'Overview' },
-  { key: 'discovery', href: '/dashboard/discovery', label: 'Discovery' },
-  { key: 'trading', href: '/dashboard/trading-ops', label: 'Trading Ops' },
-  { key: 'wallets', href: '/dashboard/execution-wallets', label: 'Exec Wallets' },
-  { key: 'scam', href: '/dashboard/scam-wallets', label: 'Scam Intel' },
-  { key: 'graph', href: '/graph', label: 'Graph' },
+  { key: 'discovery', href: '/dashboard/discovery', label: 'Discover' },
+  { key: 'home', href: '/dashboard/research', label: 'Research' },
+  { key: 'trading', href: '/dashboard/execution', label: 'Trade' },
   { key: 'foilops', href: '/dashboard/foilops', label: 'Intelligence' },
+  { key: 'wallets', href: '/dashboard/execution-wallets', label: 'Wallets' },
 ]
 
 function renderNav(activeNav?: SiteNavKey): string {
@@ -51,8 +49,8 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         --fx-bg-0: #030611;
         --fx-bg-1: #07101f;
         --fx-bg-2: #0b1629;
-        --fx-panel: rgba(8, 18, 35, 0.78);
-        --fx-panel-strong: rgba(9, 20, 39, 0.94);
+        --fx-panel: #0b1220;
+        --fx-panel-strong: #101827;
         --fx-panel-soft: rgba(10, 23, 43, 0.62);
         --fx-line: rgba(103, 232, 249, 0.14);
         --fx-line-strong: rgba(103, 232, 249, 0.36);
@@ -64,7 +62,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         --fx-danger: #fb7185;
         --fx-warning: #fbbf24;
         --fx-success: #34d399;
-        --fx-shadow: 0 22px 70px rgba(0, 0, 0, 0.34);
+        --fx-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
       }
 
       * { box-sizing: border-box; }
@@ -130,7 +128,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       .fx-skip-link:focus { transform: translateY(0); }
 
       .fx-shell {
-        max-width: 1440px;
+        max-width: 1600px;
         margin: 0 auto;
         padding: 20px 24px 42px;
       }
@@ -169,7 +167,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         display: block;
         width: 20px;
         height: 2px;
-        border-radius: 999px;
+        border-radius: 8px;
         background: currentColor;
         transition: transform 180ms ease, opacity 180ms ease;
       }
@@ -273,8 +271,8 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       .mini {
         position: relative;
         border: 1px solid var(--fx-line);
-        border-radius: 22px;
-        background: linear-gradient(145deg, rgba(12,26,48,.86), rgba(5,13,27,.74));
+        border-radius: 12px;
+        background: linear-gradient(180deg, rgba(15,24,39,.96), rgba(9,16,28,.96));
         box-shadow: var(--fx-shadow);
         backdrop-filter: blur(14px) saturate(130%);
         overflow: hidden;
@@ -475,7 +473,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         align-items: center;
         gap: 8px;
         padding: 10px 14px;
-        border-radius: 999px;
+        border-radius: 9px;
         border: 1px solid rgba(255, 40, 60, 0.18);
         background: rgba(14, 5, 7, 0.84);
         color: var(--fx-ink);
@@ -919,6 +917,15 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       .sparkline-area { fill:url(#fxArea); opacity:.42; }
       .sparkline-line { fill:none; stroke:var(--fx-primary); stroke-width:3; stroke-linecap:round; stroke-linejoin:round; filter:drop-shadow(0 0 6px rgba(103,232,249,.55)); }
 
+      /* Institutional component system */
+      .ui-status{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;border-radius:7px;font-size:.72rem;font-weight:700;letter-spacing:.02em;background:rgba(148,163,184,.09);color:#b7c4d4}.ui-status--success{color:#62dca0;background:rgba(52,211,153,.10)}.ui-status--warning{color:#f2c35b;background:rgba(251,191,36,.10)}.ui-status--danger{color:#ff8495;background:rgba(251,113,133,.10)}.ui-status--info{color:#78d9e7;background:rgba(103,232,249,.09)}
+      .ui-metric{min-width:0;padding:15px;border-top:1px solid rgba(148,163,184,.12);background:rgba(255,255,255,.018)}.ui-metric__head{display:flex;justify-content:space-between;gap:8px;color:#8291a5;font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}.ui-metric strong{display:block;margin-top:9px;color:#f4f8fc;font-size:1.3rem;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.ui-metric small{display:block;margin-top:5px;color:#8291a5;line-height:1.4}.ui-metric details{margin-top:8px;color:#718096;font-size:.72rem}.ui-metric--success{border-top-color:#34d399}.ui-metric--warning{border-top-color:#fbbf24}.ui-metric--danger{border-top-color:#fb7185}
+      .ui-order-summary{display:flex;justify-content:space-between;gap:20px;padding:20px 0;border-bottom:1px solid rgba(148,163,184,.12)}.ui-order-summary p{margin:0;color:#7f8da1;font-size:.72rem;text-transform:uppercase;letter-spacing:.1em}.ui-order-summary h2{margin:7px 0 11px;font-size:clamp(1.35rem,2.4vw,2rem);letter-spacing:-.025em}.ui-order-summary__meta{display:flex;gap:7px;flex-wrap:wrap}
+      .ui-risk-check{display:grid;grid-template-columns:28px 1fr;gap:10px;padding:11px 0;border-bottom:1px solid rgba(148,163,184,.08)}.ui-risk-check>span{display:grid;place-items:center;width:24px;height:24px;border-radius:7px;background:rgba(148,163,184,.08);font-weight:800}.ui-risk-check strong,.ui-risk-check small{display:block}.ui-risk-check small{margin-top:3px;color:#8291a5}.ui-risk-check--passed>span{color:#34d399}.ui-risk-check--warning>span{color:#fbbf24}.ui-risk-check--blocked>span{color:#fb7185}
+      .ui-timeline{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));margin:0 0 20px;padding:0;list-style:none}.ui-timeline li{position:relative;display:grid;gap:7px;justify-items:center;text-align:center;color:#65758b;font-size:.68rem}.ui-timeline li:not(:last-child)::after{content:"";position:absolute;top:12px;left:calc(50% + 17px);right:calc(-50% + 17px);height:1px;background:#253247}.ui-timeline span{display:grid;place-items:center;width:25px;height:25px;border-radius:7px;background:#162133;border:1px solid #28364b;z-index:1}.ui-timeline .complete,.ui-timeline .active{color:#d7e2ef}.ui-timeline .complete span{color:#34d399;border-color:rgba(52,211,153,.4)}.ui-timeline .active span{color:#67e8f9;border-color:#67e8f9}
+      .ui-drawer{margin-top:12px;border-top:1px solid rgba(148,163,184,.1);padding-top:10px}.ui-drawer summary{cursor:pointer;color:#91a1b5;font-size:.78rem}.ui-confirmation{padding:14px;border-left:3px solid #fbbf24;background:rgba(251,191,36,.055)}.ui-activity{display:grid}.ui-activity__item{display:grid;grid-template-columns:10px 1fr auto;gap:10px;padding:11px 0;border-bottom:1px solid rgba(148,163,184,.08)}.ui-activity__item i{width:7px;height:7px;margin-top:5px;border-radius:50%;background:#64748b}.ui-activity__item strong,.ui-activity__item small{display:block}.ui-activity__item small,.ui-activity__item time{color:#738398;font-size:.72rem}
+      .fx-icon-button{display:inline-grid;place-items:center;width:38px;height:38px;padding:0;border:1px solid rgba(148,163,184,.14);border-radius:9px;background:rgba(255,255,255,.025);color:#9dafc3;text-decoration:none;font:700 .78rem/1 ui-monospace,monospace;cursor:pointer}.fx-icon-button:hover{color:#eef6ff;border-color:rgba(103,232,249,.35);background:rgba(103,232,249,.07)}
+
       @media (max-width: 1080px) {
         .fx-header,
         .fx-hero,
@@ -1027,6 +1034,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         .flow-diagram { grid-template-columns: 1fr; }
         .flow-node:not(:last-child)::after { content:"↓"; right:auto; left:50%; top:auto; bottom:-24px; }
         .donut-wrap { grid-template-columns:1fr; justify-items:center; }
+        .ui-timeline{grid-template-columns:1fr;gap:8px}.ui-timeline li{grid-template-columns:30px 1fr;justify-items:start;text-align:left;align-items:center}.ui-timeline li:not(:last-child)::after{top:27px;bottom:-8px;left:12px;right:auto;width:1px;height:auto}
 
         .fx-card,
         .panel,

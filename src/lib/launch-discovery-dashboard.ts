@@ -1,5 +1,6 @@
 import { PrismaLaunchCandidateRepository } from '../repositories/prisma/launch-candidate'
 import { renderFuturisticPage } from './site-theme'
+import { ExecutionTimeline, NetworkBadge, OrderSummary, StatusBadge } from './institutional-ui'
 
 type Candidate = Awaited<ReturnType<PrismaLaunchCandidateRepository['list']>>[number]
 
@@ -26,15 +27,12 @@ export class LaunchDiscoveryDashboard {
 
     return renderFuturisticPage({
       title: view === 'research' ? 'FoilOps Research Lab' : view === 'execution' ? 'FoilOps Execution' : 'FoilOps Launch Discovery',
-      activeNav: 'discovery',
+      activeNav: view === 'discovery' ? 'discovery' : view === 'research' ? 'home' : 'trading',
       headerActionsHtml: `
-        <a class="fx-button secondary" href="/dashboard/discovery">Discovery</a>
-        <a class="fx-button secondary" href="/dashboard/research">Research Lab</a>
-        <a class="fx-button secondary" href="/dashboard/execution">Execution</a>
-        <button class="fx-button" id="poll-launches" type="button"${view === 'discovery' ? '' : ' hidden'}>Scan Now</button>
-        <button class="fx-button secondary" id="refresh-launches" type="button">Refresh</button>
-        <a class="fx-button secondary" href="/api/discovery/candidates?limit=100">JSON</a>
-        <form method="post" action="/logout"><button class="fx-button" type="submit">Logout</button></form>
+        <button class="fx-button" id="poll-launches" type="button"${view === 'discovery' ? '' : ' hidden'} aria-label="Scan for launches" title="Scan for launches">Scan</button>
+        <button class="fx-icon-button" id="refresh-launches" type="button" aria-label="Refresh data" title="Refresh data">↻</button>
+        <a class="fx-icon-button" href="/api/discovery/candidates?limit=100" aria-label="View raw data" title="View raw data">{ }</a>
+        <form method="post" action="/logout"><button class="fx-icon-button" type="submit" aria-label="Log out" title="Log out">↗</button></form>
       `,
       heroHtml: `
         <section class="hero">
@@ -64,6 +62,7 @@ export class LaunchDiscoveryDashboard {
           <div id="research-result"></div>
         </section>
         <section class="section card base-swap-workbench">
+          ${OrderSummary({ action: 'Build a Base swap', network: 'Base · Chain 8453', mode: 'Manual confirmation', status: 'Awaiting quote' })}
           <div class="section-header"><div class="section-header-copy"><p class="eyebrow">Base execution</p><h2>Confirmation-required swap</h2><p class="section-subtitle">Quotes are screened by FoilOps risk and liquidity gates. Live execution requires a dedicated server wallet and a second explicit confirmation.</p></div><span id="base-swap-mode" class="badge">Checking…</span></div>
           <div class="swap-grid"><label>Sell token<input id="swap-sell-token" value="ETH" placeholder="ETH or Base contract"></label><label>Buy token<input id="swap-buy-token" placeholder="Base token contract"></label><label>Amount<input id="swap-amount" inputmode="decimal" placeholder="0.01"></label><label>Slippage (bps)<input id="swap-slippage" type="number" min="1" max="300" value="100"></label></div>
           <label class="auto-toggle"><input id="swap-risk-override" type="checkbox"><span>Override the numerical research-risk score for this exact-address watch/quote. Contract, liquidity, route, slippage, gas and simulation checks remain enforced.</span></label>
@@ -71,6 +70,8 @@ export class LaunchDiscoveryDashboard {
           <div id="base-swap-status" class="notice">A quote does not execute a transaction.</div><div id="base-swap-quote-result"></div><div id="base-swap-watches"></div>
         </section>
         <section class="section card auto-buy-workbench">
+          ${OrderSummary({ action: 'Configure an exact-address auto-buy', network: 'Base · Chain 8453', mode: 'Explicit authorization', status: 'Not armed' })}
+          ${ExecutionTimeline(0)}
           <div class="section-header"><div class="section-header-copy"><p class="eyebrow">Base · explicitly pre-authorized</p><h2>Liquidity Auto-Buy</h2><p class="section-subtitle">Monitors one exact Base contract and fails closed unless every pool, route, output, impact, slippage, gas, deadline and simulation constraint passes.</p></div><span id="auto-buy-global" class="badge">Checking…</span></div>
           <div class="auto-buy-grid">
             <label>Exact token contract<input id="ab-token" placeholder="0x…" autocomplete="off"></label>
@@ -147,7 +148,8 @@ export class LaunchDiscoveryDashboard {
         ${view === 'discovery' ? '.research-workbench,.base-swap-workbench,.auto-buy-workbench{display:none!important}' : view === 'research' ? '.discovery-overview,.base-swap-workbench,.auto-buy-workbench{display:none!important}' : '.discovery-overview,.research-workbench{display:none!important}'}
         .research-workbench,.base-swap-workbench,.auto-buy-workbench{width:min(100%,1120px);margin-inline:auto;min-width:0}.research-workbench>*,.base-swap-workbench>*,.auto-buy-workbench>*{min-width:0}
         .discovery-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
-        .candidate-card { display:flex; flex-direction:column; gap:12px; min-width:0; }
+        .candidate-card { display:flex; flex-direction:column; gap:14px; min-width:0; position:relative; overflow:hidden; }
+        .candidate-card:before{content:"";position:absolute;inset:0 0 auto;height:2px;background:linear-gradient(90deg,var(--fx-primary),var(--fx-secondary),transparent)}
         .candidate-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
         .candidate-rank { color:var(--fx-warning); font-size:.78rem; letter-spacing:.12em; text-transform:uppercase; }
         .candidate-mint { overflow-wrap:anywhere; color:var(--fx-muted); font-family:monospace; font-size:.78rem; }
@@ -155,6 +157,7 @@ export class LaunchDiscoveryDashboard {
         .score-box { padding:10px; border:1px solid var(--fx-line); border-radius:12px; background:rgba(255,255,255,.025); }
         .score-box strong { display:block; font-size:1.55rem; }
         .classification { display:inline-flex; padding:5px 9px; border-radius:999px; border:1px solid var(--fx-line-strong); color:var(--fx-warning); font-size:.75rem; }
+        .candidate-visuals{display:grid;grid-template-columns:1.4fr .8fr;gap:12px;align-items:center}.sparkline{height:62px;width:100%;overflow:visible}.sparkline path.line{fill:none;stroke:var(--fx-primary);stroke-width:2.5;vector-effect:non-scaling-stroke}.sparkline path.area{fill:url(#candidate-gradient);opacity:.22}.risk-gauge{--risk:0;aspect-ratio:1;width:70px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--fx-danger) calc(var(--risk)*1%),rgba(255,255,255,.07) 0);position:relative}.risk-gauge:after{content:"";position:absolute;inset:7px;border-radius:50%;background:var(--fx-panel)}.risk-gauge b{z-index:1;font-variant-numeric:tabular-nums}.concentration{display:grid;gap:6px}.concentration div{height:6px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden}.concentration i{display:block;height:100%;width:var(--value);background:linear-gradient(90deg,var(--fx-primary),var(--fx-warning));border-radius:inherit}.source-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.source-icon{display:inline-grid;place-items:center;width:28px;height:28px;border:1px solid var(--fx-line);border-radius:8px;color:var(--fx-muted);font-size:.72rem}.candidate-actions{display:flex;gap:8px;margin-top:auto}.candidate-actions .fx-button{flex:1;text-align:center;justify-content:center}
         .evidence-list { margin:0; padding-left:18px; color:var(--fx-muted); }
         .candidate-meta { display:flex; gap:8px; flex-wrap:wrap; color:var(--fx-muted); font-size:.8rem; }
         .score-bars { align-content:center; height:100%; }
@@ -192,6 +195,9 @@ export class LaunchDiscoveryDashboard {
           });
           const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
           const money=n=>Number.isFinite(Number(n))?'$'+Number(n).toLocaleString(undefined,{maximumFractionDigits:0}):'—';
+          const percentBps=n=>Number.isFinite(Number(n))?(Number(n)/100).toFixed(1)+'%':'—';
+          const ethFromWei=n=>{try{const v=BigInt(n||0),whole=v/1000000000000000000n,fraction=(v%1000000000000000000n).toString().padStart(18,'0').slice(0,6).replace(/0+$/,'');return whole.toString()+(fraction?'.'+fraction:'')+' ETH'}catch{return '—'}};
+          const orderTone=s=>s==='CONFIRMED'?'success':s==='FAILED'||s==='CANCELLED'?'danger':s==='ARMED'||s==='MONITORING'||s==='LIQUIDITY_DETECTED'?'warning':'info';
           const terminal=document.getElementById('ta-terminal');const term=(message)=>{terminal.textContent+='['+new Date().toLocaleTimeString()+'] '+String(message)+'\\n';terminal.scrollTop=terminal.scrollHeight};document.getElementById('ta-terminal-clear').addEventListener('click',()=>terminal.textContent='');
           async function loadTradingAgentsStatus(){try{const s=await fetch('/api/trading-agents/status').then(r=>r.json());document.getElementById('ta-badge').textContent=!s.enabled?'DISABLED':s.reachable?'READY':'OFFLINE';document.getElementById('ta-status').textContent=s.reachable?'TradingAgents is ready. Analyses can take several minutes and use provider credits.':(s.message||'Service unavailable');}catch{document.getElementById('ta-badge').textContent='OFFLINE'}}
           document.getElementById('ta-date').value=new Date().toISOString().slice(0,10);
@@ -224,7 +230,7 @@ export class LaunchDiscoveryDashboard {
               document.getElementById('auto-buy-global').textContent=autoBuyStatus.hardKillSwitch?'HARD KILL ACTIVE':autoBuyStatus.effectiveEnabled?'MASTER ON · EXPLICIT ARM':autoBuyStatus.enabled?'MASTER OFF':'SERVER DISABLED';
               const master=document.getElementById('ab-master');master.checked=Boolean(autoBuyStatus.masterEnabled);master.disabled=!autoBuyStatus.enabled||autoBuyStatus.hardKillSwitch;
               const payload=await fetch('/api/liquidity-auto-buy/orders').then(r=>r.json()),orders=payload.orders||[];
-              document.getElementById('ab-orders').innerHTML=orders.map(o=>'<article class="auto-order"><div class="candidate-head"><div><b>'+esc(o.state)+'</b><div class="candidate-mint">'+esc(o.tokenAddress)+'</div></div>'+(o.transactionHash?'<a href="https://basescan.org/tx/'+encodeURIComponent(o.transactionHash)+'" target="_blank" rel="noopener noreferrer">BaseScan</a>':'')+'</div><div class="auto-order-grid"><span>Spend<br><b>'+esc(o.spendAmount)+' '+esc(o.sellToken)+'</b></span><span>Liquidity<br><b>'+money(o.currentLiquidityUsd)+'</b></span><span>Pool / DEX<br><b>'+esc(o.poolRouter||'Waiting')+'</b></span><span>Expected raw output<br><b>'+esc(o.expectedOutput||'—')+'</b></span><span>Impact limit<br><b>'+esc(o.maxPriceImpactBps)+' bps</b></span><span>Slippage limit<br><b>'+esc(o.maxSlippageBps)+' bps</b></span><span>Gas limit<br><b>'+esc(o.maxGasCostWei)+' wei</b></span><span>Status<br><b>'+esc(o.lastReason||'—')+'</b></span></div><div class="research-controls" style="margin-top:10px">'+(o.state==='DRAFT'?'<button class="fx-button" data-ab-arm="'+esc(o.id)+'">ARM reviewed order</button>':'')+(!['CONFIRMED','CANCELLED'].includes(o.state)?'<button class="fx-button danger" data-ab-cancel="'+esc(o.id)+'">Emergency CANCEL</button>':'')+'<button class="fx-button secondary" data-ab-audit="'+esc(o.id)+'">Audit history</button></div><pre id="audit-'+esc(o.id)+'" style="display:none;white-space:pre-wrap"></pre></article>').join('')||'<div class="notice">No auto-buy orders configured.</div>';
+              document.getElementById('ab-orders').innerHTML=orders.map(o=>'<article class="auto-order"><div class="candidate-head"><div><span class="ui-status ui-status--'+orderTone(o.state)+'">'+esc(o.state)+'</span><h3>Buy '+esc(o.spendAmount)+' '+esc(o.sellToken)+' of exact-address token</h3><div class="candidate-mint">'+esc(o.tokenAddress)+'</div></div>'+(o.transactionHash?'<a href="https://basescan.org/tx/'+encodeURIComponent(o.transactionHash)+'" target="_blank" rel="noopener noreferrer">View on BaseScan ↗</a>':'')+'</div><div class="auto-order-grid"><article class="ui-metric"><div class="ui-metric__head"><span>Authorized spend</span></div><strong>'+esc(o.spendAmount)+' '+esc(o.sellToken)+'</strong></article><article class="ui-metric"><div class="ui-metric__head"><span>Usable liquidity</span></div><strong>'+money(o.currentLiquidityUsd)+'</strong><small>'+esc(o.poolRouter||'Waiting for supported pool')+'</small></article><article class="ui-metric"><div class="ui-metric__head"><span>Estimated output</span></div><strong>'+esc(o.expectedOutput||'Pending route')+'</strong></article><article class="ui-metric"><div class="ui-metric__head"><span>Price impact limit</span></div><strong>'+percentBps(o.maxPriceImpactBps)+'</strong></article><article class="ui-metric"><div class="ui-metric__head"><span>Slippage limit</span></div><strong>'+percentBps(o.maxSlippageBps)+'</strong></article><article class="ui-metric"><div class="ui-metric__head"><span>Gas ceiling</span></div><strong>'+ethFromWei(o.maxGasCostWei)+'</strong></article></div><div class="ui-risk-check ui-risk-check--'+(o.lastReason?'warning':'pending')+'"><span aria-hidden="true">'+(o.lastReason?'!':'·')+'</span><div><strong>Latest validation</strong><small>'+esc(o.lastReason||'Waiting for monitor observation')+'</small></div></div><details class="ui-drawer"><summary>Advanced details and exact values</summary><div><code>impact='+esc(o.maxPriceImpactBps)+' bps · slippage='+esc(o.maxSlippageBps)+' bps · gas='+esc(o.maxGasCostWei)+' wei</code></div></details><div class="research-controls" style="margin-top:10px">'+(o.state==='DRAFT'?'<button class="fx-button" data-ab-arm="'+esc(o.id)+'">ARM reviewed order</button>':'')+(!['CONFIRMED','CANCELLED'].includes(o.state)?'<button class="fx-button danger" data-ab-cancel="'+esc(o.id)+'">Emergency CANCEL</button>':'')+'<button class="fx-button secondary" data-ab-audit="'+esc(o.id)+'">Audit history</button></div><pre id="audit-'+esc(o.id)+'" style="display:none;white-space:pre-wrap"></pre></article>').join('')||'<div class="notice">No auto-buy orders configured.</div>';
               document.querySelectorAll('[data-ab-arm]').forEach(b=>b.addEventListener('click',async()=>{if(!confirm('ARM this exact order for unattended execution? Review every displayed limit before continuing.'))return;await autoBuyAction('/api/liquidity-auto-buy/orders/'+encodeURIComponent(b.dataset.abArm)+'/arm')}));
               document.querySelectorAll('[data-ab-cancel]').forEach(b=>b.addEventListener('click',async()=>{if(!confirm('Emergency-cancel this order?'))return;await autoBuyAction('/api/liquidity-auto-buy/orders/'+encodeURIComponent(b.dataset.abCancel)+'/cancel')}));
               document.querySelectorAll('[data-ab-audit]').forEach(b=>b.addEventListener('click',async()=>{const p=await fetch('/api/liquidity-auto-buy/orders/'+encodeURIComponent(b.dataset.abAudit)+'/audit').then(r=>r.json()),el=document.getElementById('audit-'+b.dataset.abAudit);el.style.display='block';el.textContent=JSON.stringify(p.events||[],null,2)}));
@@ -259,6 +265,11 @@ export class LaunchDiscoveryDashboard {
     const label = String(evidence.symbol || evidence.name || candidate.tokenMint.slice(0, 8))
     const projectLinks = this.renderProjectLinks(evidence)
     const rawApiPath = `/api/discovery/candidates/${encodeURIComponent(chain)}/${encodeURIComponent(tokenMint)}/history`
+    const liquiditySeries = history.observations.map((observation) => Number(((observation.evidence || {}) as Record<string, unknown>).liquidityUsd)).filter(Number.isFinite)
+    const maxLiquidity = Math.max(1, ...liquiditySeries)
+    const liquidityPoints = liquiditySeries.length > 1 ? liquiditySeries.map((value, index) => `${(index / (liquiditySeries.length - 1)) * 100},${58 - (value / maxLiquidity) * 50}`).join(' ') : '0,50 100,50'
+    const concentration = Number(evidence.top10HolderPercent)
+    const risk = Math.max(0, Math.min(100, candidate.riskScore))
 
     return renderFuturisticPage({
       title: `${label} Evidence | FoilOps`,
@@ -283,6 +294,11 @@ export class LaunchDiscoveryDashboard {
         </section>
       `,
       contentHtml: `
+        <section class="section intelligence-hero card">
+          <div><p class="eyebrow">Liquidity history · ${liquiditySeries.length} observations</p><h2>${this.money(evidence.liquidityUsd)} verified liquidity</h2><svg class="history-chart" viewBox="0 0 100 60" preserveAspectRatio="none" role="img" aria-label="Verified liquidity observation history"><polyline points="${liquidityPoints}" fill="none" stroke="var(--fx-primary)" stroke-width="2.5" vector-effect="non-scaling-stroke"/></svg></div>
+          <div class="detail-gauge"><div class="risk-gauge" style="--risk:${risk}" aria-label="Risk score ${risk} out of 100"><b>${risk}</b></div><span>Risk score</span></div>
+          <div class="holder-visual"><strong>${this.percent(concentration)}</strong><span>Top 10 holder concentration</span><div><i style="--value:${Number.isFinite(concentration) ? Math.max(0, Math.min(100, concentration)) : 0}%"></i></div></div>
+        </section>
         <section class="stats evidence-stats">
           ${this.metric('Opportunity', candidate.opportunityScore, 'Higher is stronger, after evidence gates.')}
           ${this.metric('Risk', candidate.riskScore, 'Lower is safer.')}
@@ -336,6 +352,7 @@ export class LaunchDiscoveryDashboard {
       `,
       extraStyles: `
         .verdict-card { min-width:280px; }
+        .intelligence-hero{display:grid;grid-template-columns:minmax(0,1fr) 120px 240px;align-items:center;gap:28px}.history-chart{width:100%;height:120px;margin-top:12px;background:linear-gradient(180deg,rgba(56,189,248,.08),transparent);border-bottom:1px solid var(--fx-line)}.detail-gauge{display:grid;justify-items:center;gap:8px;color:var(--fx-muted)}.risk-gauge{--risk:0;aspect-ratio:1;width:82px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--fx-danger) calc(var(--risk)*1%),rgba(255,255,255,.07) 0);position:relative}.risk-gauge:after{content:"";position:absolute;inset:8px;border-radius:50%;background:var(--fx-panel)}.risk-gauge b{z-index:1;font-size:1.4rem}.holder-visual{display:grid;gap:8px}.holder-visual strong{font-size:1.8rem}.holder-visual span{color:var(--fx-muted)}.holder-visual div{height:8px;border-radius:5px;background:rgba(255,255,255,.08);overflow:hidden}.holder-visual i{display:block;height:100%;width:var(--value);background:linear-gradient(90deg,var(--fx-primary),var(--fx-warning),var(--fx-danger))}
         .mint-value { overflow-wrap:anywhere; font-family:monospace; }
         .evidence-stats { grid-template-columns:repeat(3,minmax(0,1fr)); }
         .detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
@@ -348,7 +365,7 @@ export class LaunchDiscoveryDashboard {
         .readable-list { padding-left:20px; color:var(--fx-muted); line-height:1.7; }
         .tag-row { display:flex; flex-wrap:wrap; gap:8px; }
         .evidence-tag { padding:6px 9px; border:1px solid var(--fx-line); border-radius:999px; color:var(--fx-muted); }
-        @media (max-width:900px) { .detail-grid,.evidence-stats { grid-template-columns:1fr; } }
+        @media (max-width:900px) { .detail-grid,.evidence-stats,.intelligence-hero { grid-template-columns:1fr; }.detail-gauge{justify-items:start}.history-chart{height:90px} }
       `,
     })
   }
@@ -358,21 +375,31 @@ export class LaunchDiscoveryDashboard {
     const rationale = Array.isArray(evidence.rationale) ? evidence.rationale.map(String).slice(0, 5) : []
     const label = String(evidence.symbol || evidence.name || candidate.tokenMint.slice(0, 8))
     const website = this.safeUrl(evidence.website)
+    const twitter = this.safeUrl(evidence.twitter)
+    const telegram = this.safeUrl(evidence.telegram)
+    const liquidity = typeof evidence.liquidityUsd === 'number' ? evidence.liquidityUsd : null
+    const concentration = typeof evidence.top10HolderPercent === 'number' ? Math.max(0, Math.min(100, evidence.top10HolderPercent)) : null
+    const risk = Math.max(0, Math.min(100, Number(candidate.riskScore || 0)))
+    const signalPoints = [12, 12 + candidate.opportunityScore * .22, 18 + (100 - risk) * .18, 22 + Math.min(28, Math.log10(Math.max(1, liquidity || 1)) * 6), 28 + candidate.opportunityScore * .3]
+    const sparkPoints = signalPoints.map((point, index) => `${index * 25},${60 - Math.max(5, Math.min(55, point))}`).join(' ')
+    const verified = Boolean(evidence.contractVerified || evidence.verifiedContract || evidence.mintAuthority === null)
     return `
       <article class="card candidate-card">
         <div class="candidate-head">
           <div><div class="candidate-rank">Rank ${rank} · ${this.escape(candidate.chain)}</div><h3>${this.escape(label)}</h3></div>
-          <span class="classification">${this.escape(candidate.classification || candidate.status)}</span>
+          ${StatusBadge(candidate.classification || candidate.status, candidate.classification === 'REJECT' ? 'danger' : candidate.classification === 'PROMISING' ? 'success' : 'warning', candidate.classification === 'PROMISING' ? '✓' : '!')}
         </div>
+        <div class="source-row">${NetworkBadge(candidate.chain)}${StatusBadge(verified ? 'Contract verified' : 'Verification pending', verified ? 'success' : 'neutral', verified ? '✓' : '·')}<span class="source-icon" title="Source: ${this.escape(candidate.source)}">SRC</span>${website ? '<span class="source-icon" title="Website found">WEB</span>' : ''}${twitter ? '<span class="source-icon" title="X / Twitter found">X</span>' : ''}${telegram ? '<span class="source-icon" title="Telegram found">TG</span>' : ''}</div>
+        <div class="candidate-visuals"><div><small>Evidence signal profile</small><svg class="sparkline" viewBox="0 0 100 60" preserveAspectRatio="none" role="img" aria-label="Evidence signal profile, not price history"><defs><linearGradient id="candidate-gradient" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#38bdf8"/><stop offset="1" stop-color="#38bdf8" stop-opacity="0"/></linearGradient></defs><polyline points="${sparkPoints}" fill="none" stroke="var(--fx-primary)" stroke-width="2.5" vector-effect="non-scaling-stroke"/></svg></div><div class="risk-gauge" style="--risk:${risk}" aria-label="Risk score ${risk} out of 100"><b>${risk}</b></div></div>
         <div class="score-row">
+          <div class="score-box"><span>Liquidity</span><strong>${this.money(liquidity)}</strong></div>
           <div class="score-box"><span>Opportunity</span><strong>${candidate.opportunityScore ?? '—'}</strong></div>
-          <div class="score-box"><span>Risk</span><strong>${candidate.riskScore ?? '—'}</strong></div>
         </div>
+        <div class="concentration"><small>Top 10 holder concentration · ${this.percent(concentration)}</small><div><i style="--value:${concentration ?? 0}%"></i></div></div>
         <div class="candidate-mint">${this.escape(candidate.tokenMint)}</div>
         <ul class="evidence-list">${rationale.map((item) => `<li>${this.escape(item)}</li>`).join('') || '<li>Evidence collection pending</li>'}</ul>
         <div class="candidate-meta"><span>${this.escape(candidate.source)}</span><span>Detected ${this.escape(candidate.detectedAt.toISOString())}</span></div>
-        ${website ? `<a class="fx-button secondary" href="${this.escape(website)}" target="_blank" rel="noopener noreferrer nofollow">Visit Website</a>` : '<div class="notice">No project website found</div>'}
-        <a class="fx-button secondary" href="/dashboard/discovery/${encodeURIComponent(candidate.chain)}/${encodeURIComponent(candidate.tokenMint)}">Evidence History</a>
+        <div class="candidate-actions">${website ? `<a class="fx-button secondary" href="${this.escape(website)}" target="_blank" rel="noopener noreferrer nofollow">Website</a>` : ''}<a class="fx-button" href="/dashboard/discovery/${encodeURIComponent(candidate.chain)}/${encodeURIComponent(candidate.tokenMint)}">Open intelligence</a></div>
       </article>
     `
   }
