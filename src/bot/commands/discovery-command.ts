@@ -2,6 +2,9 @@ import TelegramBot from 'node-telegram-bot-api'
 import { BotMiddleware } from '../../config/bot-middleware'
 import { NewLaunchIngestor } from '../../lib/new-launch-ingestor'
 import { PrismaLaunchCandidateRepository } from '../../repositories/prisma/launch-candidate'
+import { promises as fs } from 'fs'
+import path from 'path'
+import { OrderStateStore } from '../../lib/liquidity-auto-buy/order-state-store'
 
 export class DiscoveryCommand {
   constructor(
@@ -11,6 +14,9 @@ export class DiscoveryCommand {
   ) {}
 
   registerHandlers(): void {
+    this.bot.onText(/^\/monitoring(?:@\w+)?$/i, async (msg) => this.sendMonitoring(msg))
+    this.bot.onText(/^\/base_watches(?:@\w+)?$/i, async (msg) => this.sendBaseWatches(msg))
+    this.bot.onText(/^\/autobuy_orders(?:@\w+)?$/i, async (msg) => this.sendAutoBuyOrders(msg))
     this.bot.onText(/^\/discovery(?:@\w+)?$/i, async (msg) => this.sendOverview(msg.chat.id))
     this.bot.onText(/^\/discovery_status(?:@\w+)?$/i, async (msg) => this.sendStatus(msg.chat.id))
     this.bot.onText(/^\/discoveries(?:@\w+)?(?:\s+(solana|robinhood))?(?:\s+(\d+))?$/i, async (msg, match) => {
@@ -37,6 +43,59 @@ export class DiscoveryCommand {
     })
   }
 
+  private isAdmin(msg: TelegramBot.Message): boolean {
+    return BotMiddleware.isUserBotAdmin(String(msg.from?.id || ''))
+  }
+
+  private async deny(msg: TelegramBot.Message): Promise<boolean> {
+    if (this.isAdmin(msg)) return false
+    await this.bot.sendMessage(msg.chat.id, '❌ Access denied. Monitoring details are admin only.')
+    return true
+  }
+
+  private async sendMonitoring(msg: TelegramBot.Message): Promise<void> {
+    if (await this.deny(msg)) return
+    await this.sendBaseWatches(msg, false)
+    await this.sendAutoBuyOrders(msg, false)
+  }
+
+  private async sendBaseWatches(msg: TelegramBot.Message, checkAdmin = true): Promise<void> {
+    if (checkAdmin && await this.deny(msg)) return
+    let watches: any[] = []
+    try { watches = JSON.parse(await fs.readFile(path.resolve(process.cwd(), 'data/base-launch-watches.json'), 'utf8')) }
+    catch { /* no watches yet */ }
+    const active = watches.filter((watch) => !['CANCELLED'].includes(String(watch.status))).slice(0, 10)
+    const lines = ['👁 <b>Base Launch Watches</b>', '']
+    if (!active.length) lines.push('No active Base launch watches.')
+    for (const watch of active) lines.push(
+      `<b>${this.escape(watch.status)}</b>${watch.riskOverride ? ' · ⚠️ RISK OVERRIDE' : ''}`,
+      `<code>${this.escape(watch.buyToken)}</code>`,
+      `Spend: <b>${this.escape(watch.amount)} ${this.escape(watch.sellToken)}</b> · Slippage: <b>${this.escape(watch.slippageBps)} bps</b>`,
+      `Checks: <b>${this.escape(watch.attempts)}</b>`,
+      `Last result: ${this.escape(watch.lastError || (watch.quote ? 'Route ready for review' : 'Waiting'))}`,
+      '',
+    )
+    await this.bot.sendMessage(msg.chat.id, lines.join('\n'), { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{ text: 'Open Execution', url: `${this.appUrl()}/dashboard/execution` }]] } })
+  }
+
+  private async sendAutoBuyOrders(msg: TelegramBot.Message, checkAdmin = true): Promise<void> {
+    if (checkAdmin && await this.deny(msg)) return
+    const store = new OrderStateStore()
+    const [control, orders] = await Promise.all([store.getControl(), store.list()])
+    const lines = ['🤖 <b>Liquidity Auto-Buy</b>', `Master switch: <b>${control.enabled ? 'ON' : 'OFF'}</b>`, '']
+    if (!orders.length) lines.push('No auto-buy orders configured.')
+    for (const order of orders.slice(0, 10)) lines.push(
+      `<b>${this.escape(order.state)}</b> · ${this.escape(order.sellToken)} ${this.escape(order.spendAmount)}`,
+      `<code>${this.escape(order.tokenAddress)}</code>`,
+      `AUTO authorization: <b>${order.autoBuyEnabled ? 'ON' : 'OFF'}</b> · Attempts: <b>${order.monitorAttempts}</b>`,
+      `Liquidity: <b>${this.money(order.currentLiquidityUsd)}</b> · Impact limit: <b>${order.maxPriceImpactBps} bps</b>`,
+      `Last result: ${this.escape(order.lastReason || 'Waiting')}`,
+      order.transactionHash ? `Transaction: <code>${this.escape(order.transactionHash)}</code>` : '',
+      '',
+    )
+    await this.bot.sendMessage(msg.chat.id, lines.filter(Boolean).join('\n'), { parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{ text: 'Open Auto-Buy', url: `${this.appUrl()}/dashboard/execution` }]] } })
+  }
+
   private async sendOverview(chatId: number): Promise<void> {
     const appUrl = this.appUrl()
     await this.bot.sendMessage(
@@ -52,6 +111,7 @@ export class DiscoveryCommand {
         '🧾 <b>/candidate solana &lt;mint&gt;</b> — evidence summary',
         '📡 <b>/discovery_status</b> — ingestion health',
         '🔄 <b>/discovery_scan</b> — scan now (admin)',
+        '👁 <b>/monitoring</b> — Base watches and auto-buy orders (admin)',
         '',
         'Candidates are research signals, not buy recommendations.',
       ].join('\n'),

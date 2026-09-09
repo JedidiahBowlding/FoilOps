@@ -119,6 +119,9 @@ Independent evidence for Solana and Robinhood Chain launches
 🔹 <b>/candidate</b> [chain] [address] - Show human-readable token evidence
 🔹 <b>/discovery_status</b> - Show ingestion sources and health
 🔹 <b>/discovery_scan</b> - Run all launch sources now (admin)
+🔹 <b>/monitoring</b> - View Base watches and auto-buy orders (admin)
+🔹 <b>/base_watches</b> - View persistent Base launch watches (admin)
+🔹 <b>/autobuy_orders</b> - View auto-buy master state and orders (admin)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
