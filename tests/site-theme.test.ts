@@ -17,6 +17,7 @@ describe('responsive site navigation', () => {
     const html = renderFuturisticPage({ title: 'Protected', contentHtml: '<p>Content</p>' })
 
     expect(html).toContain('rel="icon" href="/favicon.svg"')
+    expect(html).toContain('<img src="/favicon.svg" alt="" width="34" height="34" />')
     expect(html).toContain('rel="manifest" href="/site.webmanifest"')
     expect(html).toContain('name="robots" content="noindex, nofollow, noarchive"')
     expect(html).not.toContain('rel="canonical"')

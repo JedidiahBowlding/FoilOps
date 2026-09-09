@@ -208,12 +208,23 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       }
 
       .fx-logo {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
         text-decoration: none;
         color: var(--fx-ink);
         font-weight: 800;
         letter-spacing: 0.06em;
         font-size: 1.05rem;
         text-shadow: 0 0 22px rgba(103,232,249,.7);
+      }
+
+      .fx-logo img {
+        width: 34px;
+        height: 34px;
+        display: block;
+        border-radius: 9px;
+        box-shadow: 0 0 22px rgba(103,232,249,.18);
       }
 
       .fx-nav {
@@ -1154,7 +1165,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
     <button class="fx-menu-toggle" type="button" aria-label="Open navigation" aria-controls="site-navigation" aria-expanded="false"><span class="fx-menu-icon" aria-hidden="true"></span></button>
     <div class="fx-menu-backdrop" aria-hidden="true"></div>
     <header class="fx-header" id="site-navigation">
-      <div class="fx-header-left"><a class="fx-logo" href="/">FOILOPS</a></div>
+      <div class="fx-header-left"><a class="fx-logo" href="/" aria-label="FOILOPS home"><img src="/favicon.svg" alt="" width="34" height="34" /><span>FOILOPS</span></a></div>
       <nav class="fx-nav" aria-label="Primary navigation">${renderNav(options.activeNav)}</nav>
       ${renderActions(options.headerActionsHtml)}
     </header>
