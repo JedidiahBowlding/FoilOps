@@ -49,6 +49,11 @@ export class LaunchDiscoveryDashboard {
       `,
       contentHtml: `
         <section class="section card research-workbench">
+          <div class="section-header"><div class="section-header-copy"><p class="eyebrow">TradingAgents · complete upstream workflow</p><h2>Stocks, ETFs & Yahoo Finance Crypto</h2><p class="section-subtitle">Run its original market, fundamentals, news, social, debate, trader and risk teams alongside FoilOps contract research.</p></div><span id="ta-badge" class="badge">Checking…</span></div>
+          <div class="research-controls"><input id="ta-ticker" placeholder="NVDA, SPY, BTC-USD…" autocomplete="off"><input id="ta-date" type="date"><button class="fx-button" id="ta-run" type="button">Run TradingAgents</button></div>
+          <div id="ta-status" class="notice">The Python research service is disabled by default.</div><div id="ta-result"></div>
+        </section>
+        <section class="section card research-workbench">
           <div class="section-header"><div class="section-header-copy"><p class="eyebrow">Deep investigation</p><h2>Research any Solana or Base token</h2><p class="section-subtitle">Collect controls, holders, every visible pool, LP-lock evidence, creator conflicts, protocol/DAO/NFT claims, and an evidence-weighted verdict.</p></div></div>
           <div class="research-controls"><select id="research-chain"><option value="solana">Solana</option><option value="base">Base</option></select><input id="research-mint" placeholder="Paste a Solana mint or Base contract" autocomplete="off" spellcheck="false"><button class="fx-button" id="run-research" type="button">Investigate Token</button></div>
           <div id="research-status" class="notice">No token investigated in this session.</div>
@@ -179,6 +184,10 @@ export class LaunchDiscoveryDashboard {
           });
           const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
           const money=n=>Number.isFinite(Number(n))?'$'+Number(n).toLocaleString(undefined,{maximumFractionDigits:0}):'—';
+          async function loadTradingAgentsStatus(){try{const s=await fetch('/api/trading-agents/status').then(r=>r.json());document.getElementById('ta-badge').textContent=!s.enabled?'DISABLED':s.reachable?'READY':'OFFLINE';document.getElementById('ta-status').textContent=s.reachable?'TradingAgents is ready. Analyses can take several minutes and use provider credits.':(s.message||'Service unavailable');}catch{document.getElementById('ta-badge').textContent='OFFLINE'}}
+          document.getElementById('ta-date').value=new Date().toISOString().slice(0,10);
+          document.getElementById('ta-run').addEventListener('click',async()=>{const button=document.getElementById('ta-run'),status=document.getElementById('ta-status'),out=document.getElementById('ta-result'),ticker=document.getElementById('ta-ticker').value.trim();if(!ticker)return void(status.textContent='Enter a Yahoo Finance ticker.');button.disabled=true;status.textContent='Analyst team is running. This may take several minutes…';try{const response=await fetch('/api/trading-agents/ticker',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({ticker,date:document.getElementById('ta-date').value})}),r=await response.json();if(!response.ok)throw new Error(r.message||'Analysis failed');status.textContent='TradingAgents completed '+r.ticker+' for '+r.analysisDate+'.';out.innerHTML='<h3>Portfolio decision</h3><div class="notice">'+esc(r.decision)+'</div><details style="margin-top:12px"><summary>Complete analyst and debate reports</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(JSON.stringify(r.reports,null,2))+'</pre></details>';}catch(error){status.textContent=error.message||'Analysis failed';out.innerHTML='';}finally{button.disabled=false}});
+          loadTradingAgentsStatus();
           document.getElementById('run-research').addEventListener('click',async()=>{
             const mint=document.getElementById('research-mint').value.trim(), chain=document.getElementById('research-chain').value, button=document.getElementById('run-research'), status=document.getElementById('research-status'), out=document.getElementById('research-result');
             if(!mint){status.textContent='Paste a Solana mint or Base contract first.';return} button.disabled=true;status.textContent='Collecting independent evidence…';out.innerHTML='';

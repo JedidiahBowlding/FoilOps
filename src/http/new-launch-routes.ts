@@ -10,6 +10,7 @@ import { BaseAutoBuyRuntime } from '../lib/liquidity-auto-buy/base-runtime'
 import { AuditLogger, OrderStateStore } from '../lib/liquidity-auto-buy/order-state-store'
 import { LiquidityAutoBuyService } from '../lib/liquidity-auto-buy/service'
 import { registerLiquidityAutoBuyRoutes } from './liquidity-auto-buy-routes'
+import { TradingAgentsClient } from '../lib/trading-agents-client'
 
 export function registerNewLaunchRoutes(
   app: Express,
@@ -23,9 +24,19 @@ export function registerNewLaunchRoutes(
   const baseLaunchWatch = new BaseLaunchWatchService(baseSwap)
   const expensiveRequestLimit = rateLimit({ windowMs: 60_000, max: 20, label: 'discovery-expensive' })
   const autoBuy = new LiquidityAutoBuyService(new OrderStateStore(), new AuditLogger(), new BaseAutoBuyRuntime())
+  const tradingAgents = new TradingAgentsClient()
   void baseLaunchWatch.start().catch((error) => console.error('Base launch watch failed to start', error))
   void autoBuy.start().catch((error) => console.error('Liquidity auto-buy failed to start', error))
   app.get('/api/discovery/status', requireApiAuth, (_req, res) => res.json(ingestor.getStatus()))
+  app.get('/api/trading-agents/status', requireApiAuth, async (_req, res) => res.json(await tradingAgents.status()))
+  app.post('/api/trading-agents/ticker', requireApiAuth, expensiveRequestLimit, async (req, res) => {
+    try {
+      const ticker = typeof req.body?.ticker === 'string' ? req.body.ticker.trim() : ''
+      const date = typeof req.body?.date === 'string' ? req.body.date : undefined
+      if (!ticker) return void res.status(400).json({ message: 'ticker is required' })
+      res.json(await tradingAgents.analyzeTicker({ ticker, date }))
+    } catch (error) { res.status(400).json({ message: error instanceof Error ? error.message : 'TradingAgents analysis failed' }) }
+  })
 
   app.post('/api/discovery/poll', requireApiAuth, expensiveRequestLimit, async (_req, res) => {
     res.json(await ingestor.pollOnce())
