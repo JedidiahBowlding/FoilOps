@@ -1,6 +1,16 @@
 import type { DeepTokenResearch, ResearchFinding } from './token-deep-research'
 
 const DEFAULT_BASE_RPC = 'https://mainnet.base.org'
+export const EVM_RESEARCH_CHAINS = {
+  base: { chainId: 8453, rpcEnv: 'BASE_RPC_URL', rpc: DEFAULT_BASE_RPC, dex: 'base', explorer: 'https://basescan.org' },
+  ethereum: { chainId: 1, rpcEnv: 'ETHEREUM_RPC_URL', rpc: 'https://eth.llamarpc.com', dex: 'ethereum', explorer: 'https://etherscan.io' },
+  arbitrum: { chainId: 42161, rpcEnv: 'ARBITRUM_RPC_URL', rpc: 'https://arb1.arbitrum.io/rpc', dex: 'arbitrum', explorer: 'https://arbiscan.io' },
+  optimism: { chainId: 10, rpcEnv: 'OPTIMISM_RPC_URL', rpc: 'https://mainnet.optimism.io', dex: 'optimism', explorer: 'https://optimistic.etherscan.io' },
+  polygon: { chainId: 137, rpcEnv: 'POLYGON_RPC_URL', rpc: 'https://polygon-rpc.com', dex: 'polygon', explorer: 'https://polygonscan.com' },
+  bsc: { chainId: 56, rpcEnv: 'BSC_RPC_URL', rpc: 'https://bsc-dataseed.binance.org', dex: 'bsc', explorer: 'https://bscscan.com' },
+  avalanche: { chainId: 43114, rpcEnv: 'AVALANCHE_RPC_URL', rpc: 'https://api.avax.network/ext/bc/C/rpc', dex: 'avalanche', explorer: 'https://snowtrace.io' },
+} as const
+export type EvmResearchChain = keyof typeof EVM_RESEARCH_CHAINS
 const ZERO = '0x0000000000000000000000000000000000000000'
 const EIP1967_IMPLEMENTATION_SLOT = '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc'
 
@@ -20,7 +30,12 @@ const decodeString = (hex: string | null): string | undefined => {
 }
 
 export class BaseTokenDeepResearchService {
-  private readonly rpcUrls = Array.from(new Set([process.env.BASE_RPC_URL?.trim(), DEFAULT_BASE_RPC].filter(Boolean))) as string[]
+  private readonly config
+  private readonly rpcUrls: string[]
+  constructor(chain: EvmResearchChain = 'base') {
+    this.config = EVM_RESEARCH_CHAINS[chain]
+    this.rpcUrls = Array.from(new Set([process.env[this.config.rpcEnv]?.trim(), this.config.rpc].filter(Boolean))) as string[]
+  }
 
   private async rpc<T>(method: string, params: unknown[]): Promise<T> {
     const failures: string[] = []
@@ -34,7 +49,7 @@ export class BaseTokenDeepResearchService {
         failures.push(`${new URL(rpcUrl).hostname}: ${error instanceof Error ? error.message : 'failed'}`)
       }
     }
-    throw new Error(`Base RPC ${method} failed (${failures.join('; ')})`)
+    throw new Error(`EVM RPC ${method} failed (${failures.join('; ')})`)
   }
 
   private async call(to: string, data: string): Promise<string | null> {
@@ -61,11 +76,11 @@ export class BaseTokenDeepResearchService {
       this.call(mint, '0x8da5cb5b'), this.call(mint, '0x5c975abb'),
       safe('proxy slot', this.rpc<string>('eth_getStorageAt', [mint, EIP1967_IMPLEMENTATION_SLOT, 'latest']), '0x'),
       safe('DexScreener', this.json(`https://api.dexscreener.com/latest/dex/tokens/${mint}`), {}),
-      safe('GoPlus security', this.json(`https://api.gopluslabs.io/api/v1/token_security/8453?contract_addresses=${mint}`), {}),
+      safe('GoPlus security', this.json(`https://api.gopluslabs.io/api/v1/token_security/${this.config.chainId}?contract_addresses=${mint}`), {}),
       this.fetchCreation(mint, errors),
     ])
-    if (Number.parseInt(chainId, 16) !== 8453) errors.push(`configured RPC returned chain ID ${Number.parseInt(chainId, 16)}, expected 8453`)
-    if (!code || code === '0x') throw new Error('No contract code exists at this Base address')
+    if (Number.parseInt(chainId, 16) !== this.config.chainId) throw new Error(`configured RPC returned chain ID ${Number.parseInt(chainId, 16)}, expected ${this.config.chainId}`)
+    if (!code || code === '0x') throw new Error('No contract code exists at this address')
     const decimals = Number(uintWord(decimalsHex) || BigInt(0))
     const rawSupply = uintWord(supplyHex)
     const supply = rawSupply === null ? null : Number(rawSupply) / 10 ** decimals
@@ -73,7 +88,7 @@ export class BaseTokenDeepResearchService {
     const implementation = addressWord(implementationWord)
     const owner = addressWord(ownerHex)
     const paused = pausedHex && pausedHex !== '0x' ? uintWord(pausedHex) === BigInt(1) : null
-    const pairs = Array.isArray(dex?.pairs) ? dex.pairs.filter((pair: any) => pair.chainId === 'base' && pair.baseToken?.address?.toLowerCase() === mint) : []
+    const pairs = Array.isArray(dex?.pairs) ? dex.pairs.filter((pair: any) => pair.chainId === this.config.dex && pair.baseToken?.address?.toLowerCase() === mint) : []
     const pools = pairs.map((pair: any) => ({ venue: String(pair.dexId || 'unknown'), address: String(pair.pairAddress || ''), liquidityUsd: number(pair.liquidity?.usd), volume24hUsd: number(pair.volume?.h24), pairUrl: pair.url })).sort((a: any, b: any) => b.liquidityUsd - a.liquidityUsd)
     const materialPools = pools.filter((pool: any) => pool.liquidityUsd >= 1_000)
     const liquidityUsd = materialPools.reduce((n: number, pool: any) => n + pool.liquidityUsd, 0)
@@ -114,8 +129,8 @@ export class BaseTokenDeepResearchService {
       holders: { top10Percent, largestAccounts: holders },
       provenance: { creators, launchpad: primary?.dexId, createdAt: creation.timestamp, conflict: false },
       findings: {
-        liquidity: finding(liquidityUsd >= 10_000 ? 'VERIFIED' : 'NOT_FOUND', `${materialPools.length} material Base pools; displayed liquidity totals $${Math.round(liquidityUsd).toLocaleString()}.`, [`https://dexscreener.com/base/${primary?.pairAddress || mint}`]),
-        lpLock: finding(lockPercent !== null ? 'VERIFIED' : 'NOT_FOUND', lockPercent !== null ? `Reported locked/burned LP: ${lockPercent.toFixed(2)}%.` : 'No reliable LP-lock percentage was returned.', ['https://gopluslabs.io/token-security/8453']),
+        liquidity: finding(liquidityUsd >= 10_000 ? 'VERIFIED' : 'NOT_FOUND', `${materialPools.length} material pools; displayed liquidity totals $${Math.round(liquidityUsd).toLocaleString()}.`, [`https://dexscreener.com/${this.config.dex}/${primary?.pairAddress || mint}`]),
+        lpLock: finding(lockPercent !== null ? 'VERIFIED' : 'NOT_FOUND', lockPercent !== null ? `Reported locked/burned LP: ${lockPercent.toFixed(2)}%.` : 'No reliable LP-lock percentage was returned.', [`https://gopluslabs.io/token-security/${this.config.chainId}`]),
         protocol: finding(/protocol|vault|reward/.test(projectText) ? 'CLAIMED' : 'NOT_FOUND', /protocol|vault|reward/.test(projectText) ? 'Protocol language appears in project-linked evidence; contract execution remains to be traced.' : 'No protocol evidence found in collected sources.', web ? [web] : []),
         dao: finding(/dao/.test(projectText) ? 'CLAIMED' : 'NOT_FOUND', /dao/.test(projectText) ? 'DAO language found; Governor, timelock, Safe ownership and proposal history remain unverified.' : 'No DAO governance evidence found.', web ? [web] : []),
         nfts: finding(/nft|erc721|erc1155/.test(projectText) ? 'CLAIMED' : 'NOT_FOUND', /nft|erc721|erc1155/.test(projectText) ? 'NFT association claimed; collection contracts and ownership remain unverified.' : 'No NFT association found in collected evidence.', web ? [web] : []),
@@ -123,7 +138,7 @@ export class BaseTokenDeepResearchService {
       scores: { technicalRisk, marketRisk, operationalRisk, overallRisk, confidence: Math.max(25, 92 - errors.length * 10 - (top10Percent === null ? 10 : 0)), verdict: overallRisk >= 75 ? 'REJECT' : overallRisk >= 45 ? 'HIGH_RISK' : overallRisk >= 25 ? 'WATCHLIST' : 'RESEARCH' },
       redFlags, greenFlags,
       nextChecks: ['Verify source code and proxy implementation on BaseScan', 'Identify proxy admin, owner, Safe signers and timelock delay', 'Trace deployer funding and all previous deployments', 'Verify LP NFT/locker ownership for Aerodrome and Uniswap positions', 'Verify DAO Governor proposals and NFT collection contracts rather than relying on website text'],
-      sources: Array.from(new Set([`https://basescan.org/token/${mint}`, `https://api.dexscreener.com/latest/dex/tokens/${mint}`, `https://api.gopluslabs.io/api/v1/token_security/8453?contract_addresses=${mint}`, ...websites])), errors,
+      sources: Array.from(new Set([`${this.config.explorer}/token/${mint}`, `https://api.dexscreener.com/latest/dex/tokens/${mint}`, `https://api.gopluslabs.io/api/v1/token_security/${this.config.chainId}?contract_addresses=${mint}`, ...websites])), errors,
     }
   }
 

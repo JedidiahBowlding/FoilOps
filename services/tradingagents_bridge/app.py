@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.graph.trading_graph import TradingAgentsGraph
+from tradingagents.llm_clients.factory import create_llm_client
 
 HOST = os.getenv("TRADINGAGENTS_BRIDGE_HOST", "127.0.0.1")
 PORT = int(os.getenv("TRADINGAGENTS_BRIDGE_PORT", "8790"))
@@ -60,6 +61,29 @@ class Handler(BaseHTTPRequestHandler):
         try:
             payload = json.loads(self.rfile.read(length))
             path = urlparse(self.path).path
+            if path == "/v1/analyze/contract":
+                evidence = payload.get("evidence")
+                chain = str(payload.get("chain", "")).strip().lower()
+                address = str(payload.get("address", "")).strip()
+                if not isinstance(evidence, dict) or not chain or not address:
+                    return self.reply(400, {"message": "chain, address and evidence are required"})
+                # Evidence is supplied by FoilOps; agents must not invent or execute transactions.
+                compact = json.dumps(evidence, separators=(",", ":"))[:700_000]
+                config = graph_config()
+                llm = create_llm_client(config["llm_provider"], config["deep_think_llm"], config.get("backend_url")).get_llm()
+                roles = {
+                    "contractSecurity": "Audit contract controls, upgradeability, taxes, transfer restrictions and technical failure modes.",
+                    "marketLiquidity": "Audit pools, usable liquidity, volume, concentration, price impact and manipulation risk.",
+                    "provenance": "Audit deployer provenance, linked websites/social claims, DAO, protocol and NFT evidence.",
+                    "skeptic": "Argue the strongest evidence-based case against trusting this token. Identify unknowns explicitly.",
+                }
+                reports = {}
+                with GRAPH_LOCK:
+                    for key, duty in roles.items():
+                        response = llm.invoke(f"You are a {key} analyst. {duty} Use only supplied evidence; label facts, claims, conflicts and unknowns. Never recommend or execute a trade. Chain={chain}; exact address={address}; evidence={compact}")
+                        reports[key] = str(response.content)
+                    synthesis = llm.invoke("Act as an independent risk manager. Synthesize these reports into a human-readable dossier with verdict RESEARCH, WATCHLIST, HIGH_RISK, or REJECT; cite evidence fields and never recommend a trade. " + json.dumps(reports))
+                return self.reply(200, {"mode": "contract", "chain": chain, "address": address, "reports": reports, "decision": str(synthesis.content)})
             if path != "/v1/analyze/ticker":
                 return self.reply(404, {"message": "not found"})
             ticker = str(payload.get("ticker", "")).strip().upper()
@@ -86,4 +110,3 @@ if __name__ == "__main__":
     if not TOKEN:
         raise SystemExit("TRADINGAGENTS_BRIDGE_TOKEN is required")
     ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()
-

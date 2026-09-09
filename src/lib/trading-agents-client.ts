@@ -25,4 +25,17 @@ export class TradingAgentsClient {
     if (!response.ok) throw new Error(body.message || `TradingAgents returned HTTP ${response.status}`)
     return body
   }
+
+  async analyzeContract(input: { chain: string; address: string; evidence: unknown }): Promise<unknown> {
+    return this.post('/v1/analyze/contract', input)
+  }
+
+  private async post(path: string, input: unknown): Promise<unknown> {
+    if (!this.enabled) throw new Error('TradingAgents is disabled')
+    if (!this.token) throw new Error('TradingAgents bridge token is not configured')
+    const response = await fetch(`${this.baseUrl}${path}`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${this.token}` }, body: JSON.stringify(input), signal: AbortSignal.timeout(15 * 60_000) })
+    const body = await response.json() as { message?: string }
+    if (!response.ok) throw new Error(body.message || `TradingAgents returned HTTP ${response.status}`)
+    return body
+  }
 }

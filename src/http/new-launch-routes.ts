@@ -2,7 +2,7 @@ import type { Express, RequestHandler } from 'express'
 import { NewLaunchIngestor } from '../lib/new-launch-ingestor'
 import { PrismaLaunchCandidateRepository } from '../repositories/prisma/launch-candidate'
 import { TokenDeepResearchService } from '../lib/token-deep-research'
-import { BaseTokenDeepResearchService } from '../lib/base-token-deep-research'
+import { BaseTokenDeepResearchService, EVM_RESEARCH_CHAINS, type EvmResearchChain } from '../lib/base-token-deep-research'
 import { BaseSwapService } from '../lib/base-swap-service'
 import { BaseLaunchWatchService } from '../lib/base-launch-watch'
 import { rateLimit } from '../lib/http-security'
@@ -36,6 +36,16 @@ export function registerNewLaunchRoutes(
       if (!ticker) return void res.status(400).json({ message: 'ticker is required' })
       res.json(await tradingAgents.analyzeTicker({ ticker, date }))
     } catch (error) { res.status(400).json({ message: error instanceof Error ? error.message : 'TradingAgents analysis failed' }) }
+  })
+  app.post('/api/trading-agents/contract', requireApiAuth, expensiveRequestLimit, async (req, res) => {
+    try {
+      const address = typeof req.body?.address === 'string' ? req.body.address.trim() : ''
+      const chain = typeof req.body?.chain === 'string' ? req.body.chain.toLowerCase() : ''
+      if (!address || !chain) return void res.status(400).json({ message: 'chain and address are required' })
+      if (chain !== 'solana' && !(chain in EVM_RESEARCH_CHAINS)) return void res.status(400).json({ message: 'unsupported research chain' })
+      const evidence = chain === 'solana' ? await deepResearch.research(address) : await new BaseTokenDeepResearchService(chain as EvmResearchChain).research(address)
+      res.json(await tradingAgents.analyzeContract({ chain, address, evidence }))
+    } catch (error) { res.status(400).json({ message: error instanceof Error ? error.message : 'Contract agent analysis failed' }) }
   })
 
   app.post('/api/discovery/poll', requireApiAuth, expensiveRequestLimit, async (_req, res) => {
@@ -73,8 +83,8 @@ export function registerNewLaunchRoutes(
       const mint = typeof req.body?.mint === 'string' ? req.body.mint.trim() : ''
       const chain = typeof req.body?.chain === 'string' ? req.body.chain.toLowerCase() : 'solana'
       if (!mint) return void res.status(400).json({ message: 'mint is required' })
-      if (!['solana', 'base'].includes(chain)) return void res.status(400).json({ message: 'chain must be solana or base' })
-      res.json(chain === 'base' ? await baseDeepResearch.research(mint) : await deepResearch.research(mint))
+      if (chain !== 'solana' && !(chain in EVM_RESEARCH_CHAINS)) return void res.status(400).json({ message: 'unsupported research chain' })
+      res.json(chain === 'solana' ? await deepResearch.research(mint) : await new BaseTokenDeepResearchService(chain as EvmResearchChain).research(mint))
     } catch (error) {
       res.status(400).json({ message: error instanceof Error ? error.message : 'Token research failed' })
     }
