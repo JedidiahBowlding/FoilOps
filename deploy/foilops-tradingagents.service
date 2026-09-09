@@ -1,0 +1,28 @@
+[Unit]
+Description=FoilOps isolated TradingAgents research service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=newblockdev
+Group=newblockdev
+WorkingDirectory=/opt/foilops
+EnvironmentFile=/opt/foilops/.env
+ExecStart=/opt/foilops/.venv-tradingagents/bin/python /opt/foilops/services/tradingagents_bridge/app.py
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/foilops/data /opt/foilops/.tradingagents
+RestrictAddressFamilies=AF_INET AF_INET6
+LockPersonality=true
+MemoryDenyWriteExecute=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+[Install]
+WantedBy=multi-user.target
