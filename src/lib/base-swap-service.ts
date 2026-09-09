@@ -29,7 +29,7 @@ export class BaseSwapService {
     return { chain: 'base', chainId: 8453, enabled: process.env.BASE_SWAP_ENABLED === 'true', configured: Boolean(walletAddress && process.env.ZEROX_API_KEY), walletAddress, executionMode: process.env.BASE_SWAP_ENABLED === 'true' ? 'confirmation-required' : 'disabled', minLiquidityUsd: Number(process.env.BASE_SWAP_MIN_LIQUIDITY_USD || 10_000), maxRiskScore: Number(process.env.BASE_SWAP_MAX_RISK_SCORE || 45), maxSlippageBps: Number(process.env.BASE_SWAP_MAX_SLIPPAGE_BPS || 300), maxTradeEth: Number(process.env.BASE_SWAP_MAX_TRADE_ETH || .05) }
   }
 
-  async quote(input: { sellToken: string; buyToken: string; amount: string; slippageBps?: number }) {
+  async quote(input: { sellToken: string; buyToken: string; amount: string; slippageBps?: number; riskOverride?: boolean }) {
     const wallet = this.wallet()
     const sellToken = this.token(input.sellToken), buyToken = this.token(input.buyToken)
     if (sellToken === buyToken) throw new Error('Sell and buy tokens must differ')
@@ -46,7 +46,7 @@ export class BaseSwapService {
     if (researchedToken !== NATIVE) {
       const report = await this.research.research(researchedToken)
       researchRisk = report.scores.overallRisk; liquidityUsd = report.market.liquidityUsd
-      if (researchRisk > this.status().maxRiskScore) throw new Error(`Risk score ${researchRisk} exceeds the ${this.status().maxRiskScore} live-trade limit`)
+      if (researchRisk > this.status().maxRiskScore && input.riskOverride !== true) throw new Error(`Risk score ${researchRisk} exceeds the ${this.status().maxRiskScore} live-trade limit; explicit research-risk override is required`)
       if (liquidityUsd < this.status().minLiquidityUsd) throw new Error(`Verified liquidity $${Math.round(liquidityUsd).toLocaleString()} is below the live-trade minimum`)
       if (report.redFlags.some((flag) => /honeypot|unable to sell|blacklist/i.test(flag))) throw new Error('Token failed the honeypot/sellability/blacklist gate')
     }
@@ -58,7 +58,7 @@ export class BaseSwapService {
     const id = randomUUID(), expiresAt = Date.now() + 120_000
     const pending: PendingSwap = { id, expiresAt, sellToken, buyToken, sellAmount, sellSymbol: sellMeta.symbol, buySymbol: buyMeta.symbol, sellDecimals: sellMeta.decimals, buyDecimals: buyMeta.decimals, quote: body, researchRisk, liquidityUsd }
     this.pending.set(id, pending); this.cleanup()
-    return { confirmationId: id, expiresAt: new Date(expiresAt).toISOString(), chain: 'base', walletAddress: wallet.address, sellToken, buyToken, sellSymbol: sellMeta.symbol, buySymbol: buyMeta.symbol, sellAmount: formatUnits(sellAmount, sellMeta.decimals), expectedBuyAmount: formatUnits(BigInt(body.buyAmount || 0), buyMeta.decimals), minimumBuyAmount: formatUnits(BigInt(body.minBuyAmount || body.buyAmount || 0), buyMeta.decimals), estimatedGas: body.transaction.gas || null, gasPrice: body.transaction.gasPrice || null, route: body.route || null, liquidityUsd, researchRisk, warning: 'Quote is not a trade. Review it, then explicitly confirm within two minutes.' }
+    return { confirmationId: id, expiresAt: new Date(expiresAt).toISOString(), chain: 'base', walletAddress: wallet.address, sellToken, buyToken, sellSymbol: sellMeta.symbol, buySymbol: buyMeta.symbol, sellAmount: formatUnits(sellAmount, sellMeta.decimals), expectedBuyAmount: formatUnits(BigInt(body.buyAmount || 0), buyMeta.decimals), minimumBuyAmount: formatUnits(BigInt(body.minBuyAmount || body.buyAmount || 0), buyMeta.decimals), estimatedGas: body.transaction.gas || null, gasPrice: body.transaction.gasPrice || null, route: body.route || null, liquidityUsd, researchRisk, researchRiskOverridden: input.riskOverride === true, warning: input.riskOverride === true ? 'Research-risk score was explicitly overridden. All execution checks still apply.' : 'Quote is not a trade. Review it, then explicitly confirm within two minutes.' }
   }
 
   async execute(confirmationId: string) {

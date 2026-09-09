@@ -5,7 +5,7 @@ import { BaseSwapService } from './base-swap-service'
 
 type WatchStatus = 'WATCHING' | 'READY' | 'CANCELLED' | 'ERROR'
 type LaunchWatch = {
-  id: string; sellToken: string; buyToken: string; amount: string; slippageBps: number; status: WatchStatus
+  id: string; sellToken: string; buyToken: string; amount: string; slippageBps: number; riskOverride?: boolean; status: WatchStatus
   createdAt: string; updatedAt: string; attempts: number; lastError?: string; quote?: Record<string, unknown>
 }
 
@@ -27,7 +27,7 @@ export class BaseLaunchWatchService {
 
   list() { return [...this.watches.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt)) }
 
-  async create(input: { sellToken?: string; buyToken?: string; amount?: string; slippageBps?: number }) {
+  async create(input: { sellToken?: string; buyToken?: string; amount?: string; slippageBps?: number; riskOverride?: boolean }) {
     const sellToken = String(input.sellToken || 'ETH').trim()
     const buyToken = String(input.buyToken || '').trim().toLowerCase()
     const amount = String(input.amount || '').trim()
@@ -37,9 +37,14 @@ export class BaseLaunchWatchService {
     if (Number(amount) > this.swaps.status().maxTradeEth && ['eth', 'native'].includes(sellToken.toLowerCase())) throw new Error(`Amount exceeds the ${this.swaps.status().maxTradeEth} ETH limit`)
     if (slippageBps < 1 || slippageBps > this.swaps.status().maxSlippageBps) throw new Error(`Slippage must be between 1 and ${this.swaps.status().maxSlippageBps} bps`)
     const duplicate = this.list().find((watch) => watch.status === 'WATCHING' && watch.buyToken === buyToken)
-    if (duplicate) return duplicate
+    if (duplicate) {
+      if (input.riskOverride === true && duplicate.riskOverride !== true) {
+        duplicate.riskOverride = true; duplicate.updatedAt = new Date().toISOString(); await this.save()
+      }
+      return duplicate
+    }
     const now = new Date().toISOString()
-    const watch: LaunchWatch = { id: randomUUID(), sellToken, buyToken, amount, slippageBps, status: 'WATCHING', createdAt: now, updatedAt: now, attempts: 0 }
+    const watch: LaunchWatch = { id: randomUUID(), sellToken, buyToken, amount, slippageBps, riskOverride: input.riskOverride === true, status: 'WATCHING', createdAt: now, updatedAt: now, attempts: 0 }
     this.watches.set(watch.id, watch); await this.save(); void this.poll()
     return watch
   }
