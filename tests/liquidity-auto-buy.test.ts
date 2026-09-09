@@ -9,13 +9,14 @@ const observation=(overrides:Partial<PoolObservation>={}):PoolObservation=>({tok
 const quote=(overrides:Partial<SwapQuote>={}):SwapQuote=>({router:'ZEROX_ALLOWANCE_HOLDER',sellAmount:BigInt(10),buyAmount:BigInt(1000),minBuyAmount:BigInt(900),gasLimit:BigInt(100000),gasPrice:BigInt(1000000000),gasCostWei:BigInt(100000000000000),priceImpactBps:100,transaction:{to:'0x0000000000001ff3684f28c67538d4d072c22734',data:'0x1234',value:BigInt(10),gasLimit:BigInt(100000),gasPrice:BigInt(1000000000)},...overrides})
 
 class MemoryStore implements AutoBuyStore{
-  orders=new Map<string,AutoBuyOrder>();claims=0
+  orders=new Map<string,AutoBuyOrder>();claims=0;control=true
   constructor(order?:AutoBuyOrder){if(order)this.orders.set(order.id,order)}
   async create(input:any){const order=baseOrder({...input,id:`order-${this.orders.size+1}`,createdAt:now(),updatedAt:now()});this.orders.set(order.id,order);return order}
   async get(id:string){return this.orders.get(id)||null}async list(){return [...this.orders.values()]}
   async update(id:string,data:Partial<AutoBuyOrder>){const order={...this.orders.get(id)!,...data,updatedAt:now()};this.orders.set(id,order);return order}
   async claimExecution(id:string){const order=this.orders.get(id)!;if(order.state!=='VALIDATING'||order.transactionHash)return false;this.claims++;await this.update(id,{state:'EXECUTING',executionAttempts:order.executionAttempts+1});return true}
   async recoverInterrupted(){for(const o of this.orders.values()){if(['MONITORING','LIQUIDITY_DETECTED','VALIDATING'].includes(o.state))await this.update(o.id,{state:'ARMED'});else if(o.state==='EXECUTING'&&!o.transactionHash)await this.update(o.id,{state:'FAILED'})}}
+  async getControl(){return{enabled:this.control}}async setControl(enabled:boolean){this.control=enabled;return{enabled}}
 }
 class MemoryAudit implements AutoBuyAudit{events:any[]=[];async record(orderId:string,eventType:string,message:string,metadata?:Record<string,unknown>){this.events.push({orderId,eventType,message,metadata})}async list(orderId:string){return this.events.filter(x=>x.orderId===orderId)}}
 class FakeRuntime implements AutoBuyRuntime{
@@ -26,7 +27,7 @@ class FakeRuntime implements AutoBuyRuntime{
 }
 const service=(order=baseOrder())=>{const store=new MemoryStore(order),audit=new MemoryAudit(),runtime=new FakeRuntime();return{store,audit,runtime,svc:new LiquidityAutoBuyService(store,audit,runtime)}}
 
-beforeEach(()=>{process.env.BASE_AUTO_BUY_ENABLED='true';process.env.BASE_AUTO_BUY_KILL_SWITCH='false';process.env.BASE_AUTO_BUY_MAX_ETH='0.12';process.env.BASE_AUTO_BUY_MIN_LIQUIDITY_USD='10000'})
+beforeEach(()=>{process.env.BASE_AUTO_BUY_ENABLED='true';process.env.BASE_AUTO_BUY_HARD_KILL_SWITCH='false';process.env.BASE_AUTO_BUY_MAX_ETH='0.12';process.env.BASE_AUTO_BUY_MIN_LIQUIDITY_USD='10000'})
 
 describe('LiquidityAutoBuyService safety matrix',()=>{
   it('keeps an order armed when no liquidity exists',async()=>{const x=service();x.runtime.obs=null;await x.svc.poll();expect((await x.store.get('order-1'))?.state).toBe('ARMED');expect(x.runtime.executions).toBe(0)})
@@ -43,5 +44,6 @@ describe('LiquidityAutoBuyService safety matrix',()=>{
   it('does not duplicate a confirmed trigger',async()=>{const x=service();await x.svc.poll();await x.svc.poll();expect(x.runtime.executions).toBe(1);expect(x.store.claims).toBe(1)})
   it('recovers monitoring state after application restart',async()=>{const x=service(baseOrder({state:'VALIDATING'}));x.runtime.obs=null;await x.svc.start();await vi.waitFor(async()=>expect((await x.store.get('order-1'))?.state).toBe('ARMED'));expect(x.runtime.executions).toBe(0)})
   it('honors emergency cancellation',async()=>{const x=service();await x.svc.cancel('order-1');await x.svc.poll();expect((await x.store.get('order-1'))?.state).toBe('CANCELLED');expect(x.runtime.executions).toBe(0)})
-  it('honors the global kill switch',async()=>{process.env.BASE_AUTO_BUY_KILL_SWITCH='true';const x=service();await x.svc.poll();expect(x.runtime.executions).toBe(0);expect((await x.store.get('order-1'))?.state).toBe('ARMED')})
+  it('honors the global hard kill switch',async()=>{process.env.BASE_AUTO_BUY_HARD_KILL_SWITCH='true';const x=service();await x.svc.poll();expect(x.runtime.executions).toBe(0);expect((await x.store.get('order-1'))?.state).toBe('ARMED')})
+  it('persists the frontend master switch and stops execution when off',async()=>{const x=service();await x.svc.setMasterEnabled(false);expect(x.store.control).toBe(false);await x.svc.poll();expect(x.runtime.executions).toBe(0);expect((await x.svc.status()).masterEnabled).toBe(false)})
 })

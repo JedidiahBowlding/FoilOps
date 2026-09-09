@@ -17,6 +17,8 @@ export class OrderStateStore implements AutoBuyStore {
     await prisma.liquidityAutoBuyOrder.updateMany({ where: { state: { in: ['MONITORING','LIQUIDITY_DETECTED','VALIDATING'] } }, data: { state: 'ARMED', lastReason: 'Application restarted; monitoring resumed safely' } })
     await prisma.liquidityAutoBuyOrder.updateMany({ where: { state: 'EXECUTING', transactionHash: null }, data: { state: 'FAILED', lastReason: 'Application restarted during execution; manual transaction reconciliation required' } })
   }
+  async getControl(){return prisma.liquidityAutoBuyControl.upsert({where:{id:'global'},create:{id:'global',enabled:false,changedBy:'safe-default'},update:{},select:{enabled:true}})}
+  async setControl(enabled:boolean,changedBy:string){return prisma.liquidityAutoBuyControl.upsert({where:{id:'global'},create:{id:'global',enabled,changedBy},update:{enabled,changedBy},select:{enabled:true}})}
 }
 
 export class AuditLogger implements AutoBuyAudit {

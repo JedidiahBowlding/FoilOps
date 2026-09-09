@@ -8,10 +8,19 @@ const activeStates = new Set(['ARMED','MONITORING','LIQUIDITY_DETECTED','VALIDAT
 export class LiquidityAutoBuyService {
   private timer?: NodeJS.Timeout
   private polling=false
+  private runtimeEnabled=false
   constructor(private readonly store:AutoBuyStore,private readonly audit:AutoBuyAudit,private readonly runtime:AutoBuyRuntime){}
 
-  status(){return {enabled:process.env.BASE_AUTO_BUY_ENABLED==='true',killSwitch:process.env.BASE_AUTO_BUY_KILL_SWITCH!=='false',chainId:BASE_CHAIN_ID,supportedRouters:[...SUPPORTED_ROUTERS],executionMode:'explicitly-armed-auto-buy',defaultDisabled:true}}
-  async start(){await this.store.recoverInterrupted();await this.reconcile();const interval=Math.max(10_000,Number(process.env.BASE_AUTO_BUY_INTERVAL_MS||15_000));this.timer=setInterval(()=>void this.poll(),interval);this.timer.unref?.();void this.poll()}
+  async status(){this.runtimeEnabled=(await this.store.getControl()).enabled;this.syncRuntime();const capability=process.env.BASE_AUTO_BUY_ENABLED==='true',hardKill=process.env.BASE_AUTO_BUY_HARD_KILL_SWITCH==='true';return {enabled:capability,masterEnabled:this.runtimeEnabled,effectiveEnabled:capability&&this.runtimeEnabled&&!hardKill,killSwitch:!this.runtimeEnabled||hardKill,hardKillSwitch:hardKill,chainId:BASE_CHAIN_ID,supportedRouters:[...SUPPORTED_ROUTERS],executionMode:'explicitly-armed-auto-buy',defaultDisabled:true}}
+  async start(){const control=await this.store.getControl();this.runtimeEnabled=control.enabled;this.syncRuntime();await this.store.recoverInterrupted();await this.reconcile();const interval=Math.max(10_000,Number(process.env.BASE_AUTO_BUY_INTERVAL_MS||15_000));this.timer=setInterval(()=>void this.poll(),interval);this.timer.unref?.();void this.poll()}
+  async setMasterEnabled(enabled:boolean){
+    if(enabled&&process.env.BASE_AUTO_BUY_ENABLED!=='true')throw new Error('Server AUTO BUY capability is disabled in .env')
+    if(enabled&&process.env.BASE_AUTO_BUY_HARD_KILL_SWITCH==='true')throw new Error('Server hard kill switch is active')
+    await this.store.setControl(enabled,'authenticated-dashboard')
+    this.runtimeEnabled=enabled;this.syncRuntime()
+    if(!enabled){for(const order of (await this.store.list()).filter(x=>activeStates.has(x.state)))await this.store.update(order.id,{state:'ARMED',lastReason:'Master AUTO BUY switch is OFF'})}
+    return this.status()
+  }
   async list(){return this.store.list()}
   async get(id:string){const order=await this.store.get(id);if(!order)throw new Error('Auto-buy order not found');return order}
   async history(id:string){await this.get(id);return this.audit.list(id)}
@@ -46,7 +55,7 @@ export class LiquidityAutoBuyService {
     if(order.state!=='DRAFT')throw new Error('Only a DRAFT order can be armed')
     if(!order.autoBuyEnabled)throw new Error('AUTO BUY toggle must be explicitly enabled in the reviewed draft')
     if(process.env.BASE_AUTO_BUY_ENABLED!=='true')throw new Error('Server AUTO BUY feature flag is disabled')
-    if(process.env.BASE_AUTO_BUY_KILL_SWITCH!=='false')throw new Error('Emergency kill switch is active')
+    if(!this.runtimeEnabled||process.env.BASE_AUTO_BUY_HARD_KILL_SWITCH==='true')throw new Error('Master AUTO BUY switch is OFF')
     await this.runtime.verifyContract(order.tokenAddress)
     const now=new Date(),armed=await this.store.update(id,{state:'ARMED',armedAt:now,expiresAt:new Date(now.getTime()+order.transactionDeadlineSecs*1000),lastReason:'Armed; waiting for validated usable liquidity'})
     await this.audit.record(id,'ARMED','User explicitly armed AUTO BUY',{expiresAt:armed.expiresAt?.toISOString()})
@@ -55,7 +64,7 @@ export class LiquidityAutoBuyService {
 
   async cancel(id:string){const order=await this.get(id);if(['CONFIRMED','CANCELLED'].includes(order.state))throw new Error(`Order is already ${order.state}`);const cancelled=await this.store.update(id,{state:'CANCELLED',lastReason:'Emergency cancellation requested by user'});await this.audit.record(id,'CANCELLED','Emergency cancellation requested');return cancelled}
 
-  async poll(){if(this.polling||process.env.BASE_AUTO_BUY_KILL_SWITCH!=='false')return;this.polling=true;try{for(const order of (await this.store.list()).filter(x=>activeStates.has(x.state)))await this.process(order)}finally{this.polling=false}}
+  async poll(){this.runtimeEnabled=(await this.store.getControl()).enabled;this.syncRuntime();if(this.polling||!this.runtimeEnabled||process.env.BASE_AUTO_BUY_HARD_KILL_SWITCH==='true')return;this.polling=true;try{for(const order of (await this.store.list()).filter(x=>activeStates.has(x.state)))await this.process(order)}finally{this.polling=false}}
 
   private async process(initial:AutoBuyOrder){
     let order=await this.get(initial.id)
@@ -97,4 +106,5 @@ export class LiquidityAutoBuyService {
   private async fail(order:AutoBuyOrder,reason:string){await this.store.update(order.id,{state:'FAILED',lastReason:reason.slice(0,500)});await this.audit.record(order.id,'FAILED',reason)}
   private async reconcile(){for(const order of (await this.store.list()).filter(x=>x.state==='EXECUTING'&&x.transactionHash)){try{const receipt=await this.runtime.receipt(order.transactionHash!);if(receipt?.status===1){await this.store.update(order.id,{state:'CONFIRMED',lastReason:'Confirmed during startup reconciliation'});await this.audit.record(order.id,'CONFIRMED','Transaction confirmed during startup reconciliation',{transactionHash:order.transactionHash})}else if(receipt?.status===0)await this.fail(order,'Broadcast transaction reverted')}catch(error){await this.audit.record(order.id,'RECONCILIATION_PENDING',error instanceof Error?error.message:'RPC reconciliation failed')}}}
   private integer(value:number,min:number,max:number,label:string){const n=Math.floor(Number(value));if(!Number.isFinite(n)||n<min||n>max)throw new Error(`${label} must be between ${min} and ${max}`);return n}
+  private syncRuntime(){process.env.BASE_AUTO_BUY_RUNTIME_ENABLED=this.runtimeEnabled?'true':'false'}
 }

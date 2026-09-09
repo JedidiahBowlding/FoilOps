@@ -108,7 +108,7 @@ export class TransactionSigner {
 export class ExecutionEngine {
   constructor(private readonly provider: JsonRpcProvider, private readonly quotes: QuoteEngine, private readonly guard: RiskGuard, private readonly builder: TransactionBuilder) {}
   async execute(order: AutoBuyOrder, observation: PoolObservation, quote: SwapQuote, onBroadcast?: (hash:string)=>Promise<void>) {
-    if (process.env.BASE_AUTO_BUY_ENABLED !== 'true' || process.env.BASE_AUTO_BUY_KILL_SWITCH !== 'false') throw new Error('Global AUTO BUY execution is disabled')
+    if (process.env.BASE_AUTO_BUY_ENABLED !== 'true' || process.env.BASE_AUTO_BUY_RUNTIME_ENABLED !== 'true' || process.env.BASE_AUTO_BUY_HARD_KILL_SWITCH === 'true') throw new Error('Global AUTO BUY execution is disabled')
     if (Number((await this.provider.getNetwork()).chainId) !== BASE_CHAIN_ID) throw new Error('Execution RPC is not Base mainnet')
     this.guard.enforce(order, observation, quote)
     const wallet = this.quotes.wallet().connect(this.provider)

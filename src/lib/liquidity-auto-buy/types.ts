@@ -22,6 +22,7 @@ export interface AutoBuyStore {
   create(input: Omit<AutoBuyOrder,'id'|'armedAt'|'expiresAt'|'monitorAttempts'|'executionAttempts'|'lastReason'|'poolAddress'|'poolRouter'|'currentLiquidityUsd'|'expectedOutput'|'estimatedPriceImpactBps'|'transactionHash'|'createdAt'|'updatedAt'>): Promise<AutoBuyOrder>
   get(id: string): Promise<AutoBuyOrder|null>; list(): Promise<AutoBuyOrder[]>; update(id: string, data: Partial<AutoBuyOrder>): Promise<AutoBuyOrder>
   claimExecution(id: string): Promise<boolean>; recoverInterrupted(): Promise<void>
+  getControl(): Promise<{enabled:boolean}>; setControl(enabled:boolean,changedBy:string): Promise<{enabled:boolean}>
 }
 export interface AutoBuyAudit { record(orderId: string, eventType: string, message: string, metadata?: Record<string, unknown>): Promise<void>; list(orderId: string): Promise<unknown[]> }
 export interface AutoBuyRuntime {

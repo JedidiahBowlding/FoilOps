@@ -479,3 +479,11 @@ model LiquidityAutoBuyAudit {
 
   @@index([orderId, createdAt])
 }
+
+model LiquidityAutoBuyControl {
+  id         String   @id
+  enabled    Boolean  @default(false)
+  changedBy  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
