@@ -88,7 +88,7 @@ export class BaseTokenDeepResearchService {
     const implementation = addressWord(implementationWord)
     const owner = addressWord(ownerHex)
     const paused = pausedHex && pausedHex !== '0x' ? uintWord(pausedHex) === BigInt(1) : null
-    const pairs = Array.isArray(dex?.pairs) ? dex.pairs.filter((pair: any) => pair.chainId === this.config.dex && pair.baseToken?.address?.toLowerCase() === mint) : []
+    const pairs = Array.isArray(dex?.pairs) ? dex.pairs.filter((pair: any) => pair.chainId === this.config.dex && [pair.baseToken?.address, pair.quoteToken?.address].some((address: unknown) => String(address || '').toLowerCase() === mint)) : []
     const pools = pairs.map((pair: any) => ({ venue: String(pair.dexId || 'unknown'), address: String(pair.pairAddress || ''), liquidityUsd: number(pair.liquidity?.usd), volume24hUsd: number(pair.volume?.h24), pairUrl: pair.url })).sort((a: any, b: any) => b.liquidityUsd - a.liquidityUsd)
     const materialPools = pools.filter((pool: any) => pool.liquidityUsd >= 1_000)
     const liquidityUsd = materialPools.reduce((n: number, pool: any) => n + pool.liquidityUsd, 0)
