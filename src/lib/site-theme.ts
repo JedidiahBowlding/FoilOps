@@ -1181,7 +1181,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         ${options.contentHtml}
       </main>
     </div>
-    <div class="fx-confirm-overlay" id="fx-confirm-overlay" aria-hidden="true"><section class="fx-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="fx-confirm-title" aria-describedby="fx-confirm-message"><p class="fx-confirm-kicker">Operator confirmation</p><h2 id="fx-confirm-title">Confirm action</h2><p class="fx-confirm-message" id="fx-confirm-message"></p><div class="fx-confirm-actions"><button class="fx-button secondary" id="fx-confirm-cancel" type="button">Go back</button><button class="fx-button fx-confirm-approve" id="fx-confirm-approve" type="button">Confirm</button></div></section></div>
+    <div class="fx-confirm-overlay" id="fx-confirm-overlay" aria-hidden="true" hidden><section class="fx-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="fx-confirm-title" aria-describedby="fx-confirm-message"><p class="fx-confirm-kicker">Operator confirmation</p><h2 id="fx-confirm-title">Confirm action</h2><p class="fx-confirm-message" id="fx-confirm-message"></p><div class="fx-confirm-actions"><button class="fx-button secondary" id="fx-confirm-cancel" type="button">Go back</button><button class="fx-button fx-confirm-approve" id="fx-confirm-approve" type="button">Confirm</button></div></section></div>
     ${options.scriptHtml || ''}
     <script>
       window.foilopsConfirm = ({ title = 'Confirm action', message = '', confirmLabel = 'Confirm', danger = false } = {}) => new Promise((resolve) => {
@@ -1195,9 +1195,10 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         copy.textContent = message
         approve.textContent = confirmLabel
         approve.classList.toggle('danger', danger)
+        overlay.hidden = false
         overlay.classList.add('open')
         overlay.setAttribute('aria-hidden', 'false')
-        const finish = (result) => { overlay.classList.remove('open'); overlay.setAttribute('aria-hidden', 'true'); cancel.removeEventListener('click', onCancel); approve.removeEventListener('click', onApprove); overlay.removeEventListener('click', onBackdrop); document.removeEventListener('keydown', onKey); resolve(result) }
+        const finish = (result) => { overlay.classList.remove('open'); overlay.hidden = true; overlay.setAttribute('aria-hidden', 'true'); cancel.removeEventListener('click', onCancel); approve.removeEventListener('click', onApprove); overlay.removeEventListener('click', onBackdrop); document.removeEventListener('keydown', onKey); resolve(result) }
         const onCancel = () => finish(false)
         const onApprove = () => finish(true)
         const onBackdrop = (event) => { if (event.target === overlay) finish(false) }
