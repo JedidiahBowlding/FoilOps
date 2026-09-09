@@ -1124,7 +1124,7 @@ export class TradingOpsDashboard {
           const action = button.getAttribute('data-trading-action')
           if (!action) return
 
-          if (action === 'kill-switch' && !window.confirm('Trigger the trading kill switch?')) {
+          if (action === 'kill-switch' && !await window.foilopsConfirm({ title: 'Trigger trading kill switch?', message: 'This immediately stops trading execution. Existing monitoring and audit records remain available.', confirmLabel: 'Trigger kill switch', danger: true })) {
             return
           }
 

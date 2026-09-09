@@ -964,6 +964,7 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
       .ui-timeline{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));margin:0 0 20px;padding:0;list-style:none}.ui-timeline li{position:relative;display:grid;gap:7px;justify-items:center;text-align:center;color:#65758b;font-size:.68rem}.ui-timeline li:not(:last-child)::after{content:"";position:absolute;top:12px;left:calc(50% + 17px);right:calc(-50% + 17px);height:1px;background:#253247}.ui-timeline span{display:grid;place-items:center;width:25px;height:25px;border-radius:7px;background:#162133;border:1px solid #28364b;z-index:1}.ui-timeline .complete,.ui-timeline .active{color:#d7e2ef}.ui-timeline .complete span{color:#34d399;border-color:rgba(52,211,153,.4)}.ui-timeline .active span{color:#67e8f9;border-color:#67e8f9}
       .ui-drawer{margin-top:12px;border-top:1px solid rgba(148,163,184,.1);padding-top:10px}.ui-drawer summary{cursor:pointer;color:#91a1b5;font-size:.78rem}.ui-confirmation{padding:14px;border-left:3px solid #fbbf24;background:rgba(251,191,36,.055)}.ui-activity{display:grid}.ui-activity__item{display:grid;grid-template-columns:10px 1fr auto;gap:10px;padding:11px 0;border-bottom:1px solid rgba(148,163,184,.08)}.ui-activity__item i{width:7px;height:7px;margin-top:5px;border-radius:50%;background:#64748b}.ui-activity__item strong,.ui-activity__item small{display:block}.ui-activity__item small,.ui-activity__item time{color:#738398;font-size:.72rem}
       .fx-icon-button{display:inline-grid;place-items:center;width:38px;height:38px;padding:0;border:1px solid rgba(148,163,184,.14);border-radius:9px;background:rgba(255,255,255,.025);color:#9dafc3;text-decoration:none;font:700 .78rem/1 ui-monospace,monospace;cursor:pointer}.fx-icon-button:hover{color:#eef6ff;border-color:rgba(103,232,249,.35);background:rgba(103,232,249,.07)}
+      .fx-confirm-overlay{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:18px;background:rgba(1,4,12,.76);backdrop-filter:blur(10px);opacity:0;pointer-events:none;transition:opacity .16s ease}.fx-confirm-overlay.open{opacity:1;pointer-events:auto}.fx-confirm-dialog{width:min(100%,500px);padding:24px;border:1px solid rgba(103,232,249,.22);border-radius:12px;background:#0b1220;box-shadow:0 30px 90px rgba(0,0,0,.58),0 0 42px rgba(103,232,249,.07);transform:translateY(10px) scale(.98);transition:transform .16s ease}.fx-confirm-overlay.open .fx-confirm-dialog{transform:none}.fx-confirm-kicker{margin:0 0 8px;color:var(--fx-primary);font-size:.68rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase}.fx-confirm-dialog h2{margin:0;font-size:1.35rem;letter-spacing:-.02em}.fx-confirm-message{margin:12px 0 20px;color:#9aabc0;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}.fx-confirm-actions{display:flex;justify-content:flex-end;gap:9px}.fx-confirm-actions button{min-width:112px}.fx-confirm-approve.danger{background:var(--fx-danger);border-color:var(--fx-danger);color:#16060a}.fx-confirm-approve.danger:hover{background:#ff91a1}@media(max-width:520px){.fx-confirm-dialog{padding:20px}.fx-confirm-actions{display:grid;grid-template-columns:1fr}.fx-confirm-actions button{width:100%}}
 
       @media (max-width: 1080px) {
         .fx-header,
@@ -1180,9 +1181,34 @@ export function renderFuturisticPage(options: RenderFuturisticPageOptions): stri
         ${options.contentHtml}
       </main>
     </div>
+    <div class="fx-confirm-overlay" id="fx-confirm-overlay" aria-hidden="true"><section class="fx-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="fx-confirm-title" aria-describedby="fx-confirm-message"><p class="fx-confirm-kicker">Operator confirmation</p><h2 id="fx-confirm-title">Confirm action</h2><p class="fx-confirm-message" id="fx-confirm-message"></p><div class="fx-confirm-actions"><button class="fx-button secondary" id="fx-confirm-cancel" type="button">Go back</button><button class="fx-button fx-confirm-approve" id="fx-confirm-approve" type="button">Confirm</button></div></section></div>
     ${options.scriptHtml || ''}
     <script>
-      (() => {
+      window.foilopsConfirm = ({ title = 'Confirm action', message = '', confirmLabel = 'Confirm', danger = false } = {}) => new Promise((resolve) => {
+        const overlay = document.getElementById('fx-confirm-overlay')
+        const heading = document.getElementById('fx-confirm-title')
+        const copy = document.getElementById('fx-confirm-message')
+        const cancel = document.getElementById('fx-confirm-cancel')
+        const approve = document.getElementById('fx-confirm-approve')
+        if (!overlay || !heading || !copy || !cancel || !approve) return resolve(false)
+        heading.textContent = title
+        copy.textContent = message
+        approve.textContent = confirmLabel
+        approve.classList.toggle('danger', danger)
+        overlay.classList.add('open')
+        overlay.setAttribute('aria-hidden', 'false')
+        const finish = (result) => { overlay.classList.remove('open'); overlay.setAttribute('aria-hidden', 'true'); cancel.removeEventListener('click', onCancel); approve.removeEventListener('click', onApprove); overlay.removeEventListener('click', onBackdrop); document.removeEventListener('keydown', onKey); resolve(result) }
+        const onCancel = () => finish(false)
+        const onApprove = () => finish(true)
+        const onBackdrop = (event) => { if (event.target === overlay) finish(false) }
+        const onKey = (event) => { if (event.key === 'Escape') finish(false) }
+        cancel.addEventListener('click', onCancel)
+        approve.addEventListener('click', onApprove)
+        overlay.addEventListener('click', onBackdrop)
+        document.addEventListener('keydown', onKey)
+        requestAnimationFrame(() => cancel.focus())
+      })
+      ;(() => {
         const toggle = document.querySelector('.fx-menu-toggle')
         const backdrop = document.querySelector('.fx-menu-backdrop')
         const header = document.querySelector('.fx-header')
