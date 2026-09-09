@@ -54,7 +54,14 @@ export class BaseTokenDeepResearchService {
   }
 
   private async call(to: string, data: string): Promise<string | null> {
-    try { return await this.rpc<string>('eth_call', [{ to, data }, 'latest']) } catch { return null }
+    for (const delay of [0, 250, 750]) {
+      if (delay) await new Promise((resolve) => setTimeout(resolve, delay))
+      try {
+        const result = await this.rpc<string>('eth_call', [{ to, data }, 'latest'])
+        if (result && result !== '0x') return result
+      } catch { /* bounded read-only retry across configured RPCs */ }
+    }
+    return null
   }
 
   private async json(url: string): Promise<any> {
