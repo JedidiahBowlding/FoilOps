@@ -10,8 +10,11 @@ export class LiquidityMonitor {
     if (!isAddress(address)) throw new Error('A valid Base token contract is required')
     if (Number((await this.provider.getNetwork()).chainId) !== BASE_CHAIN_ID) throw new Error('RPC is not connected to Base mainnet')
     if ((await this.provider.getCode(address)) === '0x') throw new Error('No contract exists at the configured Base address')
+    // ERC-20 metadata is optional and some launch contracts intentionally revert it
+    // before initialization. Bytecode proves the exact Base contract exists; the
+    // later 0x route, output, pool and exact-swap simulation remain mandatory.
     const token = new Contract(address, ERC20_ABI, this.provider)
-    await Promise.all([token.symbol(), token.decimals(), token.totalSupply()])
+    await Promise.allSettled([token.symbol(), token.decimals(), token.totalSupply()])
   }
   async observe(address: string): Promise<PoolObservation|null> {
     const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${address}`, { signal: AbortSignal.timeout(10_000) })

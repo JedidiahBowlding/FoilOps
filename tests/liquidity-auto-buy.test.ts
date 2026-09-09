@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { LiquidityAutoBuyService } from '../src/lib/liquidity-auto-buy/service'
-import { RiskGuard } from '../src/lib/liquidity-auto-buy/base-runtime'
+import { LiquidityMonitor, RiskGuard } from '../src/lib/liquidity-auto-buy/base-runtime'
 import type { AutoBuyAudit, AutoBuyOrder, AutoBuyRuntime, AutoBuyStore, PoolObservation, SwapQuote } from '../src/lib/liquidity-auto-buy/types'
 
 const now=()=>new Date()
@@ -28,6 +28,17 @@ class FakeRuntime implements AutoBuyRuntime{
 const service=(order=baseOrder())=>{const store=new MemoryStore(order),audit=new MemoryAudit(),runtime=new FakeRuntime();return{store,audit,runtime,svc:new LiquidityAutoBuyService(store,audit,runtime)}}
 
 beforeEach(()=>{process.env.BASE_AUTO_BUY_ENABLED='true';process.env.BASE_AUTO_BUY_HARD_KILL_SWITCH='false';process.env.BASE_AUTO_BUY_MAX_ETH='0.12';process.env.BASE_AUTO_BUY_MIN_LIQUIDITY_USD='10000'})
+
+describe('LiquidityMonitor contract verification',()=>{
+  it('accepts exact Base bytecode when optional pre-launch metadata reverts',async()=>{
+    const provider={getNetwork:async()=>({chainId:BigInt(8453)}),getCode:async()=> '0x60006000',call:async()=>{throw new Error('metadata unavailable')} }
+    await expect(new LiquidityMonitor(provider as any).verifyContract(baseOrder().tokenAddress)).resolves.toBeUndefined()
+  })
+  it('still rejects an address without deployed bytecode',async()=>{
+    const provider={getNetwork:async()=>({chainId:BigInt(8453)}),getCode:async()=> '0x'}
+    await expect(new LiquidityMonitor(provider as any).verifyContract(baseOrder().tokenAddress)).rejects.toThrow(/No contract exists/)
+  })
+})
 
 describe('LiquidityAutoBuyService safety matrix',()=>{
   it('keeps an order armed when no liquidity exists',async()=>{const x=service();x.runtime.obs=null;await x.svc.poll();expect((await x.store.get('order-1'))?.state).toBe('ARMED');expect(x.runtime.executions).toBe(0)})
